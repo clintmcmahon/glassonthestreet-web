@@ -85,4 +85,5 @@ public class Report
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<ReportFlag> Flags { get; set; } = new();
+    public string? Offense {get;set;} = string.Empty;
 }

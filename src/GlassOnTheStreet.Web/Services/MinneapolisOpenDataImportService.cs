@@ -58,10 +58,10 @@ public class MinneapolisOpenDataImportService(
         for (var page = 0; page < MaxPages; page++)
         {
             var offset = page * PageSize;
-            var where = $"Offense LIKE '%Theft From Motor Vehicle%' AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";
+            var where = $"(Offense LIKE '%Theft From Motor Vehicle%' OR Offense LIKE '%Damage to Motor Vehicle%' OR Offense LIKE '%Destruction/Damage/Vandalism of Property%') AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";            
             var url = "query" +
                        $"?where={Uri.EscapeDataString(where)}" +
-                       "&outFields=Case_Number,Occurred_Date,Neighborhood,wgsXAnon,wgsYAnon" +
+                       "&outFields=Case_Number,Occurred_Date,Offense,Neighborhood,wgsXAnon,wgsYAnon" +
                        "&orderByFields=Occurred_Date%20DESC" +
                        $"&resultOffset={offset}" +
                        $"&resultRecordCount={PageSize}" +
@@ -140,6 +140,7 @@ public class MinneapolisOpenDataImportService(
                     DisplayLat = displayLat,
                     DisplayLng = displayLng,
                     IncidentType = IncidentType.Unknown,
+                    Offense = GetString(props, "Offense")?.Trim(),
                     TimeOfDay = timeOfDay,
                     Neighborhood = GetString(props, "Neighborhood")?.Trim(),
                     SourceType = SourceType.OfficialImport,

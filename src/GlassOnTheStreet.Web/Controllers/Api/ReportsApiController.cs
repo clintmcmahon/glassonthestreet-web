@@ -49,7 +49,8 @@ public class ReportsApiController(
                 r.CrossStreets,
                 r.ReportedDate,
                 r.SourceType,
-                r.Neighborhood
+                r.Neighborhood,
+                r.Offense
             })
             .ToListAsync(cancellationToken);
 
@@ -74,7 +75,8 @@ public class ReportsApiController(
                     crossStreets = r.CrossStreets,
                     reportedDate = r.ReportedDate.ToString("yyyy-MM-dd"),
                     sourceType = r.SourceType.ToString(),
-                    neighborhood = r.Neighborhood
+                    neighborhood = r.Neighborhood,
+                    offense = r.Offense
                 }
             })
         };

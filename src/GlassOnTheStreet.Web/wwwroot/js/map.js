@@ -78,6 +78,44 @@
     return params.toString();
   }
 
+  // Reports are snapped to a privacy grid (~block-level), so it's common
+  // for several reports to land on the exact same coordinate -- dense
+  // downtown blocks have dozens. Rendered as plain circles, those stack
+  // invisibly and only the topmost is clickable. This spreads each stacked
+  // group into a small spiral around the true point so every report is
+  // visible and reachable. The offset is capped well inside the size of
+  // the privacy grid cell itself, so it never implies more precision than
+  // the snapped point actually has.
+  const GOLDEN_ANGLE = 2.399963229728653; // radians
+  const METERS_PER_DEGREE_LAT = 111320;
+
+  function spreadOverlappingPoints(geojson) {
+    const groups = new Map();
+    for (const feature of geojson.features) {
+      const key = feature.geometry.coordinates.join(",");
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(feature);
+    }
+
+    for (const group of groups.values()) {
+      if (group.length === 1) continue;
+
+      const [lng0, lat0] = group[0].geometry.coordinates;
+      const metersPerDegreeLng = METERS_PER_DEGREE_LAT * Math.cos((lat0 * Math.PI) / 180);
+
+      group.forEach((feature, i) => {
+        const radiusMeters = Math.min(90, 12 * Math.sqrt(i + 1));
+        const angle = i * GOLDEN_ANGLE;
+        const dLat = (radiusMeters * Math.cos(angle)) / METERS_PER_DEGREE_LAT;
+        const dLng = (radiusMeters * Math.sin(angle)) / metersPerDegreeLng;
+        feature.geometry.coordinates = [lng0 + dLng, lat0 + dLat];
+        feature.properties.stackCount = group.length;
+      });
+    }
+
+    return geojson;
+  }
+
   const TIME_OF_DAY_ORDER = ["Overnight", "Morning", "Afternoon", "Evening", "NotSure"];
   const TIME_OF_DAY_LABEL = {
     Overnight: "Overnight", Morning: "Morning", Afternoon: "Afternoon", Evening: "Evening", NotSure: "Not sure"
@@ -122,7 +160,7 @@
       fetch(`/api/reports/stats?${statsQs}`),
       fetch(`/api/reports/stats/breakdown?${statsQs}`)
     ]);
-    const geojson = await geoRes.json();
+    const geojson = spreadOverlappingPoints(await geoRes.json());
     const stats = await statsRes.json();
     const breakdown = await breakdownRes.json();
 
@@ -241,11 +279,12 @@
 
     map.on("click", "reports-pins", (e) => {
       const feature = e.features[0];
+      console.log(feature);
       const p = feature.properties;
       const incidentLabel =
         p.incidentType === "WindowSmashed" ? "Window smashed" :
         p.incidentType === "Rifled" ? "Rifled through" :
-        "Theft from vehicle (MPD record, entry method unknown)";
+       p.offense + " " + "(MPD Record)";
       const timeLabel = p.timeOfDay ? p.timeOfDay.replace(/([a-z])([A-Z])/g, "$1 $2") : null;
       const parts = [timeLabel, p.itemsStolen ? "items taken" : null, p.policeReported ? "reported to police" : null]
         .filter(Boolean)
