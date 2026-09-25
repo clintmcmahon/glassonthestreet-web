@@ -27,7 +27,14 @@ public enum ReportStatus
 {
     Active,
     Flagged,
-    Removed
+    Removed,
+
+    // Resident submissions land here and need an admin to approve them
+    // before they're publicly visible (GetReports/GetStats/GetBreakdown
+    // all filter to Active only, so Pending rows are simply invisible
+    // until approved). Appended at the end, not inserted, so existing
+    // stored int values for Active/Flagged/Removed don't shift.
+    Pending
 }
 
 public enum SourceType

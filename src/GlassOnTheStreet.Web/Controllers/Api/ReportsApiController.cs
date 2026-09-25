@@ -158,13 +158,16 @@ public class ReportsApiController(
             PoliceReported = submission.PoliceReported,
             CrossStreets = submission.CrossStreets,
             PhotoPath = photoPath,
-            Neighborhood = neighborhood
+            Neighborhood = neighborhood,
+            // Every resident submission is held for admin approval before
+            // it's publicly visible -- see ReportStatus.Pending.
+            Status = ReportStatus.Pending
         };
 
         db.Reports.Add(report);
         await db.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("New report {ReportId} submitted for {ReportedDate}", report.Id, report.ReportedDate);
+        logger.LogInformation("New report {ReportId} submitted for {ReportedDate}, pending review", report.Id, report.ReportedDate);
 
         return CreatedAtAction(nameof(GetReports), new { id = report.Id }, new
         {

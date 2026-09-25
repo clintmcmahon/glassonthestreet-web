@@ -1,5 +1,6 @@
 @using GlassOnTheStreet.Web.Models
-@model List<Report>
+@using GlassOnTheStreet.Web.Controllers.Admin
+@model AdminIndexViewModel
 @{
     ViewData["Title"] = "Admin";
     Layout = "_Layout";
@@ -23,6 +24,48 @@
         <button type="submit" class="btn-outline" style="margin-bottom: 0;">Import</button>
     </form>
 
+    <h2 style="font-size: 1.15rem; margin-top: 2.5rem;">Pending review (@Model.Pending.Count)</h2>
+    @if (Model.Pending.Count == 0)
+    {
+        <p class="field-hint">Nothing waiting on review.</p>
+    }
+    else
+    {
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Location (snapped)</th>
+                    <th>Cross streets</th>
+                    <th>Submitted</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var report in Model.Pending)
+            {
+                <tr>
+                    <td>@report.ReportedDate.ToString("yyyy-MM-dd")</td>
+                    <td>@(report.IncidentType == IncidentType.WindowSmashed ? "Window smashed" : "Rifled")</td>
+                    <td>@report.DisplayLat.ToString("0.0000"), @report.DisplayLng.ToString("0.0000")</td>
+                    <td>@(report.CrossStreets ?? "—")</td>
+                    <td>@report.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td style="white-space: nowrap;">
+                        <form asp-controller="Admin" asp-action="Approve" asp-route-id="@report.Id" method="post" style="display:inline;">
+                            <button type="submit" class="btn-toggle">Approve</button>
+                        </form>
+                        <form asp-controller="Admin" asp-action="Delete" asp-route-id="@report.Id" method="post" style="display:inline;">
+                            <button type="submit" class="btn-toggle">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    <h2 style="font-size: 1.15rem; margin-top: 2.5rem;">All reports</h2>
     <table class="admin-table">
         <thead>
             <tr>
@@ -37,7 +80,7 @@
             </tr>
         </thead>
         <tbody>
-        @foreach (var report in Model)
+        @foreach (var report in Model.Recent)
         {
             <tr>
                 <td>@report.ReportedDate.ToString("yyyy-MM-dd")</td>
