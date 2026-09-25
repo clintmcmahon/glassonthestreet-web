@@ -15,6 +15,7 @@ public class ReportsApiController(
     ILocationPrivacyService privacyService,
     IGeofenceService geofenceService,
     ICaptchaService captchaService,
+    IGeocodingService geocodingService,
     IWebHostEnvironment env,
     ILogger<ReportsApiController> logger) : ControllerBase
 {
@@ -46,7 +47,9 @@ public class ReportsApiController(
                 r.ItemsStolen,
                 r.PoliceReported,
                 r.CrossStreets,
-                r.ReportedDate
+                r.ReportedDate,
+                r.SourceType,
+                r.Neighborhood
             })
             .ToListAsync(cancellationToken);
 
@@ -69,7 +72,9 @@ public class ReportsApiController(
                     itemsStolen = r.ItemsStolen,
                     policeReported = r.PoliceReported,
                     crossStreets = r.CrossStreets,
-                    reportedDate = r.ReportedDate.ToString("yyyy-MM-dd")
+                    reportedDate = r.ReportedDate.ToString("yyyy-MM-dd"),
+                    sourceType = r.SourceType.ToString(),
+                    neighborhood = r.Neighborhood
                 }
             })
         };
@@ -102,6 +107,39 @@ public class ReportsApiController(
         return Ok(new { count = currentCount, priorCount, percentChange });
     }
 
+    [HttpGet("stats/breakdown")]
+    public async Task<IActionResult> GetBreakdown(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken cancellationToken)
+    {
+        var query = db.Reports.Where(r => r.Status == ReportStatus.Active);
+
+        if (from is not null)
+        {
+            query = query.Where(r => r.ReportedDate >= from);
+        }
+
+        if (to is not null)
+        {
+            query = query.Where(r => r.ReportedDate <= to);
+        }
+
+        var topNeighborhoods = await query
+            .Where(r => r.Neighborhood != null)
+            .GroupBy(r => r.Neighborhood)
+            .Select(g => new { name = g.Key, count = g.Count() })
+            .OrderByDescending(g => g.count)
+            .Take(5)
+            .ToListAsync(cancellationToken);
+
+        var timeOfDayCounts = await query
+            .Where(r => r.TimeOfDay != null)
+            .GroupBy(r => r.TimeOfDay)
+            .Select(g => new { bucket = g.Key!.Value.ToString(), count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return Ok(new { topNeighborhoods, timeOfDay = timeOfDayCounts });
+    }
+
     [HttpPost]
     [RequestSizeLimit(10_000_000)]
     [EnableRateLimiting("report-submission")]
@@ -125,6 +163,10 @@ public class ReportsApiController(
         }
 
         var (displayLat, displayLng) = privacyService.SnapToBlock(submission.Lat, submission.Lng);
+
+        // Best-effort only -- reverse geocoding the already-anonymized point
+        // purely to power the neighborhood stat, never blocks a submission.
+        var neighborhood = await geocodingService.ReverseGeocodeNeighborhoodAsync(displayLat, displayLng, cancellationToken);
 
         string? photoPath = null;
         if (submission.Photo is { Length: > 0 } photo)
@@ -150,7 +192,8 @@ public class ReportsApiController(
             ItemsStolen = submission.ItemsStolen,
             PoliceReported = submission.PoliceReported,
             CrossStreets = submission.CrossStreets,
-            PhotoPath = photoPath
+            PhotoPath = photoPath,
+            Neighborhood = neighborhood
         };
 
         db.Reports.Add(report);

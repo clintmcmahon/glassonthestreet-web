@@ -32,6 +32,15 @@ builder.Services.AddHttpClient<IGeocodingService, GeocodingService>(client =>
 
 builder.Services.AddHttpClient<ICaptchaService, TurnstileCaptchaService>();
 
+builder.Services.AddScoped<IOfficialDataImportService, MinneapolisOpenDataImportService>();
+builder.Services.AddHttpClient<IOfficialDataImportService, MinneapolisOpenDataImportService>(client =>
+{
+    // City of Minneapolis open data portal -- "Crime_Data" feature service,
+    // verified 2026-09-25. See MinneapolisOpenDataImportService for field notes.
+    client.BaseAddress = new Uri(
+        "https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0/");
+});
+
 // Anonymous submissions get rate limited per IP so one person can't flood
 // the map with reports.
 builder.Services.AddRateLimiter(options =>

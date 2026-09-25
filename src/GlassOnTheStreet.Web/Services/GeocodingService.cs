@@ -44,4 +44,49 @@ public class GeocodingService(HttpClient httpClient) : IGeocodingService
 
         return new GeocodeResult(lat, lng, displayName);
     }
+
+    public async Task<string?> ReverseGeocodeNeighborhoodAsync(decimal lat, decimal lng, CancellationToken cancellationToken = default)
+    {
+        // Called with the already block-snapped point, never the precise
+        // one -- there's no reason to send a more precise coordinate to a
+        // third party than we're willing to store ourselves.
+        var url = "reverse" +
+                   $"?lat={lat.ToString(CultureInfo.InvariantCulture)}" +
+                   $"&lon={lng.ToString(CultureInfo.InvariantCulture)}" +
+                   "&format=jsonv2" +
+                   "&addressdetails=1" +
+                   "&zoom=16";
+
+        try
+        {
+            using var response = await httpClient.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var result = await JsonSerializer.DeserializeAsync<JsonElement>(stream, cancellationToken: cancellationToken);
+
+            if (!result.TryGetProperty("address", out var address))
+            {
+                return null;
+            }
+
+            foreach (var key in new[] { "neighbourhood", "suburb", "quarter", "city_district" })
+            {
+                if (address.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String)
+                {
+                    return value.GetString();
+                }
+            }
+
+            return null;
+        }
+        catch (Exception) when (cancellationToken.IsCancellationRequested is false)
+        {
+            // Best-effort -- a failed lookup should never block a submission.
+            return null;
+        }
+    }
 }

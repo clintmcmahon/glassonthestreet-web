@@ -5,7 +5,13 @@ namespace GlassOnTheStreet.Web.Models;
 public enum IncidentType
 {
     WindowSmashed,
-    Rifled
+    Rifled,
+
+    // MPD's open data doesn't record entry method for a theft-from-vehicle
+    // report, so imported records can't be classified as either of the
+    // above -- this is that honest third option, never used for reports
+    // submitted through the site itself.
+    Unknown
 }
 
 public enum TimeOfDay
@@ -61,9 +67,20 @@ public class Report
     [MaxLength(260)]
     public string? PhotoPath { get; set; }
 
+    // Best-effort, filled in at submission time via reverse geocoding for
+    // user reports, or copied directly from MPD's data for imports. Used
+    // for the neighborhood breakdown stat; absent if lookup fails.
+    [MaxLength(120)]
+    public string? Neighborhood { get; set; }
+
     public ReportStatus Status { get; set; } = ReportStatus.Active;
 
     public SourceType SourceType { get; set; } = SourceType.UserReport;
+
+    // MPD's Case_Number, present only on SourceType.OfficialImport rows.
+    // Used to make re-running the importer idempotent.
+    [MaxLength(60)]
+    public string? ExternalCaseNumber { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

@@ -1,6 +1,7 @@
 using GlassOnTheStreet.Web.Data;
 using GlassOnTheStreet.Web.Infrastructure;
 using GlassOnTheStreet.Web.Models;
+using GlassOnTheStreet.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +9,7 @@ namespace GlassOnTheStreet.Web.Controllers.Admin;
 
 [Route("admin")]
 [AdminBasicAuth]
-public class AdminController(GlassOnTheStreetContext db) : Controller
+public class AdminController(GlassOnTheStreetContext db, IOfficialDataImportService importService) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -20,6 +21,20 @@ public class AdminController(GlassOnTheStreetContext db) : Controller
             .ToListAsync(cancellationToken);
 
         return View(reports);
+    }
+
+    [HttpPost("import")]
+    [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
+    public async Task<IActionResult> Import([FromForm] int lookbackDays, CancellationToken cancellationToken)
+    {
+        var days = lookbackDays <= 0 ? 180 : lookbackDays;
+        var result = await importService.ImportAsync(days, cancellationToken);
+
+        TempData["ImportResult"] =
+            $"Fetched {result.Fetched}, imported {result.Imported} new, " +
+            $"skipped {result.SkippedDuplicate} already on file, {result.SkippedInvalid} invalid.";
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost("{id:int}/delete")]

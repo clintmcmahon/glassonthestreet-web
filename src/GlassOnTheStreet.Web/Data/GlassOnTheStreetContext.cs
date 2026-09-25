@@ -17,6 +17,7 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
             entity.Property(r => r.DisplayLng).HasColumnType("decimal(9,6)");
             entity.HasIndex(r => r.ReportedDate);
             entity.HasIndex(r => r.Status);
+            entity.HasIndex(r => r.ExternalCaseNumber).IsUnique().HasFilter("`ExternalCaseNumber` IS NOT NULL");
         });
 
         modelBuilder.Entity<ReportFlag>(entity =>

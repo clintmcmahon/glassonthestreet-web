@@ -9,11 +9,26 @@
     <p class="kicker">Admin</p>
     <h1 style="font-size: 1.7rem;">Reports</h1>
 
+    @if (TempData["ImportResult"] is string importResult)
+    {
+        <p class="field-hint" style="border: 1px solid var(--rule); padding: 0.6rem 0.9rem; margin: 1rem 0;">@importResult</p>
+    }
+
+    <form asp-controller="Admin" asp-action="Import" method="post" style="margin: 1.25rem 0; display: flex; align-items: flex-end; gap: 0.75rem;">
+        <div>
+            <label for="lookback-days" style="margin-top: 0;">Import MPD theft-from-vehicle data, last</label>
+            <input type="number" id="lookback-days" name="lookbackDays" value="180" min="1" max="1095" style="width: 100px;" />
+        </div>
+        <span class="field-hint" style="margin-bottom: 0.6rem;">days</span>
+        <button type="submit" class="btn-outline" style="margin-bottom: 0;">Import</button>
+    </form>
+
     <table class="admin-table">
         <thead>
             <tr>
                 <th>Date</th>
                 <th>Type</th>
+                <th>Source</th>
                 <th>Location (snapped)</th>
                 <th>Status</th>
                 <th>Flags</th>
@@ -26,7 +41,15 @@
         {
             <tr>
                 <td>@report.ReportedDate.ToString("yyyy-MM-dd")</td>
-                <td>@(report.IncidentType == IncidentType.WindowSmashed ? "Window smashed" : "Rifled")</td>
+                <td>
+                    @(report.IncidentType switch
+                    {
+                        IncidentType.WindowSmashed => "Window smashed",
+                        IncidentType.Rifled => "Rifled",
+                        _ => "Unknown (MPD)"
+                    })
+                </td>
+                <td>@(report.SourceType == SourceType.OfficialImport ? "MPD import" : "Resident")</td>
                 <td>@report.DisplayLat.ToString("0.0000"), @report.DisplayLng.ToString("0.0000")</td>
                 <td>
                     @if (report.Status == ReportStatus.Flagged)

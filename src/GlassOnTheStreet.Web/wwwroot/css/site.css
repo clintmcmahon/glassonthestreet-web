@@ -328,6 +328,62 @@ fieldset {
 
 .legend-dot.window { background: var(--brick); }
 .legend-dot.rifled { background: var(--teal); }
+.legend-dot.unknown { background: #8a8272; }
+
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  margin-top: 2.5rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--rule);
+}
+
+.breakdown-heading {
+  font-size: 1.05rem;
+  margin-bottom: 0.9rem;
+}
+
+.breakdown-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 32px;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.breakdown-label {
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breakdown-bar-track {
+  background: var(--paper-raised);
+  height: 10px;
+  border-radius: 1px;
+}
+
+.breakdown-bar {
+  display: block;
+  height: 100%;
+  background: var(--brick);
+  border-radius: 1px;
+}
+
+.breakdown-count {
+  text-align: right;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 640px) {
+  .breakdown-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
 
 .maplibregl-popup-content {
   font-family: "Source Sans 3", sans-serif;

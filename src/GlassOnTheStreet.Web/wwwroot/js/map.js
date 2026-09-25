@@ -2,6 +2,7 @@
   const PALETTE = {
     windowSmashed: "#a6432c",
     rifled: "#2d5c58",
+    unknown: "#8a8272",
     paper: "#f4f0e6",
     water: "#dcd3bd",
     ink: "#211d18"
@@ -61,14 +62,69 @@
     return params.toString();
   }
 
+  // The stats/breakdown endpoints default to "last 30 days" when no `from`
+  // is given at all, which is exactly right for the homepage's summary but
+  // wrong here: leaving `from` off for the "All time" preset would silently
+  // fall back to a 30-day window instead of the true total. An explicit,
+  // far-back `from` gets the real all-time count and a prior-period
+  // comparison that correctly comes back empty (nothing before this date).
+  function buildStatsQuery() {
+    if (currentFrom) {
+      return buildQuery();
+    }
+    const params = new URLSearchParams();
+    params.set("from", "2015-01-01");
+    if (currentTo) params.set("to", currentTo);
+    return params.toString();
+  }
+
+  const TIME_OF_DAY_ORDER = ["Overnight", "Morning", "Afternoon", "Evening", "NotSure"];
+  const TIME_OF_DAY_LABEL = {
+    Overnight: "Overnight", Morning: "Morning", Afternoon: "Afternoon", Evening: "Evening", NotSure: "Not sure"
+  };
+
+  function renderBreakdown(breakdown) {
+    const neighborhoodsEl = document.getElementById("breakdown-neighborhoods");
+    const timeOfDayEl = document.getElementById("breakdown-time-of-day");
+    if (!neighborhoodsEl || !timeOfDayEl) return;
+
+    if (!breakdown.topNeighborhoods.length) {
+      neighborhoodsEl.innerHTML = '<p class="field-hint">Not enough data with a known neighborhood yet.</p>';
+    } else {
+      const maxCount = Math.max(...breakdown.topNeighborhoods.map((n) => n.count));
+      neighborhoodsEl.innerHTML = breakdown.topNeighborhoods.map((n) => `
+        <div class="breakdown-row">
+          <span class="breakdown-label">${n.name}</span>
+          <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:${(n.count / maxCount) * 100}%"></span></span>
+          <span class="breakdown-count">${n.count}</span>
+        </div>
+      `).join("");
+    }
+
+    const byBucket = Object.fromEntries(breakdown.timeOfDay.map((t) => [t.bucket, t.count]));
+    const maxTimeCount = Math.max(1, ...breakdown.timeOfDay.map((t) => t.count));
+    timeOfDayEl.innerHTML = TIME_OF_DAY_ORDER
+      .filter((bucket) => byBucket[bucket])
+      .map((bucket) => `
+        <div class="breakdown-row">
+          <span class="breakdown-label">${TIME_OF_DAY_LABEL[bucket]}</span>
+          <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:${(byBucket[bucket] / maxTimeCount) * 100}%"></span></span>
+          <span class="breakdown-count">${byBucket[bucket]}</span>
+        </div>
+      `).join("") || '<p class="field-hint">Not enough data with a known time of day yet.</p>';
+  }
+
   async function refresh() {
     const qs = buildQuery();
-    const [geoRes, statsRes] = await Promise.all([
+    const statsQs = buildStatsQuery();
+    const [geoRes, statsRes, breakdownRes] = await Promise.all([
       fetch(`/api/reports${qs ? "?" + qs : ""}`),
-      fetch(`/api/reports/stats${qs ? "?" + qs : ""}`)
+      fetch(`/api/reports/stats?${statsQs}`),
+      fetch(`/api/reports/stats/breakdown?${statsQs}`)
     ]);
     const geojson = await geoRes.json();
     const stats = await statsRes.json();
+    const breakdown = await breakdownRes.json();
 
     const source = map.getSource("reports");
     if (source) {
@@ -85,6 +141,8 @@
       changeEl.textContent = `${sign}${stats.percentChange}%`;
       changeEl.classList.add(stats.percentChange > 0 ? "up" : stats.percentChange < 0 ? "down" : "");
     }
+
+    renderBreakdown(breakdown);
   }
 
   function setMode(mode) {
@@ -170,6 +228,7 @@
           "match", ["get", "incidentType"],
           "WindowSmashed", PALETTE.windowSmashed,
           "Rifled", PALETTE.rifled,
+          "Unknown", PALETTE.unknown,
           PALETTE.ink
         ],
         "circle-stroke-width": 1.5,
@@ -183,11 +242,15 @@
     map.on("click", "reports-pins", (e) => {
       const feature = e.features[0];
       const p = feature.properties;
-      const incidentLabel = p.incidentType === "WindowSmashed" ? "Window smashed" : "Rifled through";
+      const incidentLabel =
+        p.incidentType === "WindowSmashed" ? "Window smashed" :
+        p.incidentType === "Rifled" ? "Rifled through" :
+        "Theft from vehicle (MPD record, entry method unknown)";
       const timeLabel = p.timeOfDay ? p.timeOfDay.replace(/([a-z])([A-Z])/g, "$1 $2") : null;
       const parts = [timeLabel, p.itemsStolen ? "items taken" : null, p.policeReported ? "reported to police" : null]
         .filter(Boolean)
         .join(" · ");
+      const isOfficial = p.sourceType === "OfficialImport";
 
       const popup = new maplibregl.Popup({ closeButton: true })
         .setLngLat(feature.geometry.coordinates)
@@ -195,25 +258,31 @@
           `<div class="popup-title">${incidentLabel}</div>` +
           `<div class="popup-meta">${p.reportedDate}${parts ? " · " + parts : ""}</div>` +
           (p.crossStreets ? `<div class="popup-meta">${p.crossStreets}</div>` : "") +
-          `<button type="button" class="btn-toggle" data-flag-id="${p.id}" style="margin-top: 0.6rem; font-size: 0.78rem;">Flag as wrong or spam</button>`
+          (p.neighborhood ? `<div class="popup-meta">${p.neighborhood}</div>` : "") +
+          (isOfficial
+            ? `<div class="popup-meta" style="margin-top: 0.4rem;">Source: Minneapolis Police Department open data</div>`
+            : `<button type="button" class="btn-toggle" data-flag-id="${p.id}" style="margin-top: 0.6rem; font-size: 0.78rem;">Flag as wrong or spam</button>`)
         )
         .addTo(map);
 
-      popup.getElement().querySelector("[data-flag-id]").addEventListener("click", async (evt) => {
-        const id = evt.target.getAttribute("data-flag-id");
-        evt.target.disabled = true;
-        evt.target.textContent = "Flagged";
-        try {
-          await fetch(`/api/reports/${id}/flag`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({})
-          });
-        } catch (err) {
-          evt.target.textContent = "Could not flag — try again";
-          evt.target.disabled = false;
-        }
-      });
+      const flagBtn = popup.getElement().querySelector("[data-flag-id]");
+      if (flagBtn) {
+        flagBtn.addEventListener("click", async (evt) => {
+          const id = evt.target.getAttribute("data-flag-id");
+          evt.target.disabled = true;
+          evt.target.textContent = "Flagged";
+          try {
+            await fetch(`/api/reports/${id}/flag`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({})
+            });
+          } catch (err) {
+            evt.target.textContent = "Could not flag — try again";
+            evt.target.disabled = false;
+          }
+        });
+      }
     });
 
     wireToolbar();
