@@ -18,7 +18,7 @@
     if (marker) {
       marker.remove();
     }
-    marker = new maplibregl.Marker({ color: "#ff4405" }).setLngLat([lng, lat]).addTo(map);
+    marker = new maplibregl.Marker({ color: "#ea580c" }).setLngLat([lng, lat]).addTo(map);
     document.getElementById("location-status").textContent = label || `Selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
 

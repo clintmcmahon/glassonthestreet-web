@@ -1,17 +1,18 @@
 /* Glass on the Street — design system.
-   Minimal, high-contrast: black/white/gray structure, one sharp accent
-   color used sparingly, a single geometric sans, flat surfaces, no
-   shadows except on floating map popovers. */
+   Minimal, modern, softer contrast than a pure black-on-white extreme:
+   an off-white surface, a warm near-black (not pure #000) for text, one
+   muted accent color used sparingly, a single humanist sans, flat
+   surfaces, no shadows except on floating map popovers. */
 
 :root {
-  --ink: #0a0a0a;
-  --ink-soft: #6b7280;
-  --paper: #ffffff;
-  --paper-raised: #f4f4f5;
-  --rule: #e4e4e7;
-  --accent: #ff4405;
-  --accent-soft: #fff1ea;
-  --positive: #16a34a;
+  --ink: #18181b;
+  --ink-soft: #71717a;
+  --paper: #fafaf9;
+  --paper-raised: #f0f0ee;
+  --rule: #e4e4e1;
+  --accent: #ea580c;
+  --accent-soft: #fdf1e9;
+  --positive: #15803d;
   --radius: 6px;
   --max-width: 1100px;
 }
@@ -28,14 +29,14 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   overflow-x: hidden; /* full-bleed sections below intentionally exceed 100% width */
 }
 
 h1, h2, h3, .display {
-  font-family: "Space Grotesk", -apple-system, sans-serif;
+  font-family: "Manrope", -apple-system, sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.08;
@@ -64,7 +65,7 @@ a:hover {
 }
 
 .masthead-title {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Manrope", sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--ink);
@@ -159,7 +160,7 @@ a:hover {
 }
 
 .stat-value {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Manrope", sans-serif;
   font-size: 2.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -184,7 +185,7 @@ a:hover {
 
 .btn {
   display: inline-block;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Manrope", sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
   padding: 0.65rem 1.3rem;
@@ -400,7 +401,7 @@ fieldset {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-weight: 600;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Manrope", sans-serif;
   color: var(--ink-soft);
   margin-bottom: 1.1rem;
   padding-bottom: 0.5rem;
@@ -454,7 +455,7 @@ fieldset {
 }
 
 .maplibregl-popup-content {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Manrope", sans-serif;
   border-radius: var(--radius);
   border: 1px solid var(--rule);
   box-shadow: 0 8px 24px rgba(10, 10, 10, 0.12);
@@ -462,7 +463,7 @@ fieldset {
 }
 
 .popup-title {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Manrope", sans-serif;
   font-weight: 700;
   margin-bottom: 0.25rem;
 }

@@ -1,9 +1,9 @@
 (function () {
   const PALETTE = {
-    windowSmashed: "#ff4405",
-    rifled: "#0a0a0a",
+    windowSmashed: "#ea580c",
+    rifled: "#18181b",
     unknown: "#a1a1aa",
-    ink: "#0a0a0a"
+    ink: "#18181b"
   };
 
   const map = new maplibregl.Map({
@@ -230,10 +230,10 @@
         "heatmap-radius": 22,
         "heatmap-color": [
           "interpolate", ["linear"], ["heatmap-density"],
-          0, "rgba(255,68,5,0)",
-          0.3, "#ffb08a",
-          0.6, "#ff4405",
-          1, "#7a1f00"
+          0, "rgba(234,88,12,0)",
+          0.3, "#f5b283",
+          0.6, "#ea580c",
+          1, "#7c2d12"
         ]
       }
     });
