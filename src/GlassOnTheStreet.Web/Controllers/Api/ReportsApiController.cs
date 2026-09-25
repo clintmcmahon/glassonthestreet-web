@@ -143,8 +143,6 @@ public class ReportsApiController(
         var report = new Report
         {
             ReportedDate = submission.ReportedDate,
-            PreciseLat = submission.Lat,
-            PreciseLng = submission.Lng,
             DisplayLat = displayLat,
             DisplayLng = displayLng,
             IncidentType = submission.IncidentType,

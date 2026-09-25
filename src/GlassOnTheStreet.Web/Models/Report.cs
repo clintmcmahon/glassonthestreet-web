@@ -37,15 +37,9 @@ public class Report
     [Required]
     public DateOnly ReportedDate { get; set; }
 
-    // Precise coordinates are never returned by any API projection.
-    // They exist only so we can re-derive the display point if the
-    // snapping method changes later.
-    [Required]
-    public decimal PreciseLat { get; set; }
-
-    [Required]
-    public decimal PreciseLng { get; set; }
-
+    // The precise point someone taps or searches for is snapped to the
+    // block before it ever reaches this model. It is never stored, not
+    // even privately -- there is no PreciseLat/PreciseLng column.
     [Required]
     public decimal DisplayLat { get; set; }
 

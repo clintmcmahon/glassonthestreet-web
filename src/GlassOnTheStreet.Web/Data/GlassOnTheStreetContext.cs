@@ -13,8 +13,6 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
     {
         modelBuilder.Entity<Report>(entity =>
         {
-            entity.Property(r => r.PreciseLat).HasColumnType("decimal(9,6)");
-            entity.Property(r => r.PreciseLng).HasColumnType("decimal(9,6)");
             entity.Property(r => r.DisplayLat).HasColumnType("decimal(9,6)");
             entity.Property(r => r.DisplayLng).HasColumnType("decimal(9,6)");
             entity.HasIndex(r => r.ReportedDate);
