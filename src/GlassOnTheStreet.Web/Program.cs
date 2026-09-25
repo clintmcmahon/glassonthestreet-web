@@ -29,6 +29,7 @@ builder.Services.AddDbContext<GlassOnTheStreetContext>(options =>
 builder.Services.AddScoped<ILocationPrivacyService, LocationPrivacyService>();
 builder.Services.AddScoped<IGeofenceService, GeofenceService>();
 builder.Services.AddScoped<ICaptchaService, TurnstileCaptchaService>();
+builder.Services.AddScoped<IReportStatsService, ReportStatsService>();
 
 builder.Services.AddHttpClient<IGeocodingService, GeocodingService>(client =>
 {

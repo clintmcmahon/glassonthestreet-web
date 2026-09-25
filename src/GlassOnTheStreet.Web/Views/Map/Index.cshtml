@@ -1,9 +1,53 @@
+@model GlassOnTheStreet.Web.Controllers.MapPageViewModel
 @{
     ViewData["Title"] = "The Map";
+    var stats = Model.Stats;
+    var changeText = stats.PercentChange is null
+        ? "—"
+        : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
+    var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
+    ViewData["Description"] =
+        $"{stats.Count} car break-ins reported in Minneapolis in the last 30 days" +
+        (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.") +
+        " Filterable map combining resident reports with Minneapolis Police Department data.";
+
+    var timeOfDayOrder = new[] { "Overnight", "Morning", "Afternoon", "Evening", "NotSure" };
+    var timeOfDayLabel = new Dictionary<string, string>
+    {
+        ["Overnight"] = "Overnight", ["Morning"] = "Morning", ["Afternoon"] = "Afternoon",
+        ["Evening"] = "Evening", ["NotSure"] = "Not sure"
+    };
+    var maxNeighborhood = Model.Breakdown.TopNeighborhoods.Count > 0 ? Model.Breakdown.TopNeighborhoods.Max(n => n.Count) : 1;
+    var timeOfDayByBucket = Model.Breakdown.TimeOfDay.ToDictionary(t => t.Bucket, t => t.Count);
+    var maxTimeOfDay = timeOfDayByBucket.Count > 0 ? timeOfDayByBucket.Values.Max() : 1;
 }
 
 @section Head {
     <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+}
+
+@section StructuredData {
+    <script type="application/ld+json">
+    {
+        "@@context": "https://schema.org",
+        "@@type": "Dataset",
+        "name": "Glass on the Street — Minneapolis car break-in reports",
+        "description": "Resident-submitted car break-in reports for Minneapolis, Minnesota, combined with Minneapolis Police Department theft-from-vehicle and vandalism records. Locations are snapped to the block level for privacy.",
+        "spatialCoverage": {
+            "@@type": "Place",
+            "name": "Minneapolis, Minnesota"
+        },
+        "creator": {
+            "@@type": "Organization",
+            "name": "Glass on the Street"
+        },
+        "distribution": {
+            "@@type": "DataDownload",
+            "encodingFormat": "application/geo+json",
+            "contentUrl": "/api/reports"
+        }
+    }
+    </script>
 }
 
 <div class="page" style="padding-bottom: 1.5rem;">
@@ -12,11 +56,11 @@
 
     <div class="stat-line" id="stat-line">
         <div class="stat">
-            <div class="stat-value" id="stat-count">—</div>
-            <div class="stat-label" id="stat-count-label">reports in range</div>
+            <div class="stat-value" id="stat-count">@stats.Count</div>
+            <div class="stat-label" id="stat-count-label">reports, last 30 days</div>
         </div>
         <div class="stat">
-            <div class="stat-value" id="stat-change">—</div>
+            <div class="stat-value @changeClass" id="stat-change">@changeText</div>
             <div class="stat-label">vs. the prior period</div>
         </div>
     </div>
@@ -53,11 +97,43 @@
     <div class="breakdown-grid">
         <div>
             <h2 class="breakdown-heading">Where</h2>
-            <div id="breakdown-neighborhoods"></div>
+            <div id="breakdown-neighborhoods">
+                @if (Model.Breakdown.TopNeighborhoods.Count == 0)
+                {
+                    <p class="field-hint">Not enough data with a known neighborhood yet.</p>
+                }
+                else
+                {
+                    @foreach (var n in Model.Breakdown.TopNeighborhoods)
+                    {
+                        <div class="breakdown-row">
+                            <span class="breakdown-label">@n.Name</span>
+                            <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((n.Count * 100.0 / maxNeighborhood).ToString("0.##"))%"></span></span>
+                            <span class="breakdown-count">@n.Count</span>
+                        </div>
+                    }
+                }
+            </div>
         </div>
         <div>
             <h2 class="breakdown-heading">When</h2>
-            <div id="breakdown-time-of-day"></div>
+            <div id="breakdown-time-of-day">
+                @if (timeOfDayByBucket.Count == 0)
+                {
+                    <p class="field-hint">Not enough data with a known time of day yet.</p>
+                }
+                else
+                {
+                    @foreach (var bucket in timeOfDayOrder.Where(b => timeOfDayByBucket.ContainsKey(b)))
+                    {
+                        <div class="breakdown-row">
+                            <span class="breakdown-label">@timeOfDayLabel[bucket]</span>
+                            <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((timeOfDayByBucket[bucket] * 100.0 / maxTimeOfDay).ToString("0.##"))%"></span></span>
+                            <span class="breakdown-count">@timeOfDayByBucket[bucket]</span>
+                        </div>
+                    }
+                }
+            </div>
         </div>
     </div>
 </div>

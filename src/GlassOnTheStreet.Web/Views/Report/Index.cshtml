@@ -1,6 +1,7 @@
 @inject IConfiguration Configuration
 @{
     ViewData["Title"] = "Report a break-in";
+    ViewData["Description"] = "Report a car break-in in Minneapolis in under 30 seconds. Date, location, and what happened -- your exact location is never stored, only the block it snaps to.";
     var turnstileSiteKey = Configuration["Captcha:TurnstileSiteKey"];
 }
 

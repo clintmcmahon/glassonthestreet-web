@@ -1,9 +1,49 @@
+@inject IConfiguration Configuration
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var path = Context.Request.Path.Value ?? "/";
+    var canonicalUrl = path == "/" ? baseUrl + "/" : baseUrl + path.TrimEnd('/');
+    var rawTitle = ViewData["Title"] as string ?? "Glass on the Street";
+    var pageTitle = rawTitle.Contains("Glass on the Street") ? rawTitle : $"{rawTitle} — Glass on the Street";
+    var description = ViewData["Description"] as string ??
+        "A resident-reported map of car break-ins in Minneapolis, combined with Minneapolis Police Department data, so neighbors can see where break-ins are clustering and whether they're rising or falling.";
+    var socialImage = baseUrl + "/android-chrome-512x512.png";
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] — Glass on the Street</title>
+    <title>@pageTitle</title>
+    <meta name="description" content="@description" />
+    <link rel="canonical" href="@canonicalUrl" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Glass on the Street" />
+    <meta property="og:title" content="@pageTitle" />
+    <meta property="og:description" content="@description" />
+    <meta property="og:url" content="@canonicalUrl" />
+    <meta property="og:image" content="@socialImage" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="@pageTitle" />
+    <meta name="twitter:description" content="@description" />
+    <meta name="twitter:image" content="@socialImage" />
+
+    <script type="application/ld+json">
+    {
+        "@@context": "https://schema.org",
+        "@@type": "WebSite",
+        "name": "Glass on the Street",
+        "url": "@baseUrl/",
+        "description": "@description",
+        "publisher": {
+            "@@type": "Organization",
+            "name": "Glass on the Street",
+            "url": "@baseUrl/"
+        }
+    }
+    </script>
+
     <link rel="icon" href="~/favicon.ico" sizes="32x32" asp-append-version="true" />
     <link rel="icon" href="~/favicon.svg" type="image/svg+xml" asp-append-version="true" />
     <link rel="icon" type="image/png" sizes="16x16" href="~/favicon-16x16.png" asp-append-version="true" />
@@ -17,6 +57,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     @await RenderSectionAsync("Head", required: false)
+    @await RenderSectionAsync("StructuredData", required: false)
+    <!-- Privacy-friendly analytics by Plausible -->
+    <script async src="https://plausible.io/js/pa-8PX0ycK25bwvytqivkL2W.js"></script>
+    <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+    </script>
+
 </head>
 <body>
     <header class="masthead">

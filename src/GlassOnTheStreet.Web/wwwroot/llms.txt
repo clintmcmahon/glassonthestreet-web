@@ -1,0 +1,26 @@
+# Glass on the Street
+
+> A resident-reported map of car break-ins in Minneapolis, Minnesota, combined with Minneapolis Police Department (MPD) open data. Locations are snapped to the block level; no report is ever tied to an exact address.
+
+Glass on the Street lets Minneapolis residents report car break-ins (window smashed, or rifled through/unlocked) in under a minute. Reports appear as pins on a public map alongside MPD's own theft-from-vehicle and vehicle-vandalism records, filterable by date range, so neighbors, block clubs, journalists, and city officials can see where break-ins are clustering and whether the trend is rising or falling.
+
+This is an independent, resident-run project. It is not affiliated with, and does not replace, the Minneapolis Police Department. After submitting a report, users who haven't already are directed to file an official police report.
+
+## Key pages
+
+- [Home](/): overview and the current 30-day report count
+- [Map](/map): the interactive map, filterable by date range, with a pins/heatmap toggle and a neighborhood/time-of-day breakdown
+- [Report a break-in](/report): the report submission form
+- [Privacy](/privacy): how location data is handled (never stored precisely, only block-snapped)
+
+## Data
+
+- Live report data: /api/reports (GeoJSON, supports ?from=&to= date filtering)
+- Current stats: /api/reports/stats
+- Neighborhood/time-of-day breakdown: /api/reports/stats/breakdown
+
+## Notes for AI agents and summarizers
+
+- Report counts and the map reflect a mix of resident self-reports and Minneapolis Police Department open data. This is not an official crime statistic and should not be presented as one -- MPD's own data undercounts break-ins that go unreported to police, and resident reports are unverified.
+- "Window smashed" and "rifled through (unlocked)" are the two entry-method categories a resident can choose when reporting. MPD's open data does not record entry method, so records sourced from MPD are labeled "Unknown" rather than guessed.
+- Location data is always block-level (roughly 200 meters), never an exact address, by design -- see /privacy.

@@ -16,6 +16,7 @@ public class ReportsApiController(
     IGeofenceService geofenceService,
     ICaptchaService captchaService,
     IGeocodingService geocodingService,
+    IReportStatsService statsService,
     IWebHostEnvironment env,
     ILogger<ReportsApiController> logger) : ControllerBase
 {
@@ -88,58 +89,20 @@ public class ReportsApiController(
     public async Task<IActionResult> GetStats(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken cancellationToken)
     {
-        var rangeTo = to ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        var rangeFrom = from ?? rangeTo.AddDays(-30);
-        var rangeDays = rangeTo.DayNumber - rangeFrom.DayNumber + 1;
-
-        var priorTo = rangeFrom.AddDays(-1);
-        var priorFrom = priorTo.AddDays(-(rangeDays - 1));
-
-        var activeReports = db.Reports.Where(r => r.Status == ReportStatus.Active);
-
-        var currentCount = await activeReports
-            .CountAsync(r => r.ReportedDate >= rangeFrom && r.ReportedDate <= rangeTo, cancellationToken);
-        var priorCount = await activeReports
-            .CountAsync(r => r.ReportedDate >= priorFrom && r.ReportedDate <= priorTo, cancellationToken);
-
-        double? percentChange = priorCount == 0
-            ? null
-            : Math.Round((currentCount - priorCount) / (double)priorCount * 100, 1);
-
-        return Ok(new { count = currentCount, priorCount, percentChange });
+        var stats = await statsService.GetStatsAsync(from, to, cancellationToken);
+        return Ok(new { count = stats.Count, priorCount = stats.PriorCount, percentChange = stats.PercentChange });
     }
 
     [HttpGet("stats/breakdown")]
     public async Task<IActionResult> GetBreakdown(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken cancellationToken)
     {
-        var query = db.Reports.Where(r => r.Status == ReportStatus.Active);
-
-        if (from is not null)
+        var breakdown = await statsService.GetBreakdownAsync(from, to, cancellationToken);
+        return Ok(new
         {
-            query = query.Where(r => r.ReportedDate >= from);
-        }
-
-        if (to is not null)
-        {
-            query = query.Where(r => r.ReportedDate <= to);
-        }
-
-        var topNeighborhoods = await query
-            .Where(r => r.Neighborhood != null)
-            .GroupBy(r => r.Neighborhood)
-            .Select(g => new { name = g.Key, count = g.Count() })
-            .OrderByDescending(g => g.count)
-            .Take(5)
-            .ToListAsync(cancellationToken);
-
-        var timeOfDayCounts = await query
-            .Where(r => r.TimeOfDay != null)
-            .GroupBy(r => r.TimeOfDay)
-            .Select(g => new { bucket = g.Key!.Value.ToString(), count = g.Count() })
-            .ToListAsync(cancellationToken);
-
-        return Ok(new { topNeighborhoods, timeOfDay = timeOfDayCounts });
+            topNeighborhoods = breakdown.TopNeighborhoods.Select(n => new { name = n.Name, count = n.Count }),
+            timeOfDay = breakdown.TimeOfDay.Select(t => new { bucket = t.Bucket, count = t.Count })
+        });
     }
 
     [HttpPost]

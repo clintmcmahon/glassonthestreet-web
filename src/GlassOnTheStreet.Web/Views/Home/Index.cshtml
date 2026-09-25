@@ -1,5 +1,14 @@
+@model GlassOnTheStreet.Web.Services.ReportStats
 @{
-    ViewData["Title"] = "Glass on the Street";
+    ViewData["Title"] = "Glass on the Street — Minneapolis Car Break-In Map";
+    var changeText = Model.PercentChange is null
+        ? "—"
+        : $"{(Model.PercentChange > 0 ? "+" : "")}{Model.PercentChange}%";
+    var changeClass = Model.PercentChange is > 0 ? "up" : Model.PercentChange is < 0 ? "down" : "";
+    ViewData["Description"] =
+        $"{Model.Count} car break-ins reported in Minneapolis in the last 30 days" +
+        (Model.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.") +
+        " A resident-reported map combined with Minneapolis Police Department data.";
 }
 
 <div class="page">
@@ -14,13 +23,13 @@
         are getting better or worse.
     </p>
 
-    <div class="stat-line" id="stat-line">
+    <div class="stat-line">
         <div class="stat">
-            <div class="stat-value" id="stat-count">—</div>
+            <div class="stat-value">@Model.Count</div>
             <div class="stat-label">reports, last 30 days</div>
         </div>
         <div class="stat">
-            <div class="stat-value" id="stat-change">—</div>
+            <div class="stat-value @changeClass">@changeText</div>
             <div class="stat-label">vs. the 30 days before that</div>
         </div>
     </div>
@@ -48,24 +57,3 @@
         meant to complement official channels, not replace them.
     </p>
 </div>
-
-@section Scripts {
-    <script>
-        fetch('/api/reports/stats')
-            .then(r => r.json())
-            .then(data => {
-                document.getElementById('stat-count').textContent = data.count;
-                const changeEl = document.getElementById('stat-change');
-                if (data.percentChange === null || data.percentChange === undefined) {
-                    changeEl.textContent = '—';
-                } else {
-                    const sign = data.percentChange > 0 ? '+' : '';
-                    changeEl.textContent = `${sign}${data.percentChange}%`;
-                    changeEl.classList.add(data.percentChange > 0 ? 'up' : data.percentChange < 0 ? 'down' : '');
-                }
-            })
-            .catch(() => {
-                document.getElementById('stat-count').textContent = '—';
-            });
-    </script>
-}

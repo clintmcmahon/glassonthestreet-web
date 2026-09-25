@@ -1,16 +1,23 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using GlassOnTheStreet.Web.Models;
+using GlassOnTheStreet.Web.Services;
 
 namespace GlassOnTheStreet.Web.Controllers;
 
-public class HomeController : Controller
+public class HomeController(IReportStatsService statsService) : Controller
 {
-    public IActionResult Index()
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        return View();
+        // Server-rendered so the real, current count is in the initial HTML
+        // -- a crawler or agent that doesn't execute JavaScript should see
+        // today's number, not an empty placeholder, and it's accurate as
+        // of each request without needing a client-side re-fetch.
+        var stats = await statsService.GetStatsAsync(from: null, to: null, cancellationToken);
+        return View(stats);
     }
 
+    [HttpGet("privacy")]
     public IActionResult Privacy()
     {
         return View();
