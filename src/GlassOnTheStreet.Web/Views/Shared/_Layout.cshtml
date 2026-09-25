@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — Glass on the Street</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body>
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a class="masthead-title" asp-controller="Home" asp-action="Index">
+                Glass on the <em>Street</em>
+            </a>
+            <nav class="masthead-nav">
+                <a asp-controller="Map" asp-action="Index">Map</a>
+                <a asp-controller="Report" asp-action="Index" class="masthead-cta">Report a break-in</a>
+            </nav>
+        </div>
+        <div class="masthead-rule"></div>
+    </header>
+
+    <main>
+        @RenderBody()
+    </main>
+
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <p>Glass on the Street is an independent, resident-run record of car break-ins across Minneapolis. It is not affiliated with the Minneapolis Police Department.</p>
+            <p><a asp-controller="Home" asp-action="Privacy">How we handle location data</a></p>
+        </div>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

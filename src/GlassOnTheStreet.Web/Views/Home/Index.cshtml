@@ -1,0 +1,71 @@
+@{
+    ViewData["Title"] = "Glass on the Street";
+}
+
+<div class="page">
+    <p class="kicker">A resident-reported record — Minneapolis</p>
+    <h1 class="display" style="font-size: 2.6rem; max-width: 680px;">
+        Every smashed window tells you about your block. Together, they tell you about the city.
+    </h1>
+    <p class="lede">
+        Report a car break-in in under a minute — date, location, what happened.
+        It shows up as a pin on the map below, so neighbors, block clubs, and
+        reporters can see where break-ins are clustering, and whether things
+        are getting better or worse.
+    </p>
+
+    <div class="stat-line" id="stat-line">
+        <div class="stat">
+            <div class="stat-value" id="stat-count">—</div>
+            <div class="stat-label">reports, last 30 days</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="stat-change">—</div>
+            <div class="stat-label">vs. the 30 days before that</div>
+        </div>
+    </div>
+
+    <p>
+        <a class="btn" asp-controller="Report" asp-action="Index">Report a break-in</a>
+        &nbsp;
+        <a class="btn btn-outline" asp-controller="Map" asp-action="Index">View the map</a>
+    </p>
+
+    <h2 style="margin-top: 3rem; font-size: 1.4rem;">Why this exists</h2>
+    <p>
+        Most people only hear about break-ins on their own block. Citizen and
+        Nextdoor surface some of this, but scattered across feeds. This site
+        exists to make the pattern visible in one place — focused, visual,
+        and filterable by date — so the scale of the problem is easier to see
+        and easier to act on.
+    </p>
+
+    <p>
+        Locations shown on the map are snapped to the block, never the exact
+        address — a pin on someone's house would tell the world who got hit
+        and where they park. After you submit a report, we also point you to
+        Minneapolis Police Department's online reporting, since this site is
+        meant to complement official channels, not replace them.
+    </p>
+</div>
+
+@section Scripts {
+    <script>
+        fetch('/api/reports/stats')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('stat-count').textContent = data.count;
+                const changeEl = document.getElementById('stat-change');
+                if (data.percentChange === null || data.percentChange === undefined) {
+                    changeEl.textContent = '—';
+                } else {
+                    const sign = data.percentChange > 0 ? '+' : '';
+                    changeEl.textContent = `${sign}${data.percentChange}%`;
+                    changeEl.classList.add(data.percentChange > 0 ? 'up' : data.percentChange < 0 ? 'down' : '');
+                }
+            })
+            .catch(() => {
+                document.getElementById('stat-count').textContent = '—';
+            });
+    </script>
+}

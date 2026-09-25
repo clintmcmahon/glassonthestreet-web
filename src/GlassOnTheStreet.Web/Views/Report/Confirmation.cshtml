@@ -1,0 +1,39 @@
+@{
+    ViewData["Title"] = "Report submitted";
+    bool showPoliceLink = ViewBag.ShowPoliceLink ?? false;
+}
+
+<div class="page page-narrow">
+    <p class="kicker">Thank you</p>
+    <h1 style="font-size: 1.9rem;">Your report is on the map</h1>
+
+    <div class="confirmation-box">
+        <p>
+            It'll show up under the current date range once you view the map.
+            Locations are snapped to the block before anyone else can see them.
+        </p>
+
+        @if (showPoliceLink)
+        {
+            <div class="police-callout">
+                <strong>Haven't reported this to police yet?</strong>
+                <p style="margin-bottom: 0;">
+                    This site is a resident record, not a police report. Filing with
+                    MPD helps with insurance claims and gives officers a fuller picture
+                    of break-ins in your area.
+                </p>
+                <p style="margin-top: 0.75rem; margin-bottom: 0;">
+                    <a href="https://www.minneapolismn.gov/resident-services/public-safety/police/file-a-police-report/" target="_blank" rel="noopener">
+                        File a report with MPD &rarr;
+                    </a>
+                </p>
+            </div>
+        }
+
+        <p style="margin-top: 1.5rem;">
+            <a class="btn" asp-controller="Map" asp-action="Index">View the map</a>
+            &nbsp;
+            <a class="btn btn-outline" asp-controller="Report" asp-action="Index">Report another</a>
+        </p>
+    </div>
+</div>

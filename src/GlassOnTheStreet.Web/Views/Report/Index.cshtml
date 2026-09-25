@@ -1,0 +1,94 @@
+@inject IConfiguration Configuration
+@{
+    ViewData["Title"] = "Report a break-in";
+    var turnstileSiteKey = Configuration["Captcha:TurnstileSiteKey"];
+}
+
+@section Head {
+    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+    @if (!string.IsNullOrEmpty(turnstileSiteKey))
+    {
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    }
+}
+
+<div class="page page-narrow">
+    <p class="kicker">Report</p>
+    <h1 style="font-size: 1.9rem;">Tell us what happened</h1>
+    <p class="lede" style="font-size: 1rem;">
+        Takes about 30 seconds. Your exact address is never shown publicly —
+        it's snapped to the block before it appears on the map.
+    </p>
+
+    <form id="report-form">
+        <label for="reported-date">Date it happened</label>
+        <input type="date" id="reported-date" name="ReportedDate" required />
+
+        <label>Location</label>
+        <p class="field-hint">Search an address or cross street, or tap the map to place it.</p>
+        <input type="text" id="address-search" placeholder="e.g. 26th St & Lyndale Ave S" />
+        <div class="map-frame" style="height: 320px; margin-top: 0.75rem;">
+            <div id="picker-map"></div>
+        </div>
+        <p class="field-hint" id="location-status">No location selected yet.</p>
+
+        <fieldset>
+            <label>What happened</label>
+            <div class="choice-row">
+                <label class="choice-chip">
+                    <input type="radio" name="IncidentType" value="WindowSmashed" required /> Window smashed
+                </label>
+                <label class="choice-chip">
+                    <input type="radio" name="IncidentType" value="Rifled" /> Rifled through (unlocked, no glass broken)
+                </label>
+            </div>
+        </fieldset>
+
+        <label for="time-of-day">Approximate time of day <span class="field-hint" style="display:inline;">(optional)</span></label>
+        <select id="time-of-day" name="TimeOfDay">
+            <option value="">Not sure</option>
+            <option value="Overnight">Overnight</option>
+            <option value="Morning">Morning</option>
+            <option value="Afternoon">Afternoon</option>
+            <option value="Evening">Evening</option>
+        </select>
+
+        <fieldset>
+            <label>Was anything stolen? <span class="field-hint" style="display:inline;">(optional)</span></label>
+            <div class="choice-row">
+                <label class="choice-chip"><input type="radio" name="ItemsStolen" value="true" /> Yes</label>
+                <label class="choice-chip"><input type="radio" name="ItemsStolen" value="false" /> No</label>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <label>Reported to police? <span class="field-hint" style="display:inline;">(optional)</span></label>
+            <div class="choice-row">
+                <label class="choice-chip"><input type="radio" name="PoliceReported" value="true" /> Yes</label>
+                <label class="choice-chip"><input type="radio" name="PoliceReported" value="false" /> Not yet</label>
+            </div>
+        </fieldset>
+
+        <label for="cross-streets">Nearest cross streets <span class="field-hint" style="display:inline;">(optional)</span></label>
+        <input type="text" id="cross-streets" name="CrossStreets" maxlength="200" placeholder="e.g. 26th & Lyndale" />
+
+        <label for="photo">Photo <span class="field-hint" style="display:inline;">(optional)</span></label>
+        <input type="file" id="photo" name="Photo" accept="image/*" />
+
+        @if (!string.IsNullOrEmpty(turnstileSiteKey))
+        {
+            <div class="cf-turnstile" data-sitekey="@turnstileSiteKey" style="margin-top: 1.25rem;"></div>
+        }
+
+        <p id="form-error" style="color: #a6432c; display: none; margin-top: 1rem;"></p>
+
+        <p style="margin-top: 1.5rem;">
+            <button type="submit" class="btn">Submit report</button>
+        </p>
+    </form>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script src="~/js/report-form.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,52 @@
+@{
+    ViewData["Title"] = "The Map";
+}
+
+@section Head {
+    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+}
+
+<div class="page">
+    <p class="kicker">The map</p>
+    <h1 style="font-size: 1.9rem;">Where break-ins are being reported</h1>
+
+    <div class="stat-line" id="stat-line">
+        <div class="stat">
+            <div class="stat-value" id="stat-count">—</div>
+            <div class="stat-label" id="stat-count-label">reports in range</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="stat-change">—</div>
+            <div class="stat-label">vs. the prior period</div>
+        </div>
+    </div>
+
+    <div class="map-toolbar">
+        <div class="date-presets" id="date-presets">
+            <button class="btn-toggle" data-days="7">7 days</button>
+            <button class="btn-toggle active" data-days="30">30 days</button>
+            <button class="btn-toggle" data-days="90">90 days</button>
+            <button class="btn-toggle" data-days="all">All time</button>
+            <input type="date" id="from-date" aria-label="From date" style="width: auto; display: none;" />
+            <input type="date" id="to-date" aria-label="To date" style="width: auto; display: none;" />
+        </div>
+        <div class="date-presets">
+            <button class="btn-toggle active" id="mode-pins">Pins</button>
+            <button class="btn-toggle" id="mode-heat">Heatmap</button>
+        </div>
+    </div>
+
+    <div class="map-frame">
+        <div id="map"></div>
+    </div>
+
+    <div class="map-legend">
+        <span><span class="legend-dot window"></span>Window smashed</span>
+        <span><span class="legend-dot rifled"></span>Rifled through (unlocked)</span>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script src="~/js/map.js" asp-append-version="true"></script>
+}
