@@ -6,9 +6,9 @@
         : $"{(Model.PercentChange > 0 ? "+" : "")}{Model.PercentChange}%";
     var changeClass = Model.PercentChange is > 0 ? "up" : Model.PercentChange is < 0 ? "down" : "";
     ViewData["Description"] =
-        $"{Model.Count} car break-ins reported in Minneapolis in the last 30 days" +
-        (Model.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.") +
-        " A resident-reported map combined with Minneapolis Police Department data.";
+        "Report a car break-in in Minneapolis in under a minute and see where they're clustering on a live map, alongside Minneapolis Police Department data. " +
+        $"{Model.Count} reports in the last 30 days" +
+        (Model.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
 }
 
 <div class="page">

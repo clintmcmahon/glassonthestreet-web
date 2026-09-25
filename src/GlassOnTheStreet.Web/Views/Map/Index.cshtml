@@ -7,9 +7,9 @@
         : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
     var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
     ViewData["Description"] =
-        $"{stats.Count} car break-ins reported in Minneapolis in the last 30 days" +
-        (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.") +
-        " Filterable map combining resident reports with Minneapolis Police Department data.";
+        "An interactive map of car break-ins across Minneapolis, combining resident reports with Minneapolis Police Department data, filterable by date. " +
+        $"{stats.Count} reports in the last 30 days" +
+        (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
 
     var timeOfDayOrder = new[] { "Overnight", "Morning", "Afternoon", "Evening", "NotSure" };
     var timeOfDayLabel = new Dictionary<string, string>
