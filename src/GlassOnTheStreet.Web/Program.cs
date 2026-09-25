@@ -7,10 +7,15 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Personal/machine-specific overrides (real connection string, admin
-// credentials, etc.) that should never be committed. Loaded after the
-// standard appsettings.json / appsettings.{Environment}.json chain so it
-// can override them; optional so its absence is never an error.
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// credentials, etc.) that should never be committed. Dev-only: this loads
+// last, so if it were also loaded in Production it would silently outrank
+// appsettings.Production.json for every key they share -- exactly the bug
+// where Production.json "appears to be skipped" because a stray/stale
+// Local.json on the server wins every time regardless of environment.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+}
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
