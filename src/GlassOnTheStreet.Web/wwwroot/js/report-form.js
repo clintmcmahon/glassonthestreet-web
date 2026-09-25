@@ -6,6 +6,7 @@
     zoom: 11
   });
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  map.on("load", () => retintMapLibreBasemap(map));
 
   let marker = null;
   let selectedLat = null;
@@ -17,7 +18,7 @@
     if (marker) {
       marker.remove();
     }
-    marker = new maplibregl.Marker({ color: "#a6432c" }).setLngLat([lng, lat]).addTo(map);
+    marker = new maplibregl.Marker({ color: "#ff4405" }).setLngLat([lng, lat]).addTo(map);
     document.getElementById("location-status").textContent = label || `Selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
 

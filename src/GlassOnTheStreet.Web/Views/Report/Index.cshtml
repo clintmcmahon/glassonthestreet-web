@@ -80,7 +80,7 @@
             <div class="cf-turnstile" data-sitekey="@turnstileSiteKey" style="margin-top: 1.25rem;"></div>
         }
 
-        <p id="form-error" style="color: #a6432c; display: none; margin-top: 1rem;"></p>
+        <p id="form-error" style="color: #ff4405; display: none; margin-top: 1rem;"></p>
 
         <p style="margin-top: 1.5rem;">
             <button type="submit" class="btn">Submit report</button>
@@ -90,5 +90,6 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script src="~/js/map-theme.js" asp-append-version="true"></script>
     <script src="~/js/report-form.js" asp-append-version="true"></script>
 }

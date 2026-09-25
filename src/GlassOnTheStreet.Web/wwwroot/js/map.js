@@ -1,11 +1,9 @@
 (function () {
   const PALETTE = {
-    windowSmashed: "#a6432c",
-    rifled: "#2d5c58",
-    unknown: "#8a8272",
-    paper: "#f4f0e6",
-    water: "#dcd3bd",
-    ink: "#211d18"
+    windowSmashed: "#ff4405",
+    rifled: "#0a0a0a",
+    unknown: "#a1a1aa",
+    ink: "#0a0a0a"
   };
 
   const map = new maplibregl.Map({
@@ -22,24 +20,8 @@
   let currentFrom = null;
   let currentTo = null;
 
-  function retint() {
-    // Nudge the base style's palette toward the site's newsprint/ink theme
-    // without hand-rolling a full vector style. Wrapped defensively since
-    // layer ids on a third-party hosted style can change.
-    const tint = [
-      ["background", "background-color", PALETTE.paper],
-      ["water", "fill-color", PALETTE.water]
-    ];
-    for (const [layerId, prop, value] of tint) {
-      try {
-        if (map.getLayer(layerId)) {
-          map.setPaintProperty(layerId, prop, value);
-        }
-      } catch (e) {
-        // non-fatal cosmetic tweak
-      }
-    }
-  }
+  // Basemap retinting (shared with the report form's picker map) lives in
+  // map-theme.js as retintMapLibreBasemap(map).
 
   function dateRangeForPreset(days) {
     if (days === "all") {
@@ -230,7 +212,7 @@
   }
 
   map.on("load", () => {
-    retint();
+    retintMapLibreBasemap(map);
 
     map.addSource("reports", {
       type: "geojson",
@@ -248,10 +230,10 @@
         "heatmap-radius": 22,
         "heatmap-color": [
           "interpolate", ["linear"], ["heatmap-density"],
-          0, "rgba(244,240,230,0)",
-          0.3, "#c98a76",
-          0.6, "#a6432c",
-          1, "#5c1f12"
+          0, "rgba(255,68,5,0)",
+          0.3, "#ffb08a",
+          0.6, "#ff4405",
+          1, "#7a1f00"
         ]
       }
     });
@@ -279,7 +261,6 @@
 
     map.on("click", "reports-pins", (e) => {
       const feature = e.features[0];
-      console.log(feature);
       const p = feature.properties;
       const incidentLabel =
         p.incidentType === "WindowSmashed" ? "Window smashed" :
