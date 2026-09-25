@@ -31,6 +31,7 @@ body {
   font-family: "Source Sans 3", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 16px;
   line-height: 1.5;
+  overflow-x: hidden; /* full-bleed sections below intentionally exceed 100% width */
 }
 
 h1, h2, h3, .display {
@@ -219,6 +220,31 @@ a:hover {
   border-color: var(--ink);
 }
 
+/* Understated text tabs for the map's date/mode filters -- distinct from
+   .btn-toggle (used for real buttons like admin Remove/Restore and the
+   popup Flag action, which need a button's affordance). */
+.tab-toggle {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.3rem 0.05rem;
+  cursor: pointer;
+}
+
+.tab-toggle:hover {
+  color: var(--ink);
+}
+
+.tab-toggle.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: 600;
+}
+
 label {
   display: block;
   font-weight: 600;
@@ -280,25 +306,42 @@ fieldset {
 
 /* ---------- map page ---------- */
 
+/* Breaks the map out of the readable text column to the full viewport
+   width, the way a photo or chart breaks out of an article's column --
+   the map is the centerpiece here, not a widget embedded in a card. */
+.breakout {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+.map-section {
+  padding: 0 1.25rem;
+}
+
 .map-toolbar {
+  max-width: var(--max-width);
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 1rem;
+  padding: 0 1.25rem 0.75rem;
 }
 
 .date-presets {
   display: flex;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 1.4rem;
   flex-wrap: wrap;
 }
 
 .map-frame {
-  border: 1px solid var(--ink);
-  height: 62vh;
-  min-height: 420px;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  height: 78vh;
+  min-height: 480px;
   position: relative;
   background: var(--paper-raised);
 }
@@ -333,49 +376,60 @@ fieldset {
 .breakdown-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2.5rem;
-  margin-top: 2.5rem;
-  padding-top: 1.75rem;
-  border-top: 1px solid var(--rule);
+  gap: 3rem;
+  margin-top: 1rem;
+  padding-top: 1.5rem;
 }
 
 .breakdown-heading {
-  font-size: 1.05rem;
-  margin-bottom: 0.9rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-family: "Source Sans 3", sans-serif;
+  color: var(--teal);
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
 }
 
 .breakdown-row {
   display: grid;
-  grid-template-columns: 90px 1fr 32px;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
+  grid-template-columns: 100px 1fr 30px;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.88rem;
+}
+
+.breakdown-row:last-child {
+  border-bottom: none;
 }
 
 .breakdown-label {
-  color: var(--ink-soft);
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .breakdown-bar-track {
-  background: var(--paper-raised);
-  height: 10px;
-  border-radius: 1px;
+  background: none;
+  height: 5px;
+  align-self: center;
 }
 
 .breakdown-bar {
   display: block;
   height: 100%;
-  background: var(--brick);
-  border-radius: 1px;
+  background: var(--ink-soft);
 }
 
 .breakdown-count {
   text-align: right;
   color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 640px) {

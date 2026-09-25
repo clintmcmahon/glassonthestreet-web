@@ -86,4 +86,5 @@ public class Report
 
     public List<ReportFlag> Flags { get; set; } = new();
     public string? Offense {get;set;} = string.Empty;
+    public string? Address {get;set;} = string.Empty;
 }
