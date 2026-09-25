@@ -5,3 +5,4 @@ obj/
 .vscode/
 *.swp
 .DS_Store
+appsettings.Local.json

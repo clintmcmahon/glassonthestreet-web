@@ -6,6 +6,12 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Personal/machine-specific overrides (real connection string, admin
+// credentials, etc.) that should never be committed. Loaded after the
+// standard appsettings.json / appsettings.{Environment}.json chain so it
+// can override them; optional so its absence is never an error.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
