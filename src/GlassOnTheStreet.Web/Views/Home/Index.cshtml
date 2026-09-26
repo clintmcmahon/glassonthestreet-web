@@ -20,14 +20,15 @@
         Nobody has real numbers on Minneapolis car break-ins. That's the problem.
     </h1>
     <p class="lede">
-        Most break-ins never get reported to police. The ones that do go into
-        a system that doesn't even distinguish a smashed window from a car
-        someone just tried a door on. Without real numbers, there's nothing
-        to put in front of city council, no way to prove where it's getting
-        worse, and no one held accountable for fixing it. This is residents
-        building that dataset ourselves.
+        Most break-ins never get reported to police, and the ones that do go
+        into a system that doesn't even distinguish a smashed window from a
+        car someone just found unlocked. Without real numbers, there's
+        nothing to put in front of city council or MPD, no way to prove
+        where it's getting worse, and no one held accountable for fixing it.
+        This is residents building that dataset ourselves.
     </p>
 
+    @* Hidden for now -- re-enable once there's enough real data to show.
     <div class="stat-line">
         <div class="stat">
             <div class="stat-value">@stats.Count</div>
@@ -45,6 +46,7 @@
             </div>
         }
     </div>
+    *@
 
     <p>
         <a class="btn" asp-controller="Report" asp-action="Index">Report a break-in</a>
@@ -54,10 +56,15 @@
 
     <h2 style="margin-top: 3rem; font-size: 1.4rem;">Two gaps, one dataset</h2>
     <p>
-        <strong>Most break-ins go unreported.</strong> People assume MPD can't
-        do anything about a smashed window, so they never call. That means
-        official counts are missing an unknown, probably large, share of what's
-        actually happening on your block.
+        <strong>Most break-ins go unreported, and it's worse for one kind
+        than the other.</strong> A smashed window is hard to miss and costs
+        money to fix, so people are more likely to call it in — a locked
+        door is usually why the glass broke in the first place. A car left
+        unlocked doesn't have that problem for whoever's rifling through it,
+        and doesn't look broken into afterward either: no glass, often
+        nothing missing. Most people never report that at all. Official
+        counts lean toward smashed windows and probably miss most of the
+        unlocked-door cases entirely.
     </p>
     <p>
         <strong>Even the reports that exist don't say how it happened.</strong>
