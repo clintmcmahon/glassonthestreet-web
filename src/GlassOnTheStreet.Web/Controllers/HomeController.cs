@@ -14,7 +14,8 @@ public class HomeController(IReportStatsService statsService) : Controller
         // today's number, not an empty placeholder, and it's accurate as
         // of each request without needing a client-side re-fetch.
         var stats = await statsService.GetStatsAsync(from: null, to: null, cancellationToken);
-        return View(stats);
+        var reportingGap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
+        return View(new HomePageViewModel(stats, reportingGap));
     }
 
     [HttpGet("privacy")]
@@ -29,3 +30,5 @@ public class HomeController(IReportStatsService statsService) : Controller
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
 }
+
+public record HomePageViewModel(ReportStats Stats, PoliceReportingGap ReportingGap);

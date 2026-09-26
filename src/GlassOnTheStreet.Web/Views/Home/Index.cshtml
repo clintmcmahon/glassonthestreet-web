@@ -1,37 +1,49 @@
-@model GlassOnTheStreet.Web.Services.ReportStats
+@model GlassOnTheStreet.Web.Controllers.HomePageViewModel
 @{
     ViewData["Title"] = "Glass on the Street — Minneapolis Car Break-In Map";
-    var changeText = Model.PercentChange is null
+    var stats = Model.Stats;
+    var gap = Model.ReportingGap;
+    var changeText = stats.PercentChange is null
         ? "—"
-        : $"{(Model.PercentChange > 0 ? "+" : "")}{Model.PercentChange}%";
-    var changeClass = Model.PercentChange is > 0 ? "up" : Model.PercentChange is < 0 ? "down" : "";
+        : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
+    var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
     ViewData["Description"] =
-        "Report a car break-in in Minneapolis in under a minute and see where they're clustering on a live map, alongside Minneapolis Police Department data. " +
-        $"{Model.Count} reports in the last 30 days" +
-        (Model.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
+        "Most car break-ins in Minneapolis never get reported, and the city's own data can't tell a smashed window from an unlocked car. " +
+        "Report a break-in in under a minute and help build the dataset residents need to hold the city accountable. " +
+        $"{stats.Count} reports in the last 30 days" +
+        (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
 }
 
 <div class="page">
-    <p class="kicker">A resident-reported record — Minneapolis</p>
-    <h1 class="display" style="font-size: 2.6rem; max-width: 680px;">
-        Every smashed window tells you about your block. Together, they tell you about the city.
+    <p class="kicker">A resident-built accountability tool — Minneapolis</p>
+    <h1 class="display" style="font-size: 2.6rem; max-width: 720px;">
+        Nobody has real numbers on Minneapolis car break-ins. That's the problem.
     </h1>
     <p class="lede">
-        Report a car break-in in under a minute — date, location, what happened.
-        It shows up as a pin on the map below, so neighbors, block clubs, and
-        reporters can see where break-ins are clustering, and whether things
-        are getting better or worse.
+        Most break-ins never get reported to police. The ones that do go into
+        a system that doesn't even distinguish a smashed window from a car
+        someone just tried a door on. Without real numbers, there's nothing
+        to put in front of city council, no way to prove where it's getting
+        worse, and no one held accountable for fixing it. This is residents
+        building that dataset ourselves.
     </p>
 
     <div class="stat-line">
         <div class="stat">
-            <div class="stat-value">@Model.Count</div>
+            <div class="stat-value">@stats.Count</div>
             <div class="stat-label">reports, last 30 days</div>
         </div>
         <div class="stat">
             <div class="stat-value @changeClass">@changeText</div>
             <div class="stat-label">vs. the 30 days before that</div>
         </div>
+        @if (gap.PercentUnreported is not null)
+        {
+            <div class="stat">
+                <div class="stat-value up">@(gap.PercentUnreported)%</div>
+                <div class="stat-label">of reporters never told police</div>
+            </div>
+        }
     </div>
 
     <p>
@@ -40,15 +52,30 @@
         <a class="btn btn-outline" asp-controller="Map" asp-action="Index">View the map</a>
     </p>
 
-    <h2 style="margin-top: 3rem; font-size: 1.4rem;">Why this exists</h2>
+    <h2 style="margin-top: 3rem; font-size: 1.4rem;">Two gaps, one dataset</h2>
     <p>
-        Most people only hear about break-ins on their own block. Citizen and
-        Nextdoor surface some of this, but scattered across feeds. This site
-        exists to make the pattern visible in one place — focused, visual,
-        and filterable by date — so the scale of the problem is easier to see
-        and easier to act on.
+        <strong>Most break-ins go unreported.</strong> People assume MPD can't
+        do anything about a smashed window, so they never call. That means
+        official counts are missing an unknown, probably large, share of what's
+        actually happening on your block.
+    </p>
+    <p>
+        <strong>Even the reports that exist don't say how it happened.</strong>
+        Minneapolis's own open data lumps every car break-in into one category.
+        It doesn't record whether a window was smashed or a door was simply
+        unlocked — two very different problems with two very different fixes.
+        We asked, and the city genuinely doesn't have that field.
+    </p>
+    <p>
+        A resident-reported map with real dates, real locations, and real
+        detail on what happened is the only way to close both gaps at once.
+        Enough of it, and this becomes something you can hand to a council
+        member: here's where it's happening, here's whether it's getting
+        better or worse, and here's what the official numbers are missing.
+        That's how you hold someone accountable for it.
     </p>
 
+    <h2 style="margin-top: 2.5rem; font-size: 1.4rem;">Your privacy, protected either way</h2>
     <p>
         Locations shown on the map are snapped to the block, never the exact
         address — a pin on someone's house would tell the world who got hit

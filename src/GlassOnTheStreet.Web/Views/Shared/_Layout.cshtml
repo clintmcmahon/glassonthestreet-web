@@ -6,7 +6,7 @@
     var rawTitle = ViewData["Title"] as string ?? "Glass on the Street";
     var pageTitle = rawTitle.Contains("Glass on the Street") ? rawTitle : $"{rawTitle} — Glass on the Street";
     var description = ViewData["Description"] as string ??
-        "A resident-reported map of car break-ins in Minneapolis, combined with Minneapolis Police Department data, so neighbors can see where break-ins are clustering and whether they're rising or falling.";
+        "Most Minneapolis car break-ins never get reported, and the city's own data can't tell a smashed window from an unlocked door. Residents are building the dataset it takes to hold the city accountable.";
     var socialImage = baseUrl + "/og-image.png";
 }
 <!DOCTYPE html>

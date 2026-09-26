@@ -8,6 +8,13 @@ public record TimeOfDayCount(string Bucket, int Count);
 
 public record ReportBreakdown(IReadOnlyList<NeighborhoodCount> TopNeighborhoods, IReadOnlyList<TimeOfDayCount> TimeOfDay);
 
+// A standing structural number, not a trend, so it's computed over all
+// resident reports that answered the question -- not scoped to a date
+// range the way ReportStats is. Backs the site's core argument: nobody
+// (including MPD) has an accurate count of these because most never get
+// reported.
+public record PoliceReportingGap(int RespondedCount, double? PercentUnreported);
+
 /// <summary>
 /// Shared behind the JSON API (ReportsApiController, for client-side
 /// filtering) and the page controllers (for server-rendering real numbers
@@ -20,4 +27,6 @@ public interface IReportStatsService
     Task<ReportStats> GetStatsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
 
     Task<ReportBreakdown> GetBreakdownAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
+
+    Task<PoliceReportingGap> GetPoliceReportingGapAsync(CancellationToken cancellationToken = default);
 }

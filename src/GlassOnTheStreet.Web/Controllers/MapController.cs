@@ -16,8 +16,9 @@ public class MapController(IReportStatsService statsService) : Controller
         // filter state, so there's no visible flash when it re-fetches.
         var stats = await statsService.GetStatsAsync(from: null, to: null, cancellationToken);
         var breakdown = await statsService.GetBreakdownAsync(from: null, to: null, cancellationToken);
-        return View(new MapPageViewModel(stats, breakdown));
+        var reportingGap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
+        return View(new MapPageViewModel(stats, breakdown, reportingGap));
     }
 }
 
-public record MapPageViewModel(ReportStats Stats, ReportBreakdown Breakdown);
+public record MapPageViewModel(ReportStats Stats, ReportBreakdown Breakdown, PoliceReportingGap ReportingGap);

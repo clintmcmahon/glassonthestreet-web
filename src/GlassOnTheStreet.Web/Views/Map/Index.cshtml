@@ -6,6 +6,7 @@
         ? "—"
         : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
     var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
+    var gap = Model.ReportingGap;
     ViewData["Description"] =
         "An interactive map of car break-ins across Minneapolis, combining resident reports with Minneapolis Police Department data, filterable by date. " +
         $"{stats.Count} reports in the last 30 days" +
@@ -53,6 +54,12 @@
 <div class="page" style="padding-bottom: 1.5rem;">
     <p class="kicker">The map</p>
     <h1 style="font-size: 1.9rem;">Where break-ins are being reported</h1>
+    <p class="lede" style="font-size: 1rem;">
+        Gray dots are MPD's own data — the city doesn't record whether that
+        was a smashed window or an unlocked door, so those get an honest
+        "unknown" instead of a guess. Red and black dots are residents who
+        told us which.
+    </p>
 
     <div class="stat-line" id="stat-line">
         <div class="stat">
@@ -63,6 +70,13 @@
             <div class="stat-value @changeClass" id="stat-change">@changeText</div>
             <div class="stat-label">vs. the prior period</div>
         </div>
+        @if (gap.PercentUnreported is not null)
+        {
+            <div class="stat">
+                <div class="stat-value up">@(gap.PercentUnreported)%</div>
+                <div class="stat-label">of reporters never told police</div>
+            </div>
+        }
     </div>
 </div>
 

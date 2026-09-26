@@ -66,4 +66,23 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
 
         return new ReportBreakdown(topNeighborhoods, timeOfDayCounts);
     }
+
+    public async Task<PoliceReportingGap> GetPoliceReportingGapAsync(CancellationToken cancellationToken = default)
+    {
+        var answered = db.Reports.Where(r =>
+            r.Status == ReportStatus.Active &&
+            r.SourceType == SourceType.UserReport &&
+            r.PoliceReported != null);
+
+        var respondedCount = await answered.CountAsync(cancellationToken);
+        if (respondedCount == 0)
+        {
+            return new PoliceReportingGap(0, null);
+        }
+
+        var notReportedCount = await answered.CountAsync(r => r.PoliceReported == false, cancellationToken);
+        var percentUnreported = Math.Round(notReportedCount / (double)respondedCount * 100, 1);
+
+        return new PoliceReportingGap(respondedCount, percentUnreported);
+    }
 }

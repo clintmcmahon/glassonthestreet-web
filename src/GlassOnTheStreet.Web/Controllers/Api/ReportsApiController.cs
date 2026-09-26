@@ -105,6 +105,13 @@ public class ReportsApiController(
         });
     }
 
+    [HttpGet("stats/reporting-gap")]
+    public async Task<IActionResult> GetReportingGap(CancellationToken cancellationToken)
+    {
+        var gap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
+        return Ok(new { respondedCount = gap.RespondedCount, percentUnreported = gap.PercentUnreported });
+    }
+
     [HttpPost]
     [RequestSizeLimit(10_000_000)]
     [EnableRateLimiting("report-submission")]
