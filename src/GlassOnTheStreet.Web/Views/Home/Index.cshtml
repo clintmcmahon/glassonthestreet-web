@@ -14,6 +14,10 @@
         (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
 }
 
+@section Head {
+    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+}
+
 <div class="page">
     <p class="kicker">Minneapolis</p>
     <h1 class="display" style="font-size: 2.6rem; max-width: 720px;">
@@ -51,6 +55,14 @@
         <a class="btn btn-outline" asp-controller="Map" asp-action="Index">View the map</a>
     </p>
 
+    <div class="map-frame map-frame-preview">
+        <div id="home-map"></div>
+    </div>
+    <div class="map-preview-caption">
+        <span>Every dot is a real report.</span>
+        <a asp-controller="Map" asp-action="Index">Open the full map &rarr;</a>
+    </div>
+
     <h2 style="margin-top: 3rem; font-size: 1.4rem;">Why this exists</h2>
     <p>
         Police don't track this the way we need them to. Their data lumps
@@ -81,3 +93,9 @@
         meant to complement official channels, not replace them.
     </p>
 </div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script src="~/js/map-theme.js" asp-append-version="true"></script>
+    <script src="~/js/home-map.js" asp-append-version="true"></script>
+}
