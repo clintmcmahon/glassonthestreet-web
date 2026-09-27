@@ -7,12 +7,37 @@ namespace GlassOnTheStreet.Web.Services;
 
 /// <summary>
 /// Source: City of Minneapolis open data portal, "Crime_Data" feature
-/// service (verified 2026-09-25):
+/// service (verified 2026-09-25, re-verified 2026-09-27 against a full
+/// paginated scan of all ~393,000 rows, not a sample):
 /// https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0
 ///
-/// We only import the "Theft From Motor Vehicle" offense category. MPD's
-/// data doesn't record entry method, so every imported row gets
-/// IncidentType.Unknown rather than guessing window-smashed vs. rifled.
+/// We import "Theft From Motor Vehicle" and "Theft of Motor Vehicle Parts
+/// or Accessories" only. MPD's data doesn't record entry method, so every
+/// imported row gets IncidentType.Unknown rather than guessing
+/// window-smashed vs. rifled.
+///
+/// We deliberately do NOT import "Destruction/Damage/Vandalism of
+/// Property", even though it's MPD's largest single category and was
+/// imported by an earlier version of this service. That category is not
+/// vehicle-specific -- it's MPD's catch-all for any property damage
+/// (graffiti, building damage, anything). We checked whether
+/// Problem_Initial/Problem_Final (the CAD dispatch-call-type fields) could
+/// isolate vehicle-only vandalism within it; they can't. Those fields hold
+/// generic dispatch codes ("Damage Property-Rpt Only", "Auto Theft",
+/// "Theft") and are cross-contaminated across categories -- rows filed
+/// under vandalism have "Auto Theft" as their initial call type and vice
+/// versa. There is no field anywhere in this dataset that separates a
+/// smashed car window from a spray-painted garage door. Importing that
+/// category means importing thousands of non-vehicle incidents onto a car
+/// break-in map, which is worse than not having the data at all. This is
+/// also why MPD data can never produce a "window smashed" pin: MPD has no
+/// field for entry method and no vehicle-specific vandalism category to
+/// fall back on either. Every "window smashed" pin has to come from a
+/// resident report -- which is the site's actual point.
+///
+/// There's also a dead clause this replaces: an earlier version matched
+/// `Offense LIKE '%Damage to Motor Vehicle%'`, which matches zero rows --
+/// no such literal value exists anywhere in the Offense field.
 ///
 /// We read the wgsXAnon/wgsYAnon fields rather than Latitude/Longitude.
 /// The "Anon" naming suggests the city intends these as an anonymized
@@ -33,7 +58,10 @@ public class MinneapolisOpenDataImportService(
     ILogger<MinneapolisOpenDataImportService> logger) : IOfficialDataImportService
 {
     private const int PageSize = 1000;
-    private const int MaxPages = 20; // safety valve -- 20k rows is far more than a launch seed needs
+    // A full historical backfill of the two correct categories is ~43k rows
+    // before geofence/invalid filtering; 200 pages gives comfortable
+    // headroom without being unbounded.
+    private const int MaxPages = 200;
 
     private static readonly TimeZoneInfo CentralTime = ResolveCentralTimeZone();
 
@@ -58,10 +86,10 @@ public class MinneapolisOpenDataImportService(
         for (var page = 0; page < MaxPages; page++)
         {
             var offset = page * PageSize;
-            var where = $"(Offense LIKE '%Theft From Motor Vehicle%' OR Offense LIKE '%Damage to Motor Vehicle%' OR Offense LIKE '%Destruction/Damage/Vandalism of Property%') AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";            
+            var where = $"(Offense LIKE '%Theft From Motor Vehicle%' OR Offense LIKE '%Theft of Motor Vehicle Parts or Accessories%') AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";
             var url = "query" +
                        $"?where={Uri.EscapeDataString(where)}" +
-                       "&outFields=Case_Number,Address,Occurred_Date,Offense,Neighborhood,wgsXAnon,wgsYAnon" +
+                       "&outFields=Case_Number,Address,Occurred_Date,Offense,Neighborhood,Ward,Precinct,wgsXAnon,wgsYAnon" +
                        "&orderByFields=Occurred_Date%20DESC" +
                        $"&resultOffset={offset}" +
                        $"&resultRecordCount={PageSize}" +
@@ -144,6 +172,8 @@ public class MinneapolisOpenDataImportService(
                     Address = GetString(props, "Address")?.Trim(),
                     TimeOfDay = timeOfDay,
                     Neighborhood = GetString(props, "Neighborhood")?.Trim(),
+                    Ward = GetInt(props, "Ward"),
+                    Precinct = GetInt(props, "Precinct"),
                     SourceType = SourceType.OfficialImport,
                     ExternalCaseNumber = caseNumber,
                     Status = ReportStatus.Active
@@ -215,6 +245,16 @@ public class MinneapolisOpenDataImportService(
         }
 
         return value.TryGetDecimal(out var d) ? d : null;
+    }
+
+    private static int? GetInt(JsonElement props, string name)
+    {
+        if (!props.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number)
+        {
+            return null;
+        }
+
+        return value.TryGetInt32(out var i) ? i : null;
     }
 
     private static long? GetLong(JsonElement props, string name)

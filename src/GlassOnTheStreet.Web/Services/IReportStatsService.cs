@@ -6,7 +6,12 @@ public record NeighborhoodCount(string Name, int Count);
 
 public record TimeOfDayCount(string Bucket, int Count);
 
-public record ReportBreakdown(IReadOnlyList<NeighborhoodCount> TopNeighborhoods, IReadOnlyList<TimeOfDayCount> TimeOfDay);
+public record WardCount(int Ward, int Count);
+
+public record ReportBreakdown(
+    IReadOnlyList<NeighborhoodCount> TopNeighborhoods,
+    IReadOnlyList<TimeOfDayCount> TimeOfDay,
+    IReadOnlyList<WardCount> TopWards);
 
 // A standing structural number, not a trend, so it's computed over all
 // resident reports that answered the question -- not scoped to a date

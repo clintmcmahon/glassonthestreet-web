@@ -53,6 +53,8 @@ builder.Services.AddHttpClient<IOfficialDataImportService, MinneapolisOpenDataIm
         "https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0/");
 });
 
+builder.Services.AddHostedService<OfficialDataSyncBackgroundService>();
+
 // Anonymous submissions get rate limited per IP so one person can't flood
 // the map with reports.
 builder.Services.AddRateLimiter(options =>

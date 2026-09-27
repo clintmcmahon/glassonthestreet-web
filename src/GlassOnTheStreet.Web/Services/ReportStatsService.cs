@@ -64,7 +64,17 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
             .Select(g => new TimeOfDayCount(g.bucket.ToString(), g.count))
             .ToList();
 
-        return new ReportBreakdown(topNeighborhoods, timeOfDayCounts);
+        var topWards = (await query
+            .Where(r => r.Ward != null)
+            .GroupBy(r => r.Ward)
+            .Select(g => new { ward = g.Key!.Value, count = g.Count() })
+            .OrderByDescending(g => g.count)
+            .Take(5)
+            .ToListAsync(cancellationToken))
+            .Select(g => new WardCount(g.ward, g.count))
+            .ToList();
+
+        return new ReportBreakdown(topNeighborhoods, timeOfDayCounts, topWards);
     }
 
     public async Task<PoliceReportingGap> GetPoliceReportingGapAsync(CancellationToken cancellationToken = default)

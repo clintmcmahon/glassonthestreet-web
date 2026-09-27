@@ -101,7 +101,8 @@ public class ReportsApiController(
         return Ok(new
         {
             topNeighborhoods = breakdown.TopNeighborhoods.Select(n => new { name = n.Name, count = n.Count }),
-            timeOfDay = breakdown.TimeOfDay.Select(t => new { bucket = t.Bucket, count = t.Count })
+            timeOfDay = breakdown.TimeOfDay.Select(t => new { bucket = t.Bucket, count = t.Count }),
+            topWards = breakdown.TopWards.Select(w => new { ward = w.Ward, count = w.Count })
         });
     }
 

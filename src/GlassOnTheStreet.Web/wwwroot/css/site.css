@@ -409,8 +409,8 @@ fieldset {
 
 .breakdown-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.5rem;
   margin-top: 1rem;
   padding-top: 1.5rem;
 }
@@ -464,6 +464,12 @@ fieldset {
   text-align: right;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .breakdown-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 640px) {

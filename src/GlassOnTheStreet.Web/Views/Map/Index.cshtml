@@ -21,6 +21,7 @@
     var maxNeighborhood = Model.Breakdown.TopNeighborhoods.Count > 0 ? Model.Breakdown.TopNeighborhoods.Max(n => n.Count) : 1;
     var timeOfDayByBucket = Model.Breakdown.TimeOfDay.ToDictionary(t => t.Bucket, t => t.Count);
     var maxTimeOfDay = timeOfDayByBucket.Count > 0 ? timeOfDayByBucket.Values.Max() : 1;
+    var maxWard = Model.Breakdown.TopWards.Count > 0 ? Model.Breakdown.TopWards.Max(w => w.Count) : 1;
 }
 
 @section Head {
@@ -33,7 +34,7 @@
         "@@context": "https://schema.org",
         "@@type": "Dataset",
         "name": "Glass on the Street — Minneapolis car break-in reports",
-        "description": "Resident-submitted car break-in reports for Minneapolis, Minnesota, combined with Minneapolis Police Department theft-from-vehicle and vandalism records. Locations are snapped to the block level for privacy.",
+        "description": "Resident-submitted car break-in reports for Minneapolis, Minnesota, combined with Minneapolis Police Department theft-from-vehicle and vehicle-parts-theft records. Locations are snapped to the block level for privacy.",
         "spatialCoverage": {
             "@@type": "Place",
             "name": "Minneapolis, Minnesota"
@@ -144,6 +145,26 @@
                             <span class="breakdown-label">@timeOfDayLabel[bucket]</span>
                             <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((timeOfDayByBucket[bucket] * 100.0 / maxTimeOfDay).ToString("0.##"))%"></span></span>
                             <span class="breakdown-count">@timeOfDayByBucket[bucket]</span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+        <div>
+            <h2 class="breakdown-heading">By ward</h2>
+            <div id="breakdown-wards">
+                @if (Model.Breakdown.TopWards.Count == 0)
+                {
+                    <p class="field-hint">Not enough data with a known ward yet.</p>
+                }
+                else
+                {
+                    @foreach (var w in Model.Breakdown.TopWards)
+                    {
+                        <div class="breakdown-row">
+                            <span class="breakdown-label">Ward @w.Ward</span>
+                            <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((w.Count * 100.0 / maxWard).ToString("0.##"))%"></span></span>
+                            <span class="breakdown-count">@w.Count</span>
                         </div>
                     }
                 }

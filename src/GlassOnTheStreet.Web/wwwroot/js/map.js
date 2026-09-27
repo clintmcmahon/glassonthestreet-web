@@ -106,6 +106,7 @@
   function renderBreakdown(breakdown) {
     const neighborhoodsEl = document.getElementById("breakdown-neighborhoods");
     const timeOfDayEl = document.getElementById("breakdown-time-of-day");
+    const wardsEl = document.getElementById("breakdown-wards");
     if (!neighborhoodsEl || !timeOfDayEl) return;
 
     if (!breakdown.topNeighborhoods.length) {
@@ -132,6 +133,21 @@
           <span class="breakdown-count">${byBucket[bucket]}</span>
         </div>
       `).join("") || '<p class="field-hint">Not enough data with a known time of day yet.</p>';
+
+    if (wardsEl) {
+      if (!breakdown.topWards.length) {
+        wardsEl.innerHTML = '<p class="field-hint">Not enough data with a known ward yet.</p>';
+      } else {
+        const maxWardCount = Math.max(...breakdown.topWards.map((w) => w.count));
+        wardsEl.innerHTML = breakdown.topWards.map((w) => `
+          <div class="breakdown-row">
+            <span class="breakdown-label">Ward ${w.ward}</span>
+            <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:${(w.count / maxWardCount) * 100}%"></span></span>
+            <span class="breakdown-count">${w.count}</span>
+          </div>
+        `).join("");
+      }
+    }
   }
 
   async function refresh() {
