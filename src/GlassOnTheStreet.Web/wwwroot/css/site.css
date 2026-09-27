@@ -549,6 +549,12 @@ fieldset {
 .breakdown-bar.cat-unknown { background: #a1a1aa; }
 .breakdown-bar.cat-stolen { background: #3b6ea5; }
 
+/* Category labels ("Vehicle stolen (MPD)") run longer than the neighborhood
+   names .breakdown-row's default 100px column was sized for. */
+.category-list .breakdown-row {
+  grid-template-columns: 168px 1fr 30px;
+}
+
 @media (max-width: 780px) {
   .graphs-grid {
     grid-template-columns: 1fr;

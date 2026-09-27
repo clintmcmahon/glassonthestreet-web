@@ -113,14 +113,16 @@
             }
             else
             {
-                foreach (var key in categoryOrder.Where(k => categoryByKey.ContainsKey(k)))
-                {
-                    <div class="breakdown-row">
-                        <span class="breakdown-label">@categoryLabel[key]</span>
-                        <span class="breakdown-bar-track"><span class="breakdown-bar @categoryCssClass[key]" style="width:@((categoryByKey[key] * 100.0 / maxCategory).ToString("0.##"))%"></span></span>
-                        <span class="breakdown-count">@categoryByKey[key]</span>
-                    </div>
-                }
+                <div class="category-list">
+                    @foreach (var key in categoryOrder.Where(k => categoryByKey.ContainsKey(k)))
+                    {
+                        <div class="breakdown-row">
+                            <span class="breakdown-label">@categoryLabel[key]</span>
+                            <span class="breakdown-bar-track"><span class="breakdown-bar @categoryCssClass[key]" style="width:@((categoryByKey[key] * 100.0 / maxCategory).ToString("0.##"))%"></span></span>
+                            <span class="breakdown-count">@categoryByKey[key]</span>
+                        </div>
+                    }
+                </div>
             }
         </div>
     </div>
