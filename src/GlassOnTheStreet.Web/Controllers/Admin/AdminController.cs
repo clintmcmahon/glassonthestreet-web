@@ -49,6 +49,28 @@ public class AdminController(GlassOnTheStreetContext db, IOfficialDataImportServ
         return RedirectToAction(nameof(Index));
     }
 
+    // One-time cleanup for the pre-2026-09-27 import bug: an earlier version
+    // of MinneapolisOpenDataImportService imported MPD's "Destruction/
+    // Damage/Vandalism of Property" category, which isn't vehicle-specific
+    // (see the doc comment on that class). This soft-removes those rows so
+    // they stop showing up as car break-ins. Safe to click more than once --
+    // it only ever touches currently-Active rows with that exact Offense
+    // text, so a second run affects zero rows.
+    [HttpPost("cleanup-legacy-vandalism")]
+    [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
+    public async Task<IActionResult> CleanupLegacyVandalism(CancellationToken cancellationToken)
+    {
+        var affected = await db.Reports
+            .Where(r => r.SourceType == SourceType.OfficialImport
+                && r.Status == ReportStatus.Active
+                && r.Offense == "Destruction/Damage/Vandalism of Property")
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ReportStatus.Removed), cancellationToken);
+
+        TempData["ImportResult"] = $"Removed {affected} legacy non-vehicle vandalism rows.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
     [HttpPost("{id:int}/approve")]
     [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
     public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken)

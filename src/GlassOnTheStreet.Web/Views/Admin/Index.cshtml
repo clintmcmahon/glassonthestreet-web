@@ -24,6 +24,12 @@
         <button type="submit" class="btn-outline" style="margin-bottom: 0;">Import</button>
     </form>
 
+    <form asp-controller="Admin" asp-action="CleanupLegacyVandalism" method="post" style="margin: 0 0 1.25rem;">
+        <button type="submit" class="btn-outline" onclick="return confirm('Remove all legacy non-vehicle vandalism rows? This is safe to run more than once.');">
+            One-time cleanup: remove legacy vandalism rows
+        </button>
+    </form>
+
     <h2 style="font-size: 1.15rem; margin-top: 2.5rem;">Pending review (@Model.Pending.Count)</h2>
     @if (Model.Pending.Count == 0)
     {
