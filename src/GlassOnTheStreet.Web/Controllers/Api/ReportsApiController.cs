@@ -113,6 +113,20 @@ public class ReportsApiController(
         return Ok(new { respondedCount = gap.RespondedCount, percentUnreported = gap.PercentUnreported });
     }
 
+    [HttpGet("stats/trend")]
+    public async Task<IActionResult> GetTrend([FromQuery] int months, CancellationToken cancellationToken)
+    {
+        var trend = await statsService.GetMonthlyTrendAsync(months <= 0 ? 6 : months, cancellationToken);
+        return Ok(trend.Select(t => new { month = t.MonthLabel, count = t.Count }));
+    }
+
+    [HttpGet("stats/categories")]
+    public async Task<IActionResult> GetCategories(CancellationToken cancellationToken)
+    {
+        var categories = await statsService.GetCategoryCountsAsync(cancellationToken);
+        return Ok(categories.Select(c => new { category = c.Category, count = c.Count }));
+    }
+
     [HttpPost]
     [RequestSizeLimit(10_000_000)]
     [EnableRateLimiting("report-submission")]

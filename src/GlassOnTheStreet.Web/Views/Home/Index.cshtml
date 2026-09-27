@@ -12,6 +12,26 @@
         "Enough reports and we can show police and city hall where and when it's happening. " +
         $"{stats.Count} reports in the last 30 days" +
         (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
+
+    var maxTrend = Model.Trend.Count > 0 ? Math.Max(1, Model.Trend.Max(t => t.Count)) : 1;
+
+    var categoryOrder = new[] { "WindowSmashed", "Rifled", "Unknown", "VehicleStolen" };
+    var categoryLabel = new Dictionary<string, string>
+    {
+        ["WindowSmashed"] = "Window smashed",
+        ["Rifled"] = "Rifled through",
+        ["Unknown"] = "MPD record (break-in)",
+        ["VehicleStolen"] = "Vehicle stolen (MPD)"
+    };
+    var categoryCssClass = new Dictionary<string, string>
+    {
+        ["WindowSmashed"] = "cat-window",
+        ["Rifled"] = "cat-rifled",
+        ["Unknown"] = "cat-unknown",
+        ["VehicleStolen"] = "cat-stolen"
+    };
+    var categoryByKey = Model.Categories.ToDictionary(c => c.Category, c => c.Count);
+    var maxCategory = categoryByKey.Count > 0 ? Math.Max(1, categoryByKey.Values.Max()) : 1;
 }
 
 @section Head {
@@ -29,7 +49,6 @@
         the police and city hall.
     </p>
 
-    @* Hidden for now -- re-enable once there's enough real data to show.
     <div class="stat-line">
         <div class="stat">
             <div class="stat-value">@stats.Count</div>
@@ -47,7 +66,6 @@
             </div>
         }
     </div>
-    *@
 
     <p>
         <a class="btn" asp-controller="Report" asp-action="Index">Report a break-in</a>
@@ -56,11 +74,55 @@
     </p>
 
     <div class="map-frame map-frame-preview">
+        <a class="map-frame-link" asp-controller="Map" asp-action="Index" aria-label="Open the full interactive map"></a>
         <div id="home-map"></div>
     </div>
     <div class="map-preview-caption">
-        <span>Every dot is a real report.</span>
+        <span>Every dot is a real report. Click the map to explore it.</span>
         <a asp-controller="Map" asp-action="Index">Open the full map &rarr;</a>
+    </div>
+
+    <div class="graphs-grid">
+        <div>
+            <h2 class="graph-heading">Reports by month</h2>
+            @if (Model.Trend.Count == 0)
+            {
+                <p class="field-hint">Not enough data yet.</p>
+            }
+            else
+            {
+                <div class="trend-chart" role="img" aria-label="Reports per month for the last six months">
+                    @foreach (var m in Model.Trend)
+                    {
+                        <div class="trend-bar-col">
+                            <div class="trend-bar-track">
+                                <div class="trend-bar" style="height:@((m.Count * 100.0 / maxTrend).ToString("0.##"))%"></div>
+                            </div>
+                            <div class="trend-bar-count">@m.Count</div>
+                            <div class="trend-bar-label">@m.MonthLabel</div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <div>
+            <h2 class="graph-heading">What's on the map</h2>
+            @if (categoryByKey.Count == 0)
+            {
+                <p class="field-hint">Not enough data yet.</p>
+            }
+            else
+            {
+                foreach (var key in categoryOrder.Where(k => categoryByKey.ContainsKey(k)))
+                {
+                    <div class="breakdown-row">
+                        <span class="breakdown-label">@categoryLabel[key]</span>
+                        <span class="breakdown-bar-track"><span class="breakdown-bar @categoryCssClass[key]" style="width:@((categoryByKey[key] * 100.0 / maxCategory).ToString("0.##"))%"></span></span>
+                        <span class="breakdown-count">@categoryByKey[key]</span>
+                    </div>
+                }
+            }
+        </div>
     </div>
 
     <h2 style="margin-top: 3rem; font-size: 1.4rem;">Why this exists</h2>

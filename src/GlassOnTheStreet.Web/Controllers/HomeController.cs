@@ -15,7 +15,9 @@ public class HomeController(IReportStatsService statsService) : Controller
         // of each request without needing a client-side re-fetch.
         var stats = await statsService.GetStatsAsync(from: null, to: null, cancellationToken);
         var reportingGap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
-        return View(new HomePageViewModel(stats, reportingGap));
+        var trend = await statsService.GetMonthlyTrendAsync(6, cancellationToken);
+        var categories = await statsService.GetCategoryCountsAsync(cancellationToken);
+        return View(new HomePageViewModel(stats, reportingGap, trend, categories));
     }
 
     [HttpGet("privacy")]
@@ -31,4 +33,8 @@ public class HomeController(IReportStatsService statsService) : Controller
     }
 }
 
-public record HomePageViewModel(ReportStats Stats, PoliceReportingGap ReportingGap);
+public record HomePageViewModel(
+    ReportStats Stats,
+    PoliceReportingGap ReportingGap,
+    IReadOnlyList<MonthlyCount> Trend,
+    IReadOnlyList<CategoryCount> Categories);

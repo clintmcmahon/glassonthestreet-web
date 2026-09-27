@@ -20,6 +20,10 @@ public record ReportBreakdown(
 // reported.
 public record PoliceReportingGap(int RespondedCount, double? PercentUnreported);
 
+public record MonthlyCount(string MonthLabel, int Count);
+
+public record CategoryCount(string Category, int Count);
+
 /// <summary>
 /// Shared behind the JSON API (ReportsApiController, for client-side
 /// filtering) and the page controllers (for server-rendering real numbers
@@ -34,4 +38,8 @@ public interface IReportStatsService
     Task<ReportBreakdown> GetBreakdownAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
 
     Task<PoliceReportingGap> GetPoliceReportingGapAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MonthlyCount>> GetMonthlyTrendAsync(int months, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(CancellationToken cancellationToken = default);
 }

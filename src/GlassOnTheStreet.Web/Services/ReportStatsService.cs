@@ -95,4 +95,53 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
 
         return new PoliceReportingGap(respondedCount, percentUnreported);
     }
+
+    public async Task<IReadOnlyList<MonthlyCount>> GetMonthlyTrendAsync(int months, CancellationToken cancellationToken = default)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var rangeStart = new DateOnly(today.Year, today.Month, 1).AddMonths(-(months - 1));
+
+        // Pulled as bare dates and bucketed in memory rather than a SQL
+        // GroupBy on Year/Month -- keeps this independent of whether the
+        // provider translates DateOnly.Year/.Month, and the row count for a
+        // "last N months" window is small enough that this costs nothing.
+        var dates = await db.Reports
+            .Where(r => r.Status == ReportStatus.Active && r.ReportedDate >= rangeStart)
+            .Select(r => r.ReportedDate)
+            .ToListAsync(cancellationToken);
+
+        var buckets = new List<(int Year, int Month, int Count)>();
+        for (var i = 0; i < months; i++)
+        {
+            var month = rangeStart.AddMonths(i);
+            buckets.Add((month.Year, month.Month, 0));
+        }
+
+        foreach (var date in dates)
+        {
+            var index = ((date.Year - rangeStart.Year) * 12) + date.Month - rangeStart.Month;
+            if (index >= 0 && index < buckets.Count)
+            {
+                var b = buckets[index];
+                buckets[index] = (b.Year, b.Month, b.Count + 1);
+            }
+        }
+
+        return buckets
+            .Select(b => new MonthlyCount(new DateOnly(b.Year, b.Month, 1).ToString("MMM yyyy"), b.Count))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(CancellationToken cancellationToken = default)
+    {
+        var counts = (await db.Reports
+            .Where(r => r.Status == ReportStatus.Active)
+            .GroupBy(r => r.IncidentType)
+            .Select(g => new { type = g.Key, count = g.Count() })
+            .ToListAsync(cancellationToken))
+            .Select(c => new CategoryCount(c.type.ToString(), c.count))
+            .ToList();
+
+        return counts;
+    }
 }
