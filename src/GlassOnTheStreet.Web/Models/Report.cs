@@ -80,6 +80,15 @@ public class Report
     [MaxLength(120)]
     public string? Neighborhood { get; set; }
 
+    // Only populated for SourceType.OfficialImport rows, straight from
+    // MPD's own Ward/Precinct fields -- residents won't reliably know
+    // either, so we don't ask. Ward is what a city council member
+    // represents, so it's the most direct "here's the evidence" unit for
+    // the site's whole pitch to city hall.
+    public int? Ward { get; set; }
+
+    public int? Precinct { get; set; }
+
     public ReportStatus Status { get; set; } = ReportStatus.Active;
 
     public SourceType SourceType { get; set; } = SourceType.UserReport;
