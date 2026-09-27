@@ -8,24 +8,21 @@
         : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
     var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
     ViewData["Description"] =
-        "Most car break-ins in Minneapolis never get reported, and the city's own data can't tell a smashed window from an unlocked car. " +
-        "Report a break-in in under a minute and help build the dataset residents need to hold the city accountable. " +
+        "Report car break-ins in Minneapolis — smashed windows and cars rifled through. " +
+        "Enough reports and we can show police and city hall where and when it's happening. " +
         $"{stats.Count} reports in the last 30 days" +
         (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
 }
 
 <div class="page">
-    <p class="kicker">A resident-built accountability tool — Minneapolis</p>
+    <p class="kicker">Minneapolis</p>
     <h1 class="display" style="font-size: 2.6rem; max-width: 720px;">
-        Nobody has real numbers on Minneapolis car break-ins. That's the problem.
+        We track smashed windows and rifled-through cars.
     </h1>
     <p class="lede">
-        Most break-ins never get reported to police, and the ones that do go
-        into a system that doesn't even distinguish a smashed window from a
-        car someone just found unlocked. Without real numbers, there's
-        nothing to put in front of city council or MPD, no way to prove
-        where it's getting worse, and no one held accountable for fixing it.
-        This is residents building that dataset ourselves.
+        Report a car break-in in under a minute. Enough reports, and we can
+        show exactly where and when this is happening, then take that to
+        the police and city hall.
     </p>
 
     @* Hidden for now -- re-enable once there's enough real data to show.
@@ -54,45 +51,29 @@
         <a class="btn btn-outline" asp-controller="Map" asp-action="Index">View the map</a>
     </p>
 
-    <h2 style="margin-top: 3rem; font-size: 1.4rem;">Two gaps, one dataset</h2>
+    <h2 style="margin-top: 3rem; font-size: 1.4rem;">Why this exists</h2>
     <p>
-        <strong>Most break-ins go unreported, and it's worse for one kind
-        than the other.</strong> A smashed window is hard to miss and costs
-        money to fix, so people are more likely to call it in — a locked
-        door is usually why the glass broke in the first place. A car left
-        unlocked doesn't have that problem for whoever's rifling through it,
-        and doesn't look broken into afterward either: no glass, often
-        nothing missing. Most people never report that at all. Official
-        counts lean toward smashed windows and probably miss most of the
-        unlocked-door cases entirely.
+        Police don't track this the way we need them to. Their data lumps
+        a smashed window and someone rifling through your glovebox into
+        the same generic categories, Damage to Motor Vehicle and Theft
+        From Motor Vehicle. There's no field for what actually happened.
     </p>
     <p>
-        <strong>Even the reports that exist don't say how it happened.</strong>
-        Minneapolis's open data splits car break-ins into two categories,
-        Damage to Motor Vehicle and Theft From Motor Vehicle, but neither one
-        records how someone actually got in — a smashed window and a car
-        somebody found unlocked land in the same bucket either way. We
-        asked, and the city genuinely doesn't have that field.
+        Most people don't report it either. Your window gets smashed,
+        nothing's missing, and you figure: what are the police going to
+        do about it? So you don't call. Multiply that by every car on
+        your block, and there's no record of any of it, anywhere.
     </p>
     <p>
-        <strong>That MPD data is what's filling the map right now,</strong>
-        while we wait on enough resident reports to stand on their own. It's
-        a reasonable starting point, but it only covers what got reported to
-        police in the first place, under those two labels. It won't have
-        every smashed window or every car somebody left unlocked and rifled
-        through around town — a lot of that never gets called in at all.
-        Reporting yours is how that gap actually closes.
-    </p>
-    <p>
-        A resident-reported map with real dates, real locations, and real
-        detail on what happened is the only way to close both gaps at once.
-        Enough of it, and this becomes something you can hand to a council
-        member: here's where it's happening, here's whether it's getting
-        better or worse, and here's what the official numbers are missing.
-        That's how you hold someone accountable for it.
+        This site fixes both problems. Report your window getting smashed
+        or your car getting rifled through, block by block, date by date.
+        Right now the map is mostly MPD's own numbers on those two
+        categories, since that's what exists until enough of you report
+        your own. Enough of that, and we can go to police and city hall
+        with specifics: which blocks, which times, how often. Not guesses.
     </p>
 
-    <h2 style="margin-top: 2.5rem; font-size: 1.4rem;">Your privacy, protected either way</h2>
+    <h2 style="margin-top: 2.5rem; font-size: 1.4rem;">Your privacy</h2>
     <p>
         Locations shown on the map are snapped to the block, never the exact
         address — a pin on someone's house would tell the world who got hit
