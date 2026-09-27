@@ -5,7 +5,8 @@
   const PALETTE = {
     windowSmashed: "#ea580c",
     rifled: "#18181b",
-    unknown: "#a1a1aa"
+    unknown: "#a1a1aa",
+    vehicleStolen: "#3b6ea5"
   };
 
   const map = new maplibregl.Map({
@@ -35,6 +36,7 @@
           "match", ["get", "incidentType"],
           "WindowSmashed", PALETTE.windowSmashed,
           "Rifled", PALETTE.rifled,
+          "VehicleStolen", PALETTE.vehicleStolen,
           PALETTE.unknown
         ],
         "circle-opacity": 0.85

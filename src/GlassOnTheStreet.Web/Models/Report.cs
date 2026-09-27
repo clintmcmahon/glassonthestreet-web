@@ -11,7 +11,14 @@ public enum IncidentType
     // report, so imported records can't be classified as either of the
     // above -- this is that honest third option, never used for reports
     // submitted through the site itself.
-    Unknown
+    Unknown,
+
+    // The whole car got stolen, not broken into -- a different, but
+    // definitively *known*, crime. Imported from MPD's separate "Motor
+    // Vehicle Theft" category. Deliberately not folded into Unknown:
+    // Unknown means "we know it was a break-in, we don't know how," while
+    // this means "there was no break-in to classify at all."
+    VehicleStolen
 }
 
 public enum TimeOfDay

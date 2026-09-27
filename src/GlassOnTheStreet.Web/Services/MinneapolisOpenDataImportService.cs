@@ -11,10 +11,13 @@ namespace GlassOnTheStreet.Web.Services;
 /// paginated scan of all ~393,000 rows, not a sample):
 /// https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0
 ///
-/// We import "Theft From Motor Vehicle" and "Theft of Motor Vehicle Parts
-/// or Accessories" only. MPD's data doesn't record entry method, so every
-/// imported row gets IncidentType.Unknown rather than guessing
-/// window-smashed vs. rifled.
+/// We import three categories: "Theft From Motor Vehicle" and "Theft of
+/// Motor Vehicle Parts or Accessories" (break-ins; MPD's data doesn't
+/// record entry method, so these get IncidentType.Unknown rather than a
+/// guessed window-smashed/rifled), and "Motor Vehicle Theft" (the whole
+/// car stolen, not broken into -- a different, but definitively known,
+/// crime, so it gets its own IncidentType.VehicleStolen rather than being
+/// folded into Unknown).
 ///
 /// We deliberately do NOT import "Destruction/Damage/Vandalism of
 /// Property", even though it's MPD's largest single category and was
@@ -58,14 +61,39 @@ public class MinneapolisOpenDataImportService(
     ILogger<MinneapolisOpenDataImportService> logger) : IOfficialDataImportService
 {
     private const int PageSize = 1000;
-    // A full historical backfill of the two correct categories is ~43k rows
+    // A full historical backfill of all three categories is ~85k rows
     // before geofence/invalid filtering; 200 pages gives comfortable
     // headroom without being unbounded.
     private const int MaxPages = 200;
 
     private static readonly TimeZoneInfo CentralTime = ResolveCentralTimeZone();
 
+    // Static (shared across every scoped instance of this service, not
+    // per-instance) so the manual admin-triggered import and the daily
+    // OfficialDataSyncBackgroundService can never run concurrently. They
+    // each build their own in-memory existingCaseNumbers set up front and
+    // only call SaveChangesAsync once at the end, so two overlapping runs
+    // can both decide the same new case number is new and both try to
+    // insert it -- a real race, not hypothetical: caught this exact
+    // failure (DbUpdateException, duplicate key on ExternalCaseNumber)
+    // when a manual full-history backfill was still running when the
+    // background sync's startup timer fired.
+    private static readonly SemaphoreSlim ImportLock = new(1, 1);
+
     public async Task<OfficialImportResult> ImportAsync(int lookbackDays, CancellationToken cancellationToken = default)
+    {
+        await ImportLock.WaitAsync(cancellationToken);
+        try
+        {
+            return await ImportCoreAsync(lookbackDays, cancellationToken);
+        }
+        finally
+        {
+            ImportLock.Release();
+        }
+    }
+
+    private async Task<OfficialImportResult> ImportCoreAsync(int lookbackDays, CancellationToken cancellationToken)
     {
         var cutoffMs = DateTimeOffset.UtcNow.AddDays(-Math.Abs(lookbackDays)).ToUnixTimeMilliseconds();
         var existingCaseNumbers = await db.Reports
@@ -86,7 +114,10 @@ public class MinneapolisOpenDataImportService(
         for (var page = 0; page < MaxPages; page++)
         {
             var offset = page * PageSize;
-            var where = $"(Offense LIKE '%Theft From Motor Vehicle%' OR Offense LIKE '%Theft of Motor Vehicle Parts or Accessories%') AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";
+            var where = "(Offense LIKE '%Theft From Motor Vehicle%'" +
+                        " OR Offense LIKE '%Theft of Motor Vehicle Parts or Accessories%'" +
+                        " OR Offense LIKE '%Motor Vehicle Theft%')" +
+                        $" AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";
             var url = "query" +
                        $"?where={Uri.EscapeDataString(where)}" +
                        "&outFields=Case_Number,Address,Occurred_Date,Offense,Neighborhood,Ward,Precinct,wgsXAnon,wgsYAnon" +
@@ -161,14 +192,16 @@ public class MinneapolisOpenDataImportService(
                     ? DateOnly.FromDateTime(DateTime.UtcNow)
                     : DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(occurredMs.Value).UtcDateTime);
                 var timeOfDay = occurredMs is null ? (TimeOfDay?)null : BucketTimeOfDay(occurredMs.Value);
+                var offense = GetString(props, "Offense")?.Trim();
+                var incidentType = offense == "Motor Vehicle Theft" ? IncidentType.VehicleStolen : IncidentType.Unknown;
 
                 db.Reports.Add(new Report
                 {
                     ReportedDate = reportedDate,
                     DisplayLat = displayLat,
                     DisplayLng = displayLng,
-                    IncidentType = IncidentType.Unknown,
-                    Offense = GetString(props, "Offense")?.Trim(),
+                    IncidentType = incidentType,
+                    Offense = offense,
                     Address = GetString(props, "Address")?.Trim(),
                     TimeOfDay = timeOfDay,
                     Neighborhood = GetString(props, "Neighborhood")?.Trim(),

@@ -3,6 +3,7 @@
     windowSmashed: "#ea580c",
     rifled: "#18181b",
     unknown: "#a1a1aa",
+    vehicleStolen: "#3b6ea5",
     ink: "#18181b"
   };
 
@@ -264,8 +265,9 @@
           "match", ["get", "incidentType"],
           "WindowSmashed", PALETTE.windowSmashed,
           "Rifled", PALETTE.rifled,
+          "VehicleStolen", PALETTE.vehicleStolen,
           "Unknown", PALETTE.unknown,
-          PALETTE.ink
+          PALETTE.unknown
         ],
         "circle-stroke-width": 1.5,
         "circle-stroke-color": "#fff"
@@ -281,7 +283,8 @@
       const incidentLabel =
         p.incidentType === "WindowSmashed" ? "Window smashed" :
         p.incidentType === "Rifled" ? "Rifled through" :
-       p.offense + " " + "(MPD Record)";
+        p.incidentType === "VehicleStolen" ? "Vehicle stolen (MPD record)" :
+        `${p.offense} (MPD record)`;
       const timeLabel = p.timeOfDay ? p.timeOfDay.replace(/([a-z])([A-Z])/g, "$1 $2") : null;
       const parts = [timeLabel, p.itemsStolen ? "items taken" : null, p.policeReported ? "reported to police" : null]
         .filter(Boolean)

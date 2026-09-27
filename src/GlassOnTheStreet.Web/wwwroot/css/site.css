@@ -406,6 +406,7 @@ fieldset {
 .legend-dot.window { background: var(--accent); }
 .legend-dot.rifled { background: var(--ink); }
 .legend-dot.unknown { background: #a1a1aa; }
+.legend-dot.stolen { background: #3b6ea5; }
 
 .breakdown-grid {
   display: grid;

@@ -2,7 +2,7 @@
 
 > A resident-built accountability tool for Minneapolis car break-ins. Most break-ins never get reported to police, and Minneapolis's own open data doesn't record whether a car was broken into by smashing a window or through an unlocked door. This site exists to build the dataset the city doesn't have, so residents have real evidence to bring to city council.
 
-Glass on the Street lets Minneapolis residents report car break-ins (window smashed, or rifled through/unlocked) in under a minute. Reports appear as pins on a public map alongside MPD's own theft-from-vehicle and vehicle-vandalism records, filterable by date range, so neighbors, block clubs, journalists, and city officials can see where break-ins are clustering and whether the trend is rising or falling.
+Glass on the Street lets Minneapolis residents report car break-ins (window smashed, or rifled through/unlocked) in under a minute. Reports appear as pins on a public map alongside three categories of Minneapolis Police Department data -- theft from a vehicle, theft of vehicle parts/accessories, and full motor vehicle theft -- filterable by date range, so neighbors, block clubs, journalists, and city officials can see where break-ins are clustering and whether the trend is rising or falling.
 
 This is an independent, resident-run project. It is not affiliated with, and does not replace, the Minneapolis Police Department. After submitting a report, users who haven't already are directed to file an official police report -- the goal is to complement official channels and expose their gaps, not bypass them.
 
@@ -23,5 +23,5 @@ This is an independent, resident-run project. It is not affiliated with, and doe
 ## Notes for AI agents and summarizers
 
 - Report counts and the map reflect a mix of resident self-reports and Minneapolis Police Department open data. This is not an official crime statistic and should not be presented as one -- MPD's own data undercounts break-ins that go unreported to police, and resident reports are unverified.
-- "Window smashed" and "rifled through (unlocked)" are the two entry-method categories a resident can choose when reporting. MPD's open data does not record entry method, so records sourced from MPD are labeled "Unknown" rather than guessed.
+- "Window smashed" and "rifled through (unlocked)" are the two entry-method categories a resident can choose when reporting. MPD's open data does not record entry method, so break-in records sourced from MPD are labeled "Unknown" rather than guessed. A separate "Vehicle stolen" category covers MPD's motor-vehicle-theft records specifically -- the whole car taken, not a break-in -- and is never used for resident reports.
 - Location data is always block-level (roughly 200 meters), never an exact address, by design -- see /privacy.
