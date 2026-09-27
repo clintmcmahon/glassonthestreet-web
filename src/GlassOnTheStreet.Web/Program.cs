@@ -82,6 +82,16 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// Apply pending EF Core migrations automatically on startup, so a deploy
+// that ships new columns/tables (e.g. Ward/Precinct) doesn't require a
+// manual SQL step against the production server -- the app brings its own
+// schema up to date every time it starts.
+using (var migrationScope = app.Services.CreateScope())
+{
+    var db = migrationScope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
+    db.Database.Migrate();
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
