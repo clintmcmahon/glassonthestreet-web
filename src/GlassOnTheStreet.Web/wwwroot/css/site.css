@@ -417,6 +417,7 @@ fieldset {
 .legend-dot.unknown { background: #a1a1aa; }
 .legend-dot.stolen { background: #3b6ea5; }
 .legend-dot.parts { background: #7c3aed; }
+.legend-dot.damage { background: #ca8a04; }
 
 .breakdown-grid {
   display: grid;
@@ -550,11 +551,12 @@ fieldset {
 .breakdown-bar.cat-unknown { background: #a1a1aa; }
 .breakdown-bar.cat-parts { background: #7c3aed; }
 .breakdown-bar.cat-stolen { background: #3b6ea5; }
+.breakdown-bar.cat-damage { background: #ca8a04; }
 
 /* Category labels ("Vehicle stolen (MPD)") run longer than the neighborhood
    names .breakdown-row's default 100px column was sized for. */
 .category-list .breakdown-row {
-  grid-template-columns: 168px 1fr 30px;
+  grid-template-columns: 180px 1fr 30px;
 }
 
 @media (max-width: 780px) {

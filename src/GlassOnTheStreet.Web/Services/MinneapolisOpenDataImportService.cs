@@ -11,39 +11,44 @@ namespace GlassOnTheStreet.Web.Services;
 /// paginated scan of all ~393,000 rows, not a sample):
 /// https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0
 ///
-/// We import three categories, each mapped to its own IncidentType:
+/// We import four categories, each mapped to its own IncidentType:
 /// "Theft From Motor Vehicle" (an actual break-in; MPD's data doesn't
 /// record entry method, so this gets IncidentType.Unknown rather than a
 /// guessed window-smashed/rifled), "Theft of Motor Vehicle Parts or
 /// Accessories" (catalytic converters, wheels, stereos -- doesn't
 /// necessarily involve breaking in at all, so it gets its own
 /// IncidentType.PartsTheft rather than being conflated with an actual
-/// break-in), and "Motor Vehicle Theft" (the whole car stolen, not broken
+/// break-in), "Motor Vehicle Theft" (the whole car stolen, not broken
 /// into -- a different, but definitively known, crime, so it gets its own
-/// IncidentType.VehicleStolen).
+/// IncidentType.VehicleStolen), and "Destruction/Damage/Vandalism of
+/// Property" (IncidentType.PropertyDamage -- see below).
 ///
-/// We deliberately do NOT import "Destruction/Damage/Vandalism of
-/// Property", even though it's MPD's largest single category and was
-/// imported by an earlier version of this service. That category is not
-/// vehicle-specific -- it's MPD's catch-all for any property damage
-/// (graffiti, building damage, anything). We checked whether
-/// Problem_Initial/Problem_Final (the CAD dispatch-call-type fields) could
-/// isolate vehicle-only vandalism within it; they can't. Those fields hold
-/// generic dispatch codes ("Damage Property-Rpt Only", "Auto Theft",
-/// "Theft") and are cross-contaminated across categories -- rows filed
-/// under vandalism have "Auto Theft" as their initial call type and vice
-/// versa. There is no field anywhere in this dataset that separates a
-/// smashed car window from a spray-painted garage door. Importing that
-/// category means importing thousands of non-vehicle incidents onto a car
-/// break-in map, which is worse than not having the data at all. This is
-/// also why MPD data can never produce a "window smashed" pin: MPD has no
-/// field for entry method and no vehicle-specific vandalism category to
-/// fall back on either. Every "window smashed" pin has to come from a
-/// resident report -- which is the site's actual point.
+/// PropertyDamage is a deliberate accuracy tradeoff, not an oversight.
+/// "Destruction/Damage/Vandalism of Property" is MPD's catch-all for any
+/// property damage -- graffiti, building damage, park benches, anything --
+/// not just vehicles. We checked whether Problem_Initial/Problem_Final
+/// (the CAD dispatch-call-type fields) could isolate vehicle-only rows
+/// within it; they can't. Those fields hold generic dispatch codes
+/// ("Damage Property-Rpt Only", "Auto Theft", "Theft") and are
+/// cross-contaminated across categories -- rows filed under vandalism have
+/// "Auto Theft" as their initial call type and vice versa. There is no
+/// field anywhere in this dataset that separates a smashed car window from
+/// a spray-painted garage door. An earlier version of this service dropped
+/// the category entirely for exactly that reason. It's imported again now
+/// at the explicit call of the site's owner, who decided broader coverage
+/// is worth more than strict per-pin accuracy here -- but it's kept in its
+/// own IncidentType, never folded into Unknown, specifically so the map
+/// and its legend can say plainly that a PropertyDamage pin isn't
+/// confirmed to be about a vehicle at all. This is also still why MPD data
+/// can never produce a genuine "window smashed" pin: MPD has no field for
+/// entry method. Every "window smashed" pin has to come from a resident
+/// report -- which is the site's actual point.
 ///
 /// There's also a dead clause this replaces: an earlier version matched
 /// `Offense LIKE '%Damage to Motor Vehicle%'`, which matches zero rows --
-/// no such literal value exists anywhere in the Offense field.
+/// no such literal value exists anywhere in the Offense field. Likewise,
+/// "Damage to Property" (as opposed to the real category name above) also
+/// matches zero rows.
 ///
 /// We read the wgsXAnon/wgsYAnon fields rather than Latitude/Longitude.
 /// The "Anon" naming suggests the city intends these as an anonymized
@@ -64,10 +69,11 @@ public class MinneapolisOpenDataImportService(
     ILogger<MinneapolisOpenDataImportService> logger) : IOfficialDataImportService
 {
     private const int PageSize = 1000;
-    // A full historical backfill of all three categories is ~85k rows
-    // before geofence/invalid filtering; 200 pages gives comfortable
-    // headroom without being unbounded.
-    private const int MaxPages = 200;
+    // A full historical backfill of all four categories is ~133k rows
+    // before geofence/invalid filtering (~85k vehicle-specific + ~48k
+    // PropertyDamage); 400 pages gives comfortable headroom without being
+    // unbounded.
+    private const int MaxPages = 400;
 
     private static readonly TimeZoneInfo CentralTime = ResolveCentralTimeZone();
 
@@ -121,7 +127,8 @@ public class MinneapolisOpenDataImportService(
             var offset = page * PageSize;
             var where = "(Offense LIKE '%Theft From Motor Vehicle%'" +
                         " OR Offense LIKE '%Theft of Motor Vehicle Parts or Accessories%'" +
-                        " OR Offense LIKE '%Motor Vehicle Theft%')" +
+                        " OR Offense LIKE '%Motor Vehicle Theft%'" +
+                        " OR Offense LIKE '%Destruction/Damage/Vandalism of Property%')" +
                         $" AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";
             var url = "query" +
                        $"?where={Uri.EscapeDataString(where)}" +
@@ -204,6 +211,7 @@ public class MinneapolisOpenDataImportService(
                 {
                     "Motor Vehicle Theft" => IncidentType.VehicleStolen,
                     "Theft of Motor Vehicle Parts or Accessories" => IncidentType.PartsTheft,
+                    "Destruction/Damage/Vandalism of Property" => IncidentType.PropertyDamage,
                     // "Theft From Motor Vehicle" -- an actual break-in, entry
                     // method unrecorded by MPD.
                     _ => IncidentType.Unknown

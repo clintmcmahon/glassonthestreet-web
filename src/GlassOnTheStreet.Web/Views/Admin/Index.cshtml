@@ -31,9 +31,9 @@
         <button type="submit" class="btn-outline" style="margin-bottom: 0;">Import</button>
     </form>
 
-    <form asp-controller="Admin" asp-action="CleanupLegacyVandalism" method="post" style="margin: 0 0 1.25rem;">
-        <button type="submit" class="btn-outline" onclick="return confirm('Remove all legacy non-vehicle vandalism rows? This is safe to run more than once.');">
-            One-time cleanup: remove legacy vandalism rows
+    <form asp-controller="Admin" asp-action="ReclassifyPropertyDamage" method="post" style="margin: 0 0 1.25rem;">
+        <button type="submit" class="btn-outline">
+            One-time fixup: reclassify/restore property-damage rows
         </button>
     </form>
 
@@ -104,6 +104,7 @@
                         IncidentType.Rifled => "Rifled",
                         IncidentType.VehicleStolen => "Vehicle stolen",
                         IncidentType.PartsTheft => "Parts/accessories stolen",
+                        IncidentType.PropertyDamage => "Property damage (not vehicle-confirmed)",
                         _ => "Unknown (MPD)"
                     })
                 </td>

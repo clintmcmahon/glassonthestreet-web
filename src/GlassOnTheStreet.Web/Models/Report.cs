@@ -28,7 +28,19 @@ public enum IncidentType
     // VehicleStolen is separate: it's a meaningfully different crime, not
     // an unclassified version of the same one. Appended at the end, not
     // inserted, so existing stored int values don't shift.
-    PartsTheft
+    PartsTheft,
+
+    // MPD's "Destruction/Damage/Vandalism of Property" -- MPD's catch-all
+    // for any property damage (graffiti, building damage, park benches,
+    // vehicles), not vehicle-specific. There's no field anywhere in MPD's
+    // feed that isolates vehicle-only rows within it (checked; the CAD
+    // dispatch codes are generic and cross-contaminated across
+    // categories). Imported anyway, at the explicit call of the site's
+    // owner, on the tradeoff that broader coverage is worth more than
+    // strict per-pin accuracy here -- but kept in its own category, never
+    // folded into Unknown, so the map and its legend can say plainly that
+    // a pin like this isn't confirmed to be about a vehicle at all.
+    PropertyDamage
 }
 
 public enum TimeOfDay
