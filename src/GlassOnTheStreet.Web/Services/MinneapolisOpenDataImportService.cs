@@ -156,6 +156,7 @@ public class MinneapolisOpenDataImportService(
             }
 
             var pageCount = 0;
+            var importedThisPage = 0;
             foreach (var feature in features.EnumerateArray())
             {
                 pageCount++;
@@ -250,17 +251,27 @@ public class MinneapolisOpenDataImportService(
                     CrimeCount = GetInt(props, "Crime_Count")
                 });
                 imported++;
+                importedThisPage++;
+            }
+
+            // Saved once per page (up to 1,000 rows) rather than once for
+            // the entire run. A full historical backfill can take several
+            // minutes across hundreds of pages -- without this, an
+            // interruption partway through (app restart, deploy, crash)
+            // would discard every row fetched so far, since EF Core only
+            // sends inserts to the database on SaveChangesAsync. Saving
+            // per page means an interrupted run keeps everything it
+            // already fetched; re-running afterward picks up where it
+            // left off via the existing case-number dedup.
+            if (importedThisPage > 0)
+            {
+                await db.SaveChangesAsync(cancellationToken);
             }
 
             if (pageCount < PageSize)
             {
                 break;
             }
-        }
-
-        if (imported > 0)
-        {
-            await db.SaveChangesAsync(cancellationToken);
         }
 
         logger.LogInformation(
