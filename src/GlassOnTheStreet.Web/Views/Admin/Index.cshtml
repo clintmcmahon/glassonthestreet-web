@@ -58,7 +58,10 @@
         </table>
     }
 
-    <h2 style="font-size: 1.15rem; margin-top: 2.5rem;">All reports</h2>
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 2.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <h2 style="font-size: 1.15rem; margin: 0;">All reports (@Model.TotalRecent.Format())</h2>
+        <span class="field-hint">Page @Model.Page.Format() of @Model.TotalPages.Format()</span>
+    </div>
     <table class="admin-table">
         <thead>
             <tr>
@@ -118,4 +121,19 @@
         }
         </tbody>
     </table>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 1.25rem 0;">
+        @if (Model.Page > 1)
+        {
+            <a class="btn btn-outline" asp-controller="Admin" asp-action="Index" asp-route-page="@(Model.Page - 1)">&larr; Newer</a>
+        }
+        else
+        {
+            <span></span>
+        }
+        @if (Model.Page < Model.TotalPages)
+        {
+            <a class="btn btn-outline" asp-controller="Admin" asp-action="Index" asp-route-page="@(Model.Page + 1)">Older &rarr;</a>
+        }
+    </div>
 </div>
