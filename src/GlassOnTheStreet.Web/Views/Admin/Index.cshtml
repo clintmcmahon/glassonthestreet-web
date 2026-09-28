@@ -48,7 +48,7 @@
                     <td>@(report.IncidentType == IncidentType.WindowSmashed ? "Window smashed" : "Rifled")</td>
                     <td>@report.DisplayLat.ToString("0.0000"), @report.DisplayLng.ToString("0.0000")</td>
                     <td>@(report.CrossStreets ?? "—")</td>
-                    <td>@report.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@report.CreatedAt.FormatDateTime()</td>
                     <td style="white-space: nowrap;">
                         <form asp-controller="Admin" asp-action="Approve" asp-route-id="@report.Id" method="post" style="display:inline;">
                             <button type="submit" class="btn-toggle">Approve</button>
@@ -107,7 +107,7 @@
                     }
                 </td>
                 <td>@report.Flags.Count</td>
-                <td>@report.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                <td>@report.CreatedAt.FormatDateTime()</td>
                 <td>
                     @if (report.Status != ReportStatus.Removed)
                     {

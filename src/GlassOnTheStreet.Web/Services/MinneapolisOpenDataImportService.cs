@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GlassOnTheStreet.Web.Data;
+using GlassOnTheStreet.Web.Infrastructure;
 using GlassOnTheStreet.Web.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -74,8 +75,6 @@ public class MinneapolisOpenDataImportService(
     // PropertyDamage); 400 pages gives comfortable headroom without being
     // unbounded.
     private const int MaxPages = 400;
-
-    private static readonly TimeZoneInfo CentralTime = ResolveCentralTimeZone();
 
     // Static (shared across every scoped instance of this service, not
     // per-instance) so the manual admin-triggered import and the daily
@@ -284,7 +283,7 @@ public class MinneapolisOpenDataImportService(
     private static GlassOnTheStreet.Web.Models.TimeOfDay BucketTimeOfDay(long occurredUnixMs)
     {
         var utc = DateTimeOffset.FromUnixTimeMilliseconds(occurredUnixMs).UtcDateTime;
-        var local = TimeZoneInfo.ConvertTimeFromUtc(utc, CentralTime);
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utc, CentralTime.Zone);
         return local.Hour switch
         {
             >= 0 and < 6 => GlassOnTheStreet.Web.Models.TimeOfDay.Overnight,
@@ -302,18 +301,6 @@ public class MinneapolisOpenDataImportService(
         var lng = (double)x / MercatorRadius * 180.0;
         var lat = 180.0 / Math.PI * (2 * Math.Atan(Math.Exp((double)y / MercatorRadius * Math.PI)) - Math.PI / 2);
         return ((decimal)lat, (decimal)lng);
-    }
-
-    private static TimeZoneInfo ResolveCentralTimeZone()
-    {
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
-        }
     }
 
     private static string? GetString(JsonElement props, string name) =>
