@@ -15,12 +15,13 @@
 
     var maxTrend = Model.Trend.Count > 0 ? Math.Max(1, Model.Trend.Max(t => t.Count)) : 1;
 
-    var categoryOrder = new[] { "WindowSmashed", "Rifled", "Unknown", "VehicleStolen" };
+    var categoryOrder = new[] { "WindowSmashed", "Rifled", "Unknown", "PartsTheft", "VehicleStolen" };
     var categoryLabel = new Dictionary<string, string>
     {
         ["WindowSmashed"] = "Window smashed",
         ["Rifled"] = "Rifled through",
         ["Unknown"] = "MPD record (break-in)",
+        ["PartsTheft"] = "Parts/accessories stolen (MPD)",
         ["VehicleStolen"] = "Vehicle stolen (MPD)"
     };
     var categoryCssClass = new Dictionary<string, string>
@@ -28,6 +29,7 @@
         ["WindowSmashed"] = "cat-window",
         ["Rifled"] = "cat-rifled",
         ["Unknown"] = "cat-unknown",
+        ["PartsTheft"] = "cat-parts",
         ["VehicleStolen"] = "cat-stolen"
     };
     var categoryByKey = Model.Categories.ToDictionary(c => c.Category, c => c.Count);

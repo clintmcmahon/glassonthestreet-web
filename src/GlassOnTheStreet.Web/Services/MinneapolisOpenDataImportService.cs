@@ -11,13 +11,16 @@ namespace GlassOnTheStreet.Web.Services;
 /// paginated scan of all ~393,000 rows, not a sample):
 /// https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0
 ///
-/// We import three categories: "Theft From Motor Vehicle" and "Theft of
-/// Motor Vehicle Parts or Accessories" (break-ins; MPD's data doesn't
-/// record entry method, so these get IncidentType.Unknown rather than a
-/// guessed window-smashed/rifled), and "Motor Vehicle Theft" (the whole
-/// car stolen, not broken into -- a different, but definitively known,
-/// crime, so it gets its own IncidentType.VehicleStolen rather than being
-/// folded into Unknown).
+/// We import three categories, each mapped to its own IncidentType:
+/// "Theft From Motor Vehicle" (an actual break-in; MPD's data doesn't
+/// record entry method, so this gets IncidentType.Unknown rather than a
+/// guessed window-smashed/rifled), "Theft of Motor Vehicle Parts or
+/// Accessories" (catalytic converters, wheels, stereos -- doesn't
+/// necessarily involve breaking in at all, so it gets its own
+/// IncidentType.PartsTheft rather than being conflated with an actual
+/// break-in), and "Motor Vehicle Theft" (the whole car stolen, not broken
+/// into -- a different, but definitively known, crime, so it gets its own
+/// IncidentType.VehicleStolen).
 ///
 /// We deliberately do NOT import "Destruction/Damage/Vandalism of
 /// Property", even though it's MPD's largest single category and was
@@ -80,6 +83,8 @@ public class MinneapolisOpenDataImportService(
     // background sync's startup timer fired.
     private static readonly SemaphoreSlim ImportLock = new(1, 1);
 
+    public bool IsRunning => ImportLock.CurrentCount == 0;
+
     public async Task<OfficialImportResult> ImportAsync(int lookbackDays, CancellationToken cancellationToken = default)
     {
         await ImportLock.WaitAsync(cancellationToken);
@@ -120,7 +125,9 @@ public class MinneapolisOpenDataImportService(
                         $" AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";
             var url = "query" +
                        $"?where={Uri.EscapeDataString(where)}" +
-                       "&outFields=Case_Number,Address,Occurred_Date,Offense,Neighborhood,Ward,Precinct,wgsXAnon,wgsYAnon" +
+                       "&outFields=Case_Number,Address,Occurred_Date,Offense,Neighborhood,Ward,Precinct,wgsXAnon,wgsYAnon," +
+                       "Type,DID,Case_NumberAlt,Reported_Date,NIBRS_Crime_Against,NIBRS_Group,NIBRS_Code," +
+                       "Offense_Category,Problem_Initial,Problem_Final,Crime_Count" +
                        "&orderByFields=Occurred_Date%20DESC" +
                        $"&resultOffset={offset}" +
                        $"&resultRecordCount={PageSize}" +
@@ -193,7 +200,19 @@ public class MinneapolisOpenDataImportService(
                     : DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(occurredMs.Value).UtcDateTime);
                 var timeOfDay = occurredMs is null ? (TimeOfDay?)null : BucketTimeOfDay(occurredMs.Value);
                 var offense = GetString(props, "Offense")?.Trim();
-                var incidentType = offense == "Motor Vehicle Theft" ? IncidentType.VehicleStolen : IncidentType.Unknown;
+                var incidentType = offense switch
+                {
+                    "Motor Vehicle Theft" => IncidentType.VehicleStolen,
+                    "Theft of Motor Vehicle Parts or Accessories" => IncidentType.PartsTheft,
+                    // "Theft From Motor Vehicle" -- an actual break-in, entry
+                    // method unrecorded by MPD.
+                    _ => IncidentType.Unknown
+                };
+
+                var reportedMs = GetLong(props, "Reported_Date");
+                var mpdReportedDate = reportedMs is null
+                    ? (DateOnly?)null
+                    : DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(reportedMs.Value).UtcDateTime);
 
                 db.Reports.Add(new Report
                 {
@@ -209,7 +228,18 @@ public class MinneapolisOpenDataImportService(
                     Precinct = GetInt(props, "Precinct"),
                     SourceType = SourceType.OfficialImport,
                     ExternalCaseNumber = caseNumber,
-                    Status = ReportStatus.Active
+                    Status = ReportStatus.Active,
+                    MpdType = GetString(props, "Type")?.Trim(),
+                    MpdIncidentId = GetString(props, "DID")?.Trim(),
+                    AlternateCaseNumber = GetString(props, "Case_NumberAlt")?.Trim(),
+                    MpdReportedDate = mpdReportedDate,
+                    NibrsCrimeAgainst = GetString(props, "NIBRS_Crime_Against")?.Trim(),
+                    NibrsGroup = GetString(props, "NIBRS_Group")?.Trim(),
+                    NibrsCode = GetString(props, "NIBRS_Code")?.Trim(),
+                    OffenseCategory = GetString(props, "Offense_Category")?.Trim(),
+                    ProblemInitial = GetString(props, "Problem_Initial")?.Trim(),
+                    ProblemFinal = GetString(props, "Problem_Final")?.Trim(),
+                    CrimeCount = GetInt(props, "Crime_Count")
                 });
                 imported++;
             }

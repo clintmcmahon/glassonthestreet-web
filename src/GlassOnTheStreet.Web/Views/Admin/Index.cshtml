@@ -15,6 +15,13 @@
         <p class="field-hint" style="border: 1px solid var(--rule); padding: 0.6rem 0.9rem; margin: 1rem 0;">@importResult</p>
     }
 
+    @if (Model.ImportRunning)
+    {
+        <p class="field-hint" style="border: 1px solid var(--accent); color: var(--accent); padding: 0.6rem 0.9rem; margin: 1rem 0;">
+            An import is currently running. Refresh this page to check progress -- starting another one will just wait its turn.
+        </p>
+    }
+
     <form asp-controller="Admin" asp-action="Import" method="post" style="margin: 1.25rem 0; display: flex; align-items: flex-end; gap: 0.75rem;">
         <div>
             <label for="lookback-days" style="margin-top: 0;">Import MPD theft-from-vehicle data, last</label>
@@ -96,6 +103,7 @@
                         IncidentType.WindowSmashed => "Window smashed",
                         IncidentType.Rifled => "Rifled",
                         IncidentType.VehicleStolen => "Vehicle stolen",
+                        IncidentType.PartsTheft => "Parts/accessories stolen",
                         _ => "Unknown (MPD)"
                     })
                 </td>

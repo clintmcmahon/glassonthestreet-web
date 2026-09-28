@@ -10,4 +10,13 @@ public interface IOfficialDataImportService
     /// (matched by MPD's case number) as SourceType.OfficialImport reports.
     /// </summary>
     Task<OfficialImportResult> ImportAsync(int lookbackDays, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True while an import (manual or the daily background sync) is
+    /// actually running. A large lookback can take minutes -- long past
+    /// nginx's default proxy read timeout -- so the admin UI kicks the
+    /// import off in the background and polls this instead of blocking the
+    /// request on it.
+    /// </summary>
+    bool IsRunning { get; }
 }

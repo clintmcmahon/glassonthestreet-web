@@ -6,7 +6,8 @@
     windowSmashed: "#ea580c",
     rifled: "#18181b",
     unknown: "#a1a1aa",
-    vehicleStolen: "#3b6ea5"
+    vehicleStolen: "#3b6ea5",
+    partsTheft: "#7c3aed"
   };
 
   const map = new maplibregl.Map({
@@ -37,6 +38,7 @@
           "WindowSmashed", PALETTE.windowSmashed,
           "Rifled", PALETTE.rifled,
           "VehicleStolen", PALETTE.vehicleStolen,
+          "PartsTheft", PALETTE.partsTheft,
           PALETTE.unknown
         ],
         "circle-opacity": 0.85

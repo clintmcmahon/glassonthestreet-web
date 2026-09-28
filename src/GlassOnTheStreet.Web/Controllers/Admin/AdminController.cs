@@ -7,11 +7,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GlassOnTheStreet.Web.Controllers.Admin;
 
-public record AdminIndexViewModel(List<Report> Pending, List<Report> Recent);
+public record AdminIndexViewModel(List<Report> Pending, List<Report> Recent, bool ImportRunning);
 
 [Route("admin")]
 [AdminBasicAuth]
-public class AdminController(GlassOnTheStreetContext db, IOfficialDataImportService importService) : Controller
+public class AdminController(
+    GlassOnTheStreetContext db,
+    IOfficialDataImportService importService,
+    IServiceScopeFactory scopeFactory,
+    ILogger<AdminController> logger) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -32,19 +36,45 @@ public class AdminController(GlassOnTheStreetContext db, IOfficialDataImportServ
             .Take(200)
             .ToListAsync(cancellationToken);
 
-        return View(new AdminIndexViewModel(pending, recent));
+        return View(new AdminIndexViewModel(pending, recent, importService.IsRunning));
     }
 
+    // A full-history import (large lookbackDays) can take several minutes --
+    // long past nginx's default proxy read timeout, which is what was
+    // showing up as a browser-side "request timed out" even though the
+    // import itself was fine. Kicked off in the background instead of
+    // awaited inline, using its own DI scope since the request's scoped
+    // services (db, importService) are disposed the moment this action
+    // returns. Safe to fire without awaiting: ImportAsync's own semaphore
+    // already serializes this against the daily background sync and any
+    // other concurrent import.
     [HttpPost("import")]
     [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
-    public async Task<IActionResult> Import([FromForm] int lookbackDays, CancellationToken cancellationToken)
+    public IActionResult Import([FromForm] int lookbackDays)
     {
         var days = lookbackDays <= 0 ? 180 : lookbackDays;
-        var result = await importService.ImportAsync(days, cancellationToken);
+
+        _ = Task.Run(async () =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var scopedImportService = scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>();
+            try
+            {
+                var result = await scopedImportService.ImportAsync(days, CancellationToken.None);
+                logger.LogInformation(
+                    "Admin-triggered import finished: fetched {Fetched}, imported {Imported}, " +
+                    "skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
+                    result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Admin-triggered import failed");
+            }
+        });
 
         TempData["ImportResult"] =
-            $"Fetched {result.Fetched}, imported {result.Imported} new, " +
-            $"skipped {result.SkippedDuplicate} already on file, {result.SkippedInvalid} invalid.";
+            $"Import started in the background for the last {days} days. A large lookback can take " +
+            "several minutes -- refresh this page to check progress; new reports appear on the map as they're saved.";
 
         return RedirectToAction(nameof(Index));
     }

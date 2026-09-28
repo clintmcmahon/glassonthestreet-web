@@ -18,7 +18,17 @@ public enum IncidentType
     // Vehicle Theft" category. Deliberately not folded into Unknown:
     // Unknown means "we know it was a break-in, we don't know how," while
     // this means "there was no break-in to classify at all."
-    VehicleStolen
+    VehicleStolen,
+
+    // MPD's "Theft of Motor Vehicle Parts or Accessories" category --
+    // catalytic converters, wheels, stereos taken off/out of a car, which
+    // doesn't necessarily involve breaking a window or even entering the
+    // car at all. Kept distinct from Unknown (a real break-in, entry method
+    // unrecorded) rather than conflated with it, for the same reason
+    // VehicleStolen is separate: it's a meaningfully different crime, not
+    // an unclassified version of the same one. Appended at the end, not
+    // inserted, so existing stored int values don't shift.
+    PartsTheft
 }
 
 public enum TimeOfDay
@@ -110,4 +120,52 @@ public class Report
     public List<ReportFlag> Flags { get; set; } = new();
     public string? Offense {get;set;} = string.Empty;
     public string? Address {get;set;} = string.Empty;
+
+    // Everything below is only populated for SourceType.OfficialImport rows,
+    // straight from the remaining fields on MPD's open data feed (see
+    // MinneapolisOpenDataImportService). Deliberately NOT included: the
+    // feed's own Latitude/Longitude fields -- verified precise (identical to
+    // the geometry point, not anonymized despite wgsXAnon/wgsYAnon's
+    // naming) -- since this site never stores a precise location for any
+    // report, including MPD's own.
+
+    // The feed's own record-type label (e.g. "Crime Offenses (NIBRS)").
+    [MaxLength(24)]
+    public string? MpdType { get; set; }
+
+    // "DID" in the feed -- sparsely populated, meaning unconfirmed, but
+    // captured for completeness.
+    [MaxLength(20)]
+    public string? MpdIncidentId { get; set; }
+
+    [MaxLength(60)]
+    public string? AlternateCaseNumber { get; set; }
+
+    // When MPD logged the report -- distinct from ReportedDate (which for
+    // an import holds Occurred_Date, when the incident actually happened).
+    public DateOnly? MpdReportedDate { get; set; }
+
+    [MaxLength(50)]
+    public string? NibrsCrimeAgainst { get; set; }
+
+    [MaxLength(50)]
+    public string? NibrsGroup { get; set; }
+
+    [MaxLength(50)]
+    public string? NibrsCode { get; set; }
+
+    [MaxLength(50)]
+    public string? OffenseCategory { get; set; }
+
+    // CAD dispatch call-type fields -- generic and cross-contaminated across
+    // offense categories (see MinneapolisOpenDataImportService's doc comment
+    // on why they can't isolate vehicle-specific vandalism), but captured
+    // as raw reference data since they're part of the feed.
+    [MaxLength(400)]
+    public string? ProblemInitial { get; set; }
+
+    [MaxLength(30)]
+    public string? ProblemFinal { get; set; }
+
+    public int? CrimeCount { get; set; }
 }

@@ -416,6 +416,7 @@ fieldset {
 .legend-dot.rifled { background: var(--ink); }
 .legend-dot.unknown { background: #a1a1aa; }
 .legend-dot.stolen { background: #3b6ea5; }
+.legend-dot.parts { background: #7c3aed; }
 
 .breakdown-grid {
   display: grid;
@@ -547,6 +548,7 @@ fieldset {
 .breakdown-bar.cat-window { background: var(--accent); }
 .breakdown-bar.cat-rifled { background: var(--ink); }
 .breakdown-bar.cat-unknown { background: #a1a1aa; }
+.breakdown-bar.cat-parts { background: #7c3aed; }
 .breakdown-bar.cat-stolen { background: #3b6ea5; }
 
 /* Category labels ("Vehicle stolen (MPD)") run longer than the neighborhood
