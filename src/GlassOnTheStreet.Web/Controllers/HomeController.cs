@@ -17,7 +17,18 @@ public class HomeController(IReportStatsService statsService) : Controller
         var reportingGap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
         var trend = await statsService.GetMonthlyTrendAsync(6, cancellationToken);
         var categories = await statsService.GetCategoryCountsAsync(cancellationToken);
-        return View(new HomePageViewModel(stats, reportingGap, trend, categories));
+
+        // Yearly trend for the homepage's "how these categories have
+        // trended since 2021" charts -- our own imported MPD data, not a
+        // third-party source.
+        const int trendStartYear = 2021;
+        var theftFromVehicleTrend = await statsService.GetYearlyCountsAsync(IncidentType.Unknown, trendStartYear, cancellationToken);
+        var propertyDamageTrend = await statsService.GetYearlyCountsAsync(IncidentType.PropertyDamage, trendStartYear, cancellationToken);
+        var vehicleTheftTrend = await statsService.GetYearlyCountsAsync(IncidentType.VehicleStolen, trendStartYear, cancellationToken);
+
+        return View(new HomePageViewModel(
+            stats, reportingGap, trend, categories,
+            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend));
     }
 
     [HttpGet("privacy")]
@@ -37,4 +48,7 @@ public record HomePageViewModel(
     ReportStats Stats,
     PoliceReportingGap ReportingGap,
     IReadOnlyList<MonthlyCount> Trend,
-    IReadOnlyList<CategoryCount> Categories);
+    IReadOnlyList<CategoryCount> Categories,
+    IReadOnlyList<YearlyCount> TheftFromVehicleTrend,
+    IReadOnlyList<YearlyCount> PropertyDamageTrend,
+    IReadOnlyList<YearlyCount> VehicleTheftTrend);

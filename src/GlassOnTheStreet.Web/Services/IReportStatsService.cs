@@ -1,3 +1,5 @@
+using GlassOnTheStreet.Web.Models;
+
 namespace GlassOnTheStreet.Web.Services;
 
 public record ReportStats(int Count, int PriorCount, double? PercentChange);
@@ -24,6 +26,8 @@ public record MonthlyCount(string MonthLabel, int Count);
 
 public record CategoryCount(string Category, int Count);
 
+public record YearlyCount(int Year, int Count);
+
 /// <summary>
 /// Shared behind the JSON API (ReportsApiController, for client-side
 /// filtering) and the page controllers (for server-rendering real numbers
@@ -42,4 +46,13 @@ public interface IReportStatsService
     Task<IReadOnlyList<MonthlyCount>> GetMonthlyTrendAsync(int months, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Year-by-year counts for a single MPD-imported IncidentType, from
+    /// startYear through the current year. Used for the homepage's
+    /// "how these categories have trended since 2021" charts -- our own
+    /// data, not a third-party source.
+    /// </summary>
+    Task<IReadOnlyList<YearlyCount>> GetYearlyCountsAsync(
+        IncidentType incidentType, int startYear, CancellationToken cancellationToken = default);
 }

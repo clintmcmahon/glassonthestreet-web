@@ -104,8 +104,8 @@
                         IncidentType.Rifled => "Rifled",
                         IncidentType.VehicleStolen => "Vehicle stolen",
                         IncidentType.PartsTheft => "Parts/accessories stolen",
-                        IncidentType.PropertyDamage => "Property damage (not vehicle-confirmed)",
-                        _ => "Unknown (MPD)"
+                        IncidentType.PropertyDamage => "Property damage (MPD stores smashed windows here)",
+                        _ => "Vehicle break-in (MPD)"
                     })
                 </td>
                 <td>@(report.SourceType == SourceType.OfficialImport ? "MPD import" : "Resident")</td>

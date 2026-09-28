@@ -144,4 +144,26 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
 
         return counts;
     }
+
+    public async Task<IReadOnlyList<YearlyCount>> GetYearlyCountsAsync(
+        IncidentType incidentType, int startYear, CancellationToken cancellationToken = default)
+    {
+        var startDate = new DateOnly(startYear, 1, 1);
+        var dates = await db.Reports
+            .Where(r => r.Status == ReportStatus.Active
+                && r.SourceType == SourceType.OfficialImport
+                && r.IncidentType == incidentType
+                && r.ReportedDate >= startDate)
+            .Select(r => r.ReportedDate)
+            .ToListAsync(cancellationToken);
+
+        var currentYear = DateOnly.FromDateTime(DateTime.UtcNow).Year;
+        var counts = new List<YearlyCount>();
+        for (var year = startYear; year <= currentYear; year++)
+        {
+            counts.Add(new YearlyCount(year, dates.Count(d => d.Year == year)));
+        }
+
+        return counts;
+    }
 }

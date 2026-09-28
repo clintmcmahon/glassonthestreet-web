@@ -297,7 +297,8 @@
         p.incidentType === "Rifled" ? "Rifled through" :
         p.incidentType === "VehicleStolen" ? "Vehicle stolen (MPD record)" :
         p.incidentType === "PartsTheft" ? "Parts or accessories stolen (MPD record)" :
-        p.incidentType === "PropertyDamage" ? "Property damage reported nearby (MPD record -- not confirmed to be this vehicle)" :
+        p.incidentType === "PropertyDamage" ? "Property damage (MPD stores smashed windows here)" :
+        p.incidentType === "Unknown" ? "Vehicle break-in (MPD)" :
         `${p.offense} (MPD record)`;
       const timeLabel = p.timeOfDay ? p.timeOfDay.replace(/([a-z])([A-Z])/g, "$1 $2") : null;
       const parts = [timeLabel, p.itemsStolen ? "items taken" : null, p.policeReported ? "reported to police" : null]

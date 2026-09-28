@@ -554,9 +554,19 @@ fieldset {
 .breakdown-bar.cat-damage { background: #ca8a04; }
 
 /* Category labels ("Vehicle stolen (MPD)") run longer than the neighborhood
-   names .breakdown-row's default 100px column was sized for. */
+   names .breakdown-row's default 100px column was sized for -- and one
+   ("Property damage (MPD stores smashed windows here)") is long enough
+   that it needs to wrap rather than truncate to stay legible. */
 .category-list .breakdown-row {
   grid-template-columns: 180px 1fr 30px;
+  align-items: center;
+}
+
+.category-list .breakdown-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
 }
 
 /* ---------- homepage: city comparison (Star Tribune data) ---------- */
@@ -608,10 +618,7 @@ fieldset {
 }
 
 .city-chart-line.minneapolis { stroke: var(--accent); }
-.city-chart-line.stpaul { stroke: var(--positive); }
-
 .city-chart-dot.minneapolis { fill: var(--accent); }
-.city-chart-dot.stpaul { fill: var(--positive); }
 
 .city-chart-end-label {
   font-family: "Manrope", sans-serif;
@@ -620,15 +627,6 @@ fieldset {
 }
 
 .city-chart-end-label.minneapolis { fill: var(--accent); }
-.city-chart-end-label.stpaul { fill: var(--positive); }
-
-.city-chart-legend {
-  display: flex;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
-}
 
 @media (max-width: 780px) {
   .graphs-grid {
