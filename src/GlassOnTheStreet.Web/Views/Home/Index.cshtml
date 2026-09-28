@@ -107,7 +107,7 @@
 
     <div class="stat-line">
         <div class="stat">
-            <div class="stat-value">@stats.Count</div>
+            <div class="stat-value">@stats.Count.Format()</div>
             <div class="stat-label">reports, last 30 days</div>
         </div>
         <div class="stat">
@@ -154,7 +154,7 @@
                             <div class="trend-bar-track">
                                 <div class="trend-bar" style="height:@((m.Count * 100.0 / maxTrend).ToString("0.##"))%"></div>
                             </div>
-                            <div class="trend-bar-count">@m.Count</div>
+                            <div class="trend-bar-count">@m.Count.Format()</div>
                             <div class="trend-bar-label">@m.MonthLabel</div>
                         </div>
                     }
@@ -175,7 +175,7 @@
                         <div class="breakdown-row">
                             <span class="breakdown-label">@categoryLabel[key]</span>
                             <span class="breakdown-bar-track"><span class="breakdown-bar @categoryCssClass[key]" style="width:@((categoryByKey[key] * 100.0 / maxCategory).ToString("0.##"))%"></span></span>
-                            <span class="breakdown-count">@categoryByKey[key]</span>
+                            <span class="breakdown-count">@categoryByKey[key].Format()</span>
                         </div>
                     }
                 </div>
@@ -207,7 +207,7 @@
                     {
                         var gy = marginTop + (chartH - marginTop - marginBottom) - ((chartH - marginTop - marginBottom) * g / (double)yMax);
                         <line x1="@marginLeft" y1="@gy.ToString("0.#")" x2="@(chartW - marginRight)" y2="@gy.ToString("0.#")" class="city-chart-gridline" />
-                        @Html.Raw($"<text x=\"{marginLeft - 8}\" y=\"{(gy + 4).ToString("0.#")}\" class=\"city-chart-axis-label\" text-anchor=\"end\">{g}</text>")
+                        @Html.Raw($"<text x=\"{marginLeft - 8}\" y=\"{(gy + 4).ToString("0.#")}\" class=\"city-chart-axis-label\" text-anchor=\"end\">{g.Format()}</text>")
                     }
                     @for (var i = 0; i < series.Counts.Count; i++)
                     {
@@ -220,7 +220,7 @@
                         var (x, y) = PlotPoint(series.Counts, i, yMax);
                         <circle cx="@x.ToString("0.#")" cy="@y.ToString("0.#")" r="3.5" class="city-chart-dot minneapolis" />
                     }
-                    @Html.Raw($"<text x=\"{(endPoint.X + 8).ToString("0.#")}\" y=\"{(endPoint.Y + 4).ToString("0.#")}\" class=\"city-chart-end-label minneapolis\">{series.Counts[^1].Count}</text>")
+                    @Html.Raw($"<text x=\"{(endPoint.X + 8).ToString("0.#")}\" y=\"{(endPoint.Y + 4).ToString("0.#")}\" class=\"city-chart-end-label minneapolis\">{series.Counts[^1].Count.Format()}</text>")
                 </svg>
             </div>
         }
@@ -270,6 +270,7 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script src="~/js/format.js" asp-append-version="true"></script>
     <script src="~/js/map-theme.js" asp-append-version="true"></script>
     <script src="~/js/home-map.js" asp-append-version="true"></script>
 }

@@ -128,7 +128,7 @@
         <div class="breakdown-row">
           <span class="breakdown-label">${n.name}</span>
           <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:${(n.count / maxCount) * 100}%"></span></span>
-          <span class="breakdown-count">${n.count}</span>
+          <span class="breakdown-count">${formatNumber(n.count)}</span>
         </div>
       `).join("");
     }
@@ -141,7 +141,7 @@
         <div class="breakdown-row">
           <span class="breakdown-label">${TIME_OF_DAY_LABEL[bucket]}</span>
           <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:${(byBucket[bucket] / maxTimeCount) * 100}%"></span></span>
-          <span class="breakdown-count">${byBucket[bucket]}</span>
+          <span class="breakdown-count">${formatNumber(byBucket[bucket])}</span>
         </div>
       `).join("") || '<p class="field-hint">Not enough data with a known time of day yet.</p>';
 
@@ -154,7 +154,7 @@
           <div class="breakdown-row">
             <span class="breakdown-label">Ward ${w.ward}</span>
             <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:${(w.count / maxWardCount) * 100}%"></span></span>
-            <span class="breakdown-count">${w.count}</span>
+            <span class="breakdown-count">${formatNumber(w.count)}</span>
           </div>
         `).join("");
       }
@@ -178,7 +178,7 @@
       source.setData(geojson);
     }
 
-    document.getElementById("stat-count").textContent = stats.count;
+    document.getElementById("stat-count").textContent = formatNumber(stats.count);
     const changeEl = document.getElementById("stat-change");
     changeEl.classList.remove("up", "down");
     if (stats.percentChange === null || stats.percentChange === undefined) {

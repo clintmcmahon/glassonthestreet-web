@@ -64,7 +64,7 @@
 
     <div class="stat-line" id="stat-line">
         <div class="stat">
-            <div class="stat-value" id="stat-count">@stats.Count</div>
+            <div class="stat-value" id="stat-count">@stats.Count.Format()</div>
             <div class="stat-label" id="stat-count-label">reports, last 30 days</div>
         </div>
         <div class="stat">
@@ -126,7 +126,7 @@
                         <div class="breakdown-row">
                             <span class="breakdown-label">@n.Name</span>
                             <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((n.Count * 100.0 / maxNeighborhood).ToString("0.##"))%"></span></span>
-                            <span class="breakdown-count">@n.Count</span>
+                            <span class="breakdown-count">@n.Count.Format()</span>
                         </div>
                     }
                 }
@@ -146,7 +146,7 @@
                         <div class="breakdown-row">
                             <span class="breakdown-label">@timeOfDayLabel[bucket]</span>
                             <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((timeOfDayByBucket[bucket] * 100.0 / maxTimeOfDay).ToString("0.##"))%"></span></span>
-                            <span class="breakdown-count">@timeOfDayByBucket[bucket]</span>
+                            <span class="breakdown-count">@timeOfDayByBucket[bucket].Format()</span>
                         </div>
                     }
                 }
@@ -166,7 +166,7 @@
                         <div class="breakdown-row">
                             <span class="breakdown-label">Ward @w.Ward</span>
                             <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((w.Count * 100.0 / maxWard).ToString("0.##"))%"></span></span>
-                            <span class="breakdown-count">@w.Count</span>
+                            <span class="breakdown-count">@w.Count.Format()</span>
                         </div>
                     }
                 }
@@ -177,6 +177,7 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    <script src="~/js/format.js" asp-append-version="true"></script>
     <script src="~/js/map-theme.js" asp-append-version="true"></script>
     <script src="~/js/map.js" asp-append-version="true"></script>
 }
