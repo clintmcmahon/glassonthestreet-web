@@ -9,6 +9,11 @@
 <div class="page">
     <p class="kicker">Admin</p>
     <h1 style="font-size: 1.7rem;">Reports</h1>
+    <p class="field-hint">
+        @(Model.MpdLastSyncedAt is { } lastSyncedAt
+            ? $"MPD data last synced {lastSyncedAt.FormatSyncTimestamp()}."
+            : "MPD data has not synced yet.")
+    </p>
 
     @if (Model.ImportRunning)
     {

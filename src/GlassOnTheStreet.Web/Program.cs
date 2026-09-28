@@ -35,6 +35,7 @@ builder.Services.AddScoped<ILocationPrivacyService, LocationPrivacyService>();
 builder.Services.AddScoped<IGeofenceService, GeofenceService>();
 builder.Services.AddScoped<ICaptchaService, TurnstileCaptchaService>();
 builder.Services.AddScoped<IReportStatsService, ReportStatsService>();
+builder.Services.AddScoped<ISyncStatusService, SyncStatusService>();
 
 builder.Services.AddHttpClient<IGeocodingService, GeocodingService>(client =>
 {

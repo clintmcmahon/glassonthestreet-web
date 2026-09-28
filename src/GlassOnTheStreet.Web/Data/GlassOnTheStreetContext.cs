@@ -11,6 +11,8 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
 
     public DbSet<OneTimeTask> OneTimeTasks => Set<OneTimeTask>();
 
+    public DbSet<SyncStatus> SyncStatuses => Set<SyncStatus>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Report>(entity =>

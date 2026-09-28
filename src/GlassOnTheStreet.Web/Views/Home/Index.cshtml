@@ -137,6 +137,10 @@
         <span>Every dot is a real report from the last 7 days. Click the map to explore it.</span>
         <a asp-controller="Map" asp-action="Index">Open the full map &rarr;</a>
     </div>
+    @if (Model.MpdLastSyncedAt is { } lastSyncedAt)
+    {
+        <p class="field-hint" style="margin-top: 0.4rem;">MPD data last synced @lastSyncedAt.FormatSyncTimestamp().</p>
+    }
 
     <div class="graphs-grid">
         <div>
@@ -162,7 +166,7 @@
             }
         </div>
         <div>
-            <h2 class="graph-heading">What's on the map</h2>
+            <h2 class="graph-heading">What's on the map this year</h2>
             @if (categoryByKey.Count == 0)
             {
                 <p class="field-hint">Not enough data yet.</p>

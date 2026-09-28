@@ -45,7 +45,7 @@ public interface IReportStatsService
 
     Task<IReadOnlyList<MonthlyCount>> GetMonthlyTrendAsync(int months, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Year-by-year counts for a single MPD-imported IncidentType, from

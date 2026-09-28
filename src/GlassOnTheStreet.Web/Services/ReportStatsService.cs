@@ -132,10 +132,21 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
             .ToList();
     }
 
-    public async Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
     {
-        var counts = (await db.Reports
-            .Where(r => r.Status == ReportStatus.Active)
+        var query = db.Reports.Where(r => r.Status == ReportStatus.Active);
+
+        if (from is not null)
+        {
+            query = query.Where(r => r.ReportedDate >= from);
+        }
+
+        if (to is not null)
+        {
+            query = query.Where(r => r.ReportedDate <= to);
+        }
+
+        var counts = (await query
             .GroupBy(r => r.IncidentType)
             .Select(g => new { type = g.Key, count = g.Count() })
             .ToListAsync(cancellationToken))

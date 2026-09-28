@@ -13,11 +13,15 @@ public record AdminIndexViewModel(
     bool ImportRunning,
     int Page,
     int TotalPages,
-    int TotalRecent);
+    int TotalRecent,
+    DateTime? MpdLastSyncedAt);
 
 [Route("admin")]
 [AdminBasicAuth]
-public class AdminController(GlassOnTheStreetContext db, IOfficialDataImportService importService) : Controller
+public class AdminController(
+    GlassOnTheStreetContext db,
+    IOfficialDataImportService importService,
+    ISyncStatusService syncStatusService) : Controller
 {
     private const int PageSize = 100;
 
@@ -54,7 +58,9 @@ public class AdminController(GlassOnTheStreetContext db, IOfficialDataImportServ
             .Take(PageSize)
             .ToListAsync(cancellationToken);
 
-        return View(new AdminIndexViewModel(pending, recent, importService.IsRunning, currentPage, totalPages, totalRecent));
+        var lastSyncedAt = await syncStatusService.GetLastSyncedAtAsync(cancellationToken);
+
+        return View(new AdminIndexViewModel(pending, recent, importService.IsRunning, currentPage, totalPages, totalRecent, lastSyncedAt));
     }
 
     [HttpPost("{id:int}/approve")]

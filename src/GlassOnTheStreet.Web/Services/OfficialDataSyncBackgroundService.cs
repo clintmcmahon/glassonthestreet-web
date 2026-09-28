@@ -62,6 +62,9 @@ public class OfficialDataSyncBackgroundService(
                 logger.LogInformation(
                     "Scheduled MPD sync: fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
                     result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
+
+                var syncStatusService = scope.ServiceProvider.GetRequiredService<ISyncStatusService>();
+                await syncStatusService.RecordSyncAsync(stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -109,6 +112,9 @@ public class OfficialDataSyncBackgroundService(
             logger.LogInformation(
                 "Clean reimport finished: fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
                 result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
+
+            var syncStatusService = scope.ServiceProvider.GetRequiredService<ISyncStatusService>();
+            await syncStatusService.RecordSyncAsync(cancellationToken);
 
             db.OneTimeTasks.Add(new OneTimeTask { Key = CleanReimportTaskKey });
             await db.SaveChangesAsync(cancellationToken);

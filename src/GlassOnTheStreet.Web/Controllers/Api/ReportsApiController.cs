@@ -121,9 +121,10 @@ public class ReportsApiController(
     }
 
     [HttpGet("stats/categories")]
-    public async Task<IActionResult> GetCategories(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetCategories(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken cancellationToken)
     {
-        var categories = await statsService.GetCategoryCountsAsync(cancellationToken);
+        var categories = await statsService.GetCategoryCountsAsync(from, to, cancellationToken);
         return Ok(categories.Select(c => new { category = c.Category, count = c.Count }));
     }
 

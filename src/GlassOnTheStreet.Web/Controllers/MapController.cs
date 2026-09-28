@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace GlassOnTheStreet.Web.Controllers;
 
 [Route("map")]
-public class MapController(IReportStatsService statsService) : Controller
+public class MapController(IReportStatsService statsService, ISyncStatusService syncStatusService) : Controller
 {
     [HttpGet("")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -17,8 +17,9 @@ public class MapController(IReportStatsService statsService) : Controller
         var stats = await statsService.GetStatsAsync(from: null, to: null, cancellationToken);
         var breakdown = await statsService.GetBreakdownAsync(from: null, to: null, cancellationToken);
         var reportingGap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
-        return View(new MapPageViewModel(stats, breakdown, reportingGap));
+        var lastSyncedAt = await syncStatusService.GetLastSyncedAtAsync(cancellationToken);
+        return View(new MapPageViewModel(stats, breakdown, reportingGap, lastSyncedAt));
     }
 }
 
-public record MapPageViewModel(ReportStats Stats, ReportBreakdown Breakdown, PoliceReportingGap ReportingGap);
+public record MapPageViewModel(ReportStats Stats, ReportBreakdown Breakdown, PoliceReportingGap ReportingGap, DateTime? MpdLastSyncedAt);

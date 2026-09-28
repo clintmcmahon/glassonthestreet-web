@@ -5,7 +5,7 @@ using GlassOnTheStreet.Web.Services;
 
 namespace GlassOnTheStreet.Web.Controllers;
 
-public class HomeController(IReportStatsService statsService) : Controller
+public class HomeController(IReportStatsService statsService, ISyncStatusService syncStatusService) : Controller
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -16,7 +16,12 @@ public class HomeController(IReportStatsService statsService) : Controller
         var stats = await statsService.GetStatsAsync(from: null, to: null, cancellationToken);
         var reportingGap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
         var trend = await statsService.GetMonthlyTrendAsync(6, cancellationToken);
-        var categories = await statsService.GetCategoryCountsAsync(cancellationToken);
+
+        // "What's on the map" is scoped to the current calendar year, not
+        // all-time -- with 117K+ rows going back to 2020, an all-time
+        // breakdown doesn't tell you what's happening now.
+        var yearStart = new DateOnly(DateTime.UtcNow.Year, 1, 1);
+        var categories = await statsService.GetCategoryCountsAsync(yearStart, to: null, cancellationToken);
 
         // Yearly trend for the homepage's "how these categories have
         // trended since 2021" charts -- our own imported MPD data, not a
@@ -26,9 +31,11 @@ public class HomeController(IReportStatsService statsService) : Controller
         var propertyDamageTrend = await statsService.GetYearlyCountsAsync(IncidentType.PropertyDamage, trendStartYear, cancellationToken);
         var vehicleTheftTrend = await statsService.GetYearlyCountsAsync(IncidentType.VehicleStolen, trendStartYear, cancellationToken);
 
+        var lastSyncedAt = await syncStatusService.GetLastSyncedAtAsync(cancellationToken);
+
         return View(new HomePageViewModel(
             stats, reportingGap, trend, categories,
-            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend));
+            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend, lastSyncedAt));
     }
 
     [HttpGet("privacy")]
@@ -51,4 +58,5 @@ public record HomePageViewModel(
     IReadOnlyList<CategoryCount> Categories,
     IReadOnlyList<YearlyCount> TheftFromVehicleTrend,
     IReadOnlyList<YearlyCount> PropertyDamageTrend,
-    IReadOnlyList<YearlyCount> VehicleTheftTrend);
+    IReadOnlyList<YearlyCount> VehicleTheftTrend,
+    DateTime? MpdLastSyncedAt);

@@ -110,6 +110,10 @@
         <span><span class="legend-dot parts"></span>Theft of Motor Vehicle Parts or Accessories (MPD record)</span>
         <span><span class="legend-dot damage"></span>Destruction/Damage/Vandalism of Property (MPD record)</span>
     </div>
+    @if (Model.MpdLastSyncedAt is { } lastSyncedAt)
+    {
+        <p class="field-hint" style="margin-top: 0.6rem;">MPD data last synced @lastSyncedAt.FormatSyncTimestamp().</p>
+    }
 
     <div class="breakdown-grid">
         <div>
