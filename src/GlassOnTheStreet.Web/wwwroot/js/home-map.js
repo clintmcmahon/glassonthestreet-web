@@ -48,7 +48,16 @@
     });
 
     try {
-      const res = await fetch("/api/reports");
+      // Local date parts, not toISOString() (UTC) -- same fix as map.js's
+      // toDateInput, avoids shifting the cutoff by a day depending on the
+      // viewer's timezone and time of day.
+      const from = new Date();
+      from.setDate(from.getDate() - 6);
+      const year = from.getFullYear();
+      const month = String(from.getMonth() + 1).padStart(2, "0");
+      const day = String(from.getDate()).padStart(2, "0");
+
+      const res = await fetch(`/api/reports?from=${year}-${month}-${day}`);
       if (res.ok) {
         const geojson = await res.json();
         map.getSource("home-reports").setData(geojson);
