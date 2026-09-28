@@ -9,6 +9,8 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
 
     public DbSet<ReportFlag> ReportFlags => Set<ReportFlag>();
 
+    public DbSet<OneTimeTask> OneTimeTasks => Set<OneTimeTask>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Report>(entity =>
@@ -26,6 +28,11 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
                 .WithMany(r => r.Flags)
                 .HasForeignKey(f => f.ReportId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OneTimeTask>(entity =>
+        {
+            entity.HasIndex(t => t.Key).IsUnique();
         });
     }
 }

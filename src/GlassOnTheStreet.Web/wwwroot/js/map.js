@@ -292,13 +292,13 @@
     map.on("click", "reports-pins", (e) => {
       const feature = e.features[0];
       const p = feature.properties;
+      // Residents classify their own report (window smashed / rifled
+      // through); everything else is MPD data, shown as MPD's own category
+      // name -- verbatim, not paraphrased -- so what you see here always
+      // matches what MPD actually calls it.
       const incidentLabel =
         p.incidentType === "WindowSmashed" ? "Window smashed" :
         p.incidentType === "Rifled" ? "Rifled through" :
-        p.incidentType === "VehicleStolen" ? "Vehicle stolen (MPD record)" :
-        p.incidentType === "PartsTheft" ? "Parts or accessories stolen (MPD record)" :
-        p.incidentType === "PropertyDamage" ? "Property damage (MPD stores smashed windows here)" :
-        p.incidentType === "Unknown" ? "Vehicle break-in (MPD)" :
         `${p.offense} (MPD record)`;
       const timeLabel = p.timeOfDay ? p.timeOfDay.replace(/([a-z])([A-Z])/g, "$1 $2") : null;
       const parts = [timeLabel, p.itemsStolen ? "items taken" : null, p.policeReported ? "reported to police" : null]
