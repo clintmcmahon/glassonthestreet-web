@@ -36,6 +36,48 @@
     };
     var categoryByKey = Model.Categories.ToDictionary(c => c.Category, c => c.Count);
     var maxCategory = categoryByKey.Count > 0 ? Math.Max(1, categoryByKey.Values.Max()) : 1;
+
+    // Star Tribune analysis (Eric Roper, Sept. 2026) of Minneapolis vs.
+    // St. Paul population-adjusted crime rates, 2021-2025. Only each
+    // series' 2025 endpoint was printed as an exact number in the source
+    // chart; the 2021-2024 points are reconstructed from marker position
+    // against that chart's gridlines, so treat them as approximate -- the
+    // shape of the divergence is the point, not the exact intermediate
+    // values. Static reference data, not computed from this site's own
+    // database.
+    var cityComparisonYears = new[] { 2021, 2022, 2023, 2024, 2025 };
+    var cityComparisons = new[]
+    {
+        (Title: "Theft from motor vehicle", Minneapolis: new[] { 700, 720, 780, 950, 965 }, StPaul: new[] { 680, 620, 490, 490, 530 }),
+        (Title: "Damage to property", Minneapolis: new[] { 980, 1150, 1400, 1700, 1797 }, StPaul: new[] { 900, 950, 850, 750, 770 }),
+        (Title: "Motor vehicle theft", Minneapolis: new[] { 750, 1200, 1650, 1450, 1159 }, StPaul: new[] { 700, 1050, 600, 430, 417 })
+    };
+
+    const int chartW = 1000, chartH = 220, chartYMax = 2000;
+    const int marginLeft = 46, marginRight = 56, marginTop = 16, marginBottom = 30;
+
+    string PlotPoints(int[] values)
+    {
+        var innerW = chartW - marginLeft - marginRight;
+        var innerH = chartH - marginTop - marginBottom;
+        var pts = new List<string>();
+        for (var i = 0; i < values.Length; i++)
+        {
+            var x = marginLeft + (innerW * i / (double)(values.Length - 1));
+            var y = marginTop + innerH - (innerH * values[i] / (double)chartYMax);
+            pts.Add($"{x.ToString("0.#")},{y.ToString("0.#")}");
+        }
+        return string.Join(" ", pts);
+    }
+
+    (double X, double Y) PlotPoint(int[] values, int index)
+    {
+        var innerW = chartW - marginLeft - marginRight;
+        var innerH = chartH - marginTop - marginBottom;
+        var x = marginLeft + (innerW * index / (double)(values.Length - 1));
+        var y = marginTop + innerH - (innerH * values[index] / (double)chartYMax);
+        return (x, y);
+    }
 }
 
 @section Head {
@@ -131,7 +173,70 @@
         </div>
     </div>
 
-    <h2 style="margin-top: 3rem; font-size: 1.4rem;">Why this exists</h2>
+</div>
+
+<div class="breakout city-comparison-section">
+    <div class="city-comparison-inner">
+        <h2 class="graph-heading" style="margin-bottom: 0.25rem;">How Minneapolis compares</h2>
+        <p class="field-hint" style="max-width: 640px; margin-bottom: 1.5rem;">
+            Five years ago Minneapolis and St. Paul had similar rates on all three of these.
+            St. Paul's have come down since. Minneapolis's mostly haven't.
+        </p>
+
+        @foreach (var series in cityComparisons)
+        {
+            var minneapolisPoints = PlotPoints(series.Minneapolis);
+            var stPaulPoints = PlotPoints(series.StPaul);
+            var minneapolisEnd = PlotPoint(series.Minneapolis, series.Minneapolis.Length - 1);
+            var stPaulEnd = PlotPoint(series.StPaul, series.StPaul.Length - 1);
+
+            <div class="city-chart">
+                <h3 class="city-chart-title">@series.Title</h3>
+                <svg viewBox="0 0 @chartW @chartH" class="city-chart-svg" role="img" aria-label="@series.Title, Minneapolis vs. St. Paul, 2021 to 2025">
+                    @for (var g = 0; g <= chartYMax; g += 500)
+                    {
+                        var gy = marginTop + (chartH - marginTop - marginBottom) - ((chartH - marginTop - marginBottom) * g / (double)chartYMax);
+                        <line x1="@marginLeft" y1="@gy.ToString("0.#")" x2="@(chartW - marginRight)" y2="@gy.ToString("0.#")" class="city-chart-gridline" />
+                        @Html.Raw($"<text x=\"{marginLeft - 8}\" y=\"{(gy + 4).ToString("0.#")}\" class=\"city-chart-axis-label\" text-anchor=\"end\">{g}</text>")
+                    }
+                    @for (var i = 0; i < cityComparisonYears.Length; i++)
+                    {
+                        var (x, _) = PlotPoint(series.Minneapolis, i);
+                        @Html.Raw($"<text x=\"{x.ToString("0.#")}\" y=\"{chartH - 6}\" class=\"city-chart-axis-label\" text-anchor=\"middle\">{cityComparisonYears[i]}</text>")
+                    }
+                    <polyline points="@stPaulPoints" class="city-chart-line stpaul" />
+                    <polyline points="@minneapolisPoints" class="city-chart-line minneapolis" />
+                    @for (var i = 0; i < series.Minneapolis.Length; i++)
+                    {
+                        var (x, y) = PlotPoint(series.Minneapolis, i);
+                        <circle cx="@x.ToString("0.#")" cy="@y.ToString("0.#")" r="3.5" class="city-chart-dot minneapolis" />
+                    }
+                    @for (var i = 0; i < series.StPaul.Length; i++)
+                    {
+                        var (x, y) = PlotPoint(series.StPaul, i);
+                        <circle cx="@x.ToString("0.#")" cy="@y.ToString("0.#")" r="3.5" class="city-chart-dot stpaul" />
+                    }
+                    @Html.Raw($"<text x=\"{(minneapolisEnd.X + 8).ToString("0.#")}\" y=\"{(minneapolisEnd.Y + 4).ToString("0.#")}\" class=\"city-chart-end-label minneapolis\">{series.Minneapolis[^1]}</text>")
+                    @Html.Raw($"<text x=\"{(stPaulEnd.X + 8).ToString("0.#")}\" y=\"{(stPaulEnd.Y + 4).ToString("0.#")}\" class=\"city-chart-end-label stpaul\">{series.StPaul[^1]}</text>")
+                </svg>
+            </div>
+        }
+
+        <div class="city-chart-legend">
+            <span><span class="legend-dot" style="background: var(--accent);"></span>Minneapolis</span>
+            <span><span class="legend-dot" style="background: var(--positive);"></span>St. Paul</span>
+        </div>
+
+        <p class="field-hint" style="margin-top: 1rem;">
+            Source: Star Tribune analysis of Minneapolis and St. Paul crime data, 2021&ndash;2025
+            (Eric Roper, Sept. 2026). Population-adjusted rates as published; 2021&ndash;2024 points
+            are reconstructed from the source chart and approximate, 2025 points are exact.
+        </p>
+    </div>
+</div>
+
+<div class="page">
+    <h2 style="margin-top: 1rem; font-size: 1.4rem;">Why this exists</h2>
     <p>
         Police don't track this the way we need them to. Their data has a
         category for a car getting broken into, "Theft From Motor
