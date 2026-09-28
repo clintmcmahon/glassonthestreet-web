@@ -36,8 +36,16 @@
     return { from: toDateInput(from), to: toDateInput(to) };
   }
 
+  // Deliberately local date parts, not toISOString() (which is UTC) --
+  // ReportedDate is a plain calendar day with no timezone, and building
+  // this string from UTC instead of the viewer's local date silently
+  // shifts the cutoff by a day for part of the day in any timezone behind
+  // UTC (e.g. US Central), excluding reports that should be in range.
   function toDateInput(date) {
-    return date.toISOString().slice(0, 10);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   function buildQuery() {
