@@ -1,6 +1,6 @@
 @{
     ViewData["Title"] = "How we handle location data";
-    ViewData["Description"] = "Glass on the Street never stores the precise location of a report, not even privately. Every location is snapped to the block before it's saved.";
+    ViewData["Description"] = "Glass on the Street never stores the precise location of a report, not even privately. Every location is snapped to the middle of its block before it's saved.";
 }
 
 <div class="page page-narrow">
@@ -11,8 +11,16 @@
         This site is privacy-first. When you report a break-in, you place a
         pin at (or type in) the spot where it happened, but the exact point
         you chose is <strong>never stored</strong> &mdash; not privately, not
-        anywhere. It's snapped to roughly the block level before your report
-        is ever saved, and that's the only version that exists.
+        anywhere. It's snapped to the middle of your block (the 4800 block of
+        13th Ave S is shown halfway between 48th St and 49th St) before your
+        report is ever saved, and that's the only version that exists.
+        Minneapolis Police Department places its own records the same way,
+        so the two sources line up on the map.
+    </p>
+    <p>
+        To find your block, we send the point you chose to OpenStreetMap
+        services to look up the street and house number. Those lookups are
+        not saved on our side.
     </p>
     <p>
         The block-level point is close enough to see the pattern across a

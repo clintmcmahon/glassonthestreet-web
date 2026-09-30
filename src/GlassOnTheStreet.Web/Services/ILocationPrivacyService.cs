@@ -3,8 +3,9 @@ namespace GlassOnTheStreet.Web.Services;
 public interface ILocationPrivacyService
 {
     /// <summary>
-    /// Snaps a precise coordinate down to a coarse grid (roughly block-level)
-    /// so the publicly displayed point never reveals which house was hit.
+    /// Last-resort anonymizer: snaps a coordinate to a coarse grid (roughly
+    /// 400 to 500 m) when no block anchor can be found. Normal snapping to
+    /// the block's midpoint is IBlockAnchorService.
     /// </summary>
-    (decimal Lat, decimal Lng) SnapToBlock(decimal lat, decimal lng);
+    (decimal Lat, decimal Lng) SnapToCoarseGrid(decimal lat, decimal lng);
 }

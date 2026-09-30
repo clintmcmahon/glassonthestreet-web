@@ -2,15 +2,15 @@ namespace GlassOnTheStreet.Web.Services;
 
 public class LocationPrivacyService : ILocationPrivacyService
 {
-    // ~0.0018 degrees of latitude is roughly 200 meters in the Twin Cities,
-    // which lands a snapped point on the block rather than a specific house.
-    private const decimal GridSize = 0.0018m;
+    // 0.005 degrees of latitude is roughly 550 meters. Deliberately much
+    // coarser than a block: this only applies when the block's midpoint
+    // couldn't be determined, and a failure must never leak a near-exact
+    // location.
+    private const decimal GridSize = 0.005m;
 
-    public (decimal Lat, decimal Lng) SnapToBlock(decimal lat, decimal lng)
+    public (decimal Lat, decimal Lng) SnapToCoarseGrid(decimal lat, decimal lng)
     {
-        var snappedLat = SnapToGrid(lat);
-        var snappedLng = SnapToGrid(lng);
-        return (snappedLat, snappedLng);
+        return (SnapToGrid(lat), SnapToGrid(lng));
     }
 
     private static decimal SnapToGrid(decimal value)

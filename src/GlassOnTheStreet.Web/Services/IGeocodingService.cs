@@ -2,6 +2,8 @@ namespace GlassOnTheStreet.Web.Services;
 
 public record GeocodeResult(decimal Lat, decimal Lng, string DisplayName);
 
+public record ReverseAddress(string? Road, string? HouseNumber);
+
 public interface IGeocodingService
 {
     Task<GeocodeResult?> GeocodeAsync(string query, CancellationToken cancellationToken = default);
@@ -13,4 +15,11 @@ public interface IGeocodingService
     /// over.
     /// </summary>
     Task<string?> ReverseGeocodeNeighborhoodAsync(decimal lat, decimal lng, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Street and house number nearest a point, used to work out which block
+    /// a report belongs to. The point is sent to the geocoder and not stored.
+    /// Null when the lookup fails.
+    /// </summary>
+    Task<ReverseAddress?> ReverseGeocodeAddressAsync(decimal lat, decimal lng, CancellationToken cancellationToken = default);
 }

@@ -89,4 +89,40 @@ public class GeocodingService(HttpClient httpClient) : IGeocodingService
             return null;
         }
     }
+
+    public async Task<ReverseAddress?> ReverseGeocodeAddressAsync(decimal lat, decimal lng, CancellationToken cancellationToken = default)
+    {
+        var url = "reverse" +
+                   $"?lat={lat.ToString(CultureInfo.InvariantCulture)}" +
+                   $"&lon={lng.ToString(CultureInfo.InvariantCulture)}" +
+                   "&format=jsonv2" +
+                   "&addressdetails=1" +
+                   "&zoom=18";
+
+        try
+        {
+            using var response = await httpClient.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var result = await JsonSerializer.DeserializeAsync<JsonElement>(stream, cancellationToken: cancellationToken);
+
+            if (!result.TryGetProperty("address", out var address))
+            {
+                return null;
+            }
+
+            string? Read(string key) =>
+                address.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+            return new ReverseAddress(Read("road"), Read("house_number"));
+        }
+        catch (Exception) when (cancellationToken.IsCancellationRequested is false)
+        {
+            return null;
+        }
+    }
 }

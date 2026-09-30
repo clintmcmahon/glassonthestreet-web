@@ -33,6 +33,7 @@ builder.Services.AddDbContext<GlassOnTheStreetContext>(options =>
 
 builder.Services.AddScoped<ILocationPrivacyService, LocationPrivacyService>();
 builder.Services.AddScoped<IGeofenceService, GeofenceService>();
+builder.Services.AddScoped<IBlockAnchorService, BlockAnchorService>();
 builder.Services.AddScoped<ICaptchaService, TurnstileCaptchaService>();
 builder.Services.AddScoped<IReportStatsService, ReportStatsService>();
 builder.Services.AddScoped<ISyncStatusService, SyncStatusService>();
@@ -40,6 +41,12 @@ builder.Services.AddScoped<ISyncStatusService, SyncStatusService>();
 builder.Services.AddHttpClient<IGeocodingService, GeocodingService>(client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("GlassOnTheStreet/1.0 (Minneapolis break-in map)");
+});
+
+builder.Services.AddHttpClient<IIntersectionFinder, OverpassIntersectionFinder>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(12);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("GlassOnTheStreet/1.0 (Minneapolis break-in map)");
 });
 

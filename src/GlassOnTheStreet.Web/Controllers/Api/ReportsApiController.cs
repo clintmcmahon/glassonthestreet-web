@@ -12,7 +12,7 @@ namespace GlassOnTheStreet.Web.Controllers.Api;
 [Route("api/reports")]
 public class ReportsApiController(
     GlassOnTheStreetContext db,
-    ILocationPrivacyService privacyService,
+    IBlockAnchorService blockAnchorService,
     IGeofenceService geofenceService,
     ICaptchaService captchaService,
     IGeocodingService geocodingService,
@@ -150,7 +150,10 @@ public class ReportsApiController(
             return BadRequest(new { error = "Location must be within the Minneapolis metro area." });
         }
 
-        var (displayLat, displayLng) = privacyService.SnapToBlock(submission.Lat, submission.Lng);
+        // The submitted point is used only to find the block's anchor (the
+        // midpoint MPD would use) and is never stored.
+        var anchor = await blockAnchorService.SnapAsync(submission.Lat, submission.Lng, cancellationToken);
+        var (displayLat, displayLng) = (anchor.Lat, anchor.Lng);
 
         // Best-effort only -- reverse geocoding the already-anonymized point
         // purely to power the neighborhood stat, never blocks a submission.
@@ -190,7 +193,7 @@ public class ReportsApiController(
         db.Reports.Add(report);
         await db.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("New report {ReportId} submitted for {ReportedDate}, pending review", report.Id, report.ReportedDate);
+        logger.LogInformation("New report {ReportId} submitted for {ReportedDate}, pending review (anchor: {AnchorMethod})", report.Id, report.ReportedDate, anchor.Method);
 
         return CreatedAtAction(nameof(GetReports), new { id = report.Id }, new
         {

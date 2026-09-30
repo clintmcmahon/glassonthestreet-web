@@ -1,7 +1,7 @@
 @inject IConfiguration Configuration
 @{
     ViewData["Title"] = "Report a break-in";
-    ViewData["Description"] = "Report a car break-in in Minneapolis in under 30 seconds. Date, location, and what happened -- your exact location is never stored, only the block it snaps to.";
+    ViewData["Description"] = "Report a car break-in in Minneapolis in under 30 seconds. Date, location, and what happened -- your exact location is never stored, only the middle of your block.";
     var turnstileSiteKey = Configuration["Captcha:TurnstileSiteKey"];
 }
 
@@ -18,7 +18,7 @@
     <h1 style="font-size: 1.9rem;">Tell us what happened</h1>
     <p class="lede" style="font-size: 1rem;">
         Takes about 30 seconds. Your exact location is never stored — it's
-        snapped to the block before your report is saved.
+        snapped to the middle of your block before your report is saved.
     </p>
 
     <form id="report-form">

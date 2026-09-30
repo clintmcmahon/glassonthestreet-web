@@ -52,20 +52,18 @@ namespace GlassOnTheStreet.Web.Services;
 /// matches zero rows.
 ///
 /// We read the wgsXAnon/wgsYAnon fields rather than Latitude/Longitude.
-/// The "Anon" naming suggests the city intends these as an anonymized
-/// coordinate, but spot-checking several theft-from-vehicle records shows
-/// they're effectively identical to the precise point for this offense
-/// category -- whatever jittering the city applies elsewhere doesn't seem
-/// to apply here. We treat them as precise and run our own
-/// LocationPrivacyService.SnapToBlock on top regardless, same as any
-/// resident-submitted report. Note also: wgsXAnon/wgsYAnon are Web
-/// Mercator (EPSG:3857) meters, not WGS84 degrees, despite the "wgs"
-/// name -- see WebMercatorToWgs84 below.
+/// They are the city's own anonymized point: every incident on a block
+/// shares one coordinate, the midpoint of the block ("0048XX 13TH AVE S"
+/// sits halfway between 48th St and 49th St, checked against OpenStreetMap
+/// cross-street positions). They are stored as-is, with no further
+/// snapping, and resident reports (see BlockAnchorService) reuse the same
+/// anchors. Note: wgsXAnon/wgsYAnon are Web Mercator (EPSG:3857)
+/// meters, not WGS84 degrees, despite the "wgs" name -- see
+/// WebMercatorToWgs84 below.
 /// </summary>
 public class MinneapolisOpenDataImportService(
     HttpClient httpClient,
     GlassOnTheStreetContext db,
-    ILocationPrivacyService privacyService,
     IGeofenceService geofenceService,
     ILogger<MinneapolisOpenDataImportService> logger) : IOfficialDataImportService
 {
@@ -194,7 +192,7 @@ public class MinneapolisOpenDataImportService(
                 }
 
                 var (anonLat, anonLng) = WebMercatorToWgs84(mercatorX.Value, mercatorY.Value);
-                var (displayLat, displayLng) = privacyService.SnapToBlock(anonLat, anonLng);
+                var (displayLat, displayLng) = (Math.Round(anonLat, 6), Math.Round(anonLng, 6));
                 if (!geofenceService.IsWithinServiceArea(displayLat, displayLng))
                 {
                     skippedInvalid++;
