@@ -586,6 +586,7 @@ fieldset {
 
 .city-chart {
   margin-top: 1.75rem;
+  position: relative;
 }
 
 .city-chart-title {
@@ -627,6 +628,98 @@ fieldset {
 }
 
 .city-chart-end-label.minneapolis { fill: var(--accent); }
+
+/* Projected current year: dashed segment, hollow marker, and a faint
+   vertical link from the actual year-to-date dot up to the projection. */
+.city-chart-line-projected {
+  stroke-width: 2.5;
+  stroke-dasharray: 6 5;
+}
+
+.city-chart-line-projected.minneapolis { stroke: var(--accent); }
+
+.city-chart-line-gap {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+  opacity: 0.6;
+}
+
+.city-chart-dot-projected {
+  fill: var(--paper);
+  stroke-width: 2.5;
+}
+
+.city-chart-dot-projected.minneapolis { stroke: var(--accent); }
+
+/* Hover / focus / tap. */
+.city-chart-year {
+  outline: none;
+  cursor: pointer;
+}
+
+.city-chart-hit {
+  fill: transparent;
+}
+
+.city-chart-guide {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+  opacity: 0;
+}
+
+.city-chart-year.is-active .city-chart-guide,
+.city-chart-year:focus-visible .city-chart-guide {
+  opacity: 0.35;
+}
+
+.city-chart-dot,
+.city-chart-dot-projected {
+  transition: r 0.1s ease-out;
+}
+
+.city-chart-year.is-active .city-chart-dot,
+.city-chart-year:focus-visible .city-chart-dot {
+  r: 5.5;
+}
+
+.city-chart-year.is-active .city-chart-dot-projected,
+.city-chart-year:focus-visible .city-chart-dot-projected {
+  r: 6.5;
+}
+
+.city-chart-tooltip {
+  position: absolute;
+  z-index: 5;
+  max-width: 240px;
+  padding: 0.5rem 0.7rem;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s ease-out;
+}
+
+.city-chart-tooltip.is-visible { opacity: 1; }
+
+.city-chart-tooltip-title {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.city-chart-tooltip-value {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.city-chart-tooltip-detail {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
 
 @media (max-width: 780px) {
   .graphs-grid {

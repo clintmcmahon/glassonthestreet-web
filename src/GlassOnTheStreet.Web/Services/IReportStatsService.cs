@@ -26,7 +26,10 @@ public record MonthlyCount(string MonthLabel, int Count);
 
 public record CategoryCount(string Category, int Count);
 
-public record YearlyCount(int Year, int Count);
+// For the current year, Count is the real year-to-date figure (as of AsOf)
+// and ProjectedCount is the estimated full-year total. Earlier years leave
+// both null.
+public record YearlyCount(int Year, int Count, int? ProjectedCount = null, DateOnly? AsOf = null);
 
 /// <summary>
 /// Shared behind the JSON API (ReportsApiController, for client-side
@@ -49,7 +52,8 @@ public interface IReportStatsService
 
     /// <summary>
     /// Year-by-year counts for a single MPD-imported IncidentType, from
-    /// startYear through the current year. Used for the homepage's
+    /// startYear through the current year. The current year carries a
+    /// projected full-year total. Used for the homepage's
     /// "how these categories have trended since 2021" charts -- our own
     /// data, not a third-party source.
     /// </summary>

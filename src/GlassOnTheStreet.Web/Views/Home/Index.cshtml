@@ -66,28 +66,13 @@
         return (int)(10 * magnitude);
     }
 
-    string PlotPoints(IReadOnlyList<YearlyCount> counts, int yMax)
-    {
-        var innerW = chartW - marginLeft - marginRight;
-        var innerH = chartH - marginTop - marginBottom;
-        var pts = new List<string>();
-        for (var i = 0; i < counts.Count; i++)
-        {
-            var x = marginLeft + (innerW * i / (double)(counts.Count - 1));
-            var y = marginTop + innerH - (innerH * counts[i].Count / (double)yMax);
-            pts.Add($"{x.ToString("0.#")},{y.ToString("0.#")}");
-        }
-        return string.Join(" ", pts);
-    }
+    string F(double v) => v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
 
-    (double X, double Y) PlotPoint(IReadOnlyList<YearlyCount> counts, int index, int yMax)
-    {
-        var innerW = chartW - marginLeft - marginRight;
-        var innerH = chartH - marginTop - marginBottom;
-        var x = marginLeft + (innerW * index / (double)(counts.Count - 1));
-        var y = marginTop + innerH - (innerH * counts[index].Count / (double)yMax);
-        return (x, y);
-    }
+    double PlotX(int pointCount, int index) =>
+        marginLeft + ((chartW - marginLeft - marginRight) * index / (double)(pointCount - 1));
+
+    double PlotY(int value, int yMax) =>
+        marginTop + (chartH - marginTop - marginBottom) - ((chartH - marginTop - marginBottom) * value / (double)yMax);
 }
 
 @section Head {
@@ -199,39 +184,90 @@
 
         @foreach (var series in yearlyCharts)
         {
-            var yMax = NiceMax(series.Counts.Count > 0 ? series.Counts.Max(c => c.Count) : 0);
-            var linePoints = PlotPoints(series.Counts, yMax);
-            var endPoint = PlotPoint(series.Counts, series.Counts.Count - 1, yMax);
+            var counts = series.Counts;
+            var n = counts.Count;
+            var last = counts[^1];
+            var hasProjection = last.ProjectedCount is not null;
+            var yMax = NiceMax(n > 0 ? counts.Max(c => c.ProjectedCount ?? c.Count) : 0);
             var gridStep = Math.Max(1, yMax / 4);
+            var solidCount = hasProjection ? n - 1 : n;
+            var solidPoints = string.Join(" ", Enumerable.Range(0, solidCount)
+                .Select(i => $"{F(PlotX(n, i))},{F(PlotY(counts[i].Count, yMax))}"));
+            var colWidth = (chartW - marginLeft - marginRight) / (double)(n - 1);
+            var chartBottom = chartH - marginBottom;
 
             <div class="city-chart">
                 <h3 class="city-chart-title">@series.Title</h3>
-                <svg viewBox="0 0 @chartW @chartH" class="city-chart-svg" role="img" aria-label="@series.Title, Minneapolis, 2021 to today">
+                <svg viewBox="0 0 @chartW @chartH" class="city-chart-svg" role="group" aria-label="@series.Title, Minneapolis, 2021 to today">
                     @for (var g = 0; g <= yMax; g += gridStep)
                     {
-                        var gy = marginTop + (chartH - marginTop - marginBottom) - ((chartH - marginTop - marginBottom) * g / (double)yMax);
-                        <line x1="@marginLeft" y1="@gy.ToString("0.#")" x2="@(chartW - marginRight)" y2="@gy.ToString("0.#")" class="city-chart-gridline" />
-                        @Html.Raw($"<text x=\"{marginLeft - 8}\" y=\"{(gy + 4).ToString("0.#")}\" class=\"city-chart-axis-label\" text-anchor=\"end\">{g.Format()}</text>")
+                        var gy = PlotY(g, yMax);
+                        <line x1="@marginLeft" y1="@F(gy)" x2="@(chartW - marginRight)" y2="@F(gy)" class="city-chart-gridline" />
+                        @Html.Raw($"<text x=\"{marginLeft - 8}\" y=\"{F(gy + 4)}\" class=\"city-chart-axis-label\" text-anchor=\"end\">{g.Format()}</text>")
                     }
-                    @for (var i = 0; i < series.Counts.Count; i++)
+                    @for (var i = 0; i < n; i++)
                     {
-                        var (x, _) = PlotPoint(series.Counts, i, yMax);
-                        @Html.Raw($"<text x=\"{x.ToString("0.#")}\" y=\"{chartH - 6}\" class=\"city-chart-axis-label\" text-anchor=\"middle\">{series.Counts[i].Year}</text>")
+                        var isProjectedYear = i == n - 1 && hasProjection;
+                        var axisLabel = isProjectedYear ? $"{counts[i].Year} (proj.)" : counts[i].Year.ToString();
+                        @Html.Raw($"<text x=\"{F(PlotX(n, i))}\" y=\"{chartH - 6}\" class=\"city-chart-axis-label\" text-anchor=\"middle\">{axisLabel}</text>")
                     }
-                    <polyline points="@linePoints" class="city-chart-line minneapolis" />
-                    @for (var i = 0; i < series.Counts.Count; i++)
+                    <polyline points="@solidPoints" class="city-chart-line minneapolis" />
+                    @if (hasProjection)
                     {
-                        var (x, y) = PlotPoint(series.Counts, i, yMax);
-                        <circle cx="@x.ToString("0.#")" cy="@y.ToString("0.#")" r="3.5" class="city-chart-dot minneapolis" />
+                        <line x1="@F(PlotX(n, n - 2))" y1="@F(PlotY(counts[n - 2].Count, yMax))"
+                              x2="@F(PlotX(n, n - 1))" y2="@F(PlotY(last.ProjectedCount!.Value, yMax))"
+                              class="city-chart-line-projected minneapolis" />
+                        <line x1="@F(PlotX(n, n - 1))" y1="@F(PlotY(last.Count, yMax))"
+                              x2="@F(PlotX(n, n - 1))" y2="@F(PlotY(last.ProjectedCount!.Value, yMax))"
+                              class="city-chart-line-gap" />
                     }
-                    @Html.Raw($"<text x=\"{(endPoint.X + 8).ToString("0.#")}\" y=\"{(endPoint.Y + 4).ToString("0.#")}\" class=\"city-chart-end-label minneapolis\">{series.Counts[^1].Count.Format()}</text>")
+                    @for (var i = 0; i < n; i++)
+                    {
+                        var c = counts[i];
+                        var x = PlotX(n, i);
+                        var isProjectedYear = i == n - 1 && hasProjection;
+                        var asOf = c.AsOf?.ToString("MMM d", System.Globalization.CultureInfo.InvariantCulture);
+                        var tipTitle = isProjectedYear ? $"{c.Year} (projected)" : c.Year.ToString();
+                        var tipValue = isProjectedYear ? $"~{c.ProjectedCount!.Value.Format()} reports" : $"{c.Count.Format()} reports";
+                        var tipDetail = isProjectedYear
+                            ? $"{c.Count.Format()} so far through {asOf}. Projected from how much of the year was done by this date in earlier years."
+                            : c.AsOf is not null ? $"{c.Count.Format()} so far through {asOf}" : "";
+                        var hitLeft = Math.Max(0, x - colWidth / 2);
+                        var hitRight = Math.Min(chartW, x + colWidth / 2);
+                        var anchorY = PlotY(isProjectedYear ? c.ProjectedCount!.Value : c.Count, yMax);
+
+                        <g class="city-chart-year" tabindex="0" role="img"
+                           aria-label="@tipTitle: @tipValue. @tipDetail"
+                           data-tip-title="@tipTitle" data-tip-value="@tipValue" data-tip-detail="@tipDetail"
+                           data-anchor-x="@F(x)" data-anchor-y="@F(anchorY)">
+                            <rect class="city-chart-hit" x="@F(hitLeft)" y="0" width="@F(hitRight - hitLeft)" height="@chartBottom" />
+                            <line class="city-chart-guide" x1="@F(x)" y1="@marginTop" x2="@F(x)" y2="@chartBottom" />
+                            @if (isProjectedYear)
+                            {
+                                <circle cx="@F(x)" cy="@F(PlotY(c.Count, yMax))" r="3.5" class="city-chart-dot minneapolis" />
+                                <circle cx="@F(x)" cy="@F(anchorY)" r="4.5" class="city-chart-dot-projected minneapolis" />
+                            }
+                            else
+                            {
+                                <circle cx="@F(x)" cy="@F(anchorY)" r="3.5" class="city-chart-dot minneapolis" />
+                            }
+                        </g>
+                    }
+                    @{
+                        var endPoint = (X: PlotX(n, n - 1), Y: PlotY(hasProjection ? last.ProjectedCount!.Value : last.Count, yMax));
+                        var endText = hasProjection ? $"~{last.ProjectedCount!.Value.Format()}" : last.Count.Format();
+                    }
+                    @Html.Raw($"<text x=\"{F(endPoint.X + 10)}\" y=\"{F(endPoint.Y + 4)}\" class=\"city-chart-end-label minneapolis\">{endText}</text>")
                 </svg>
             </div>
         }
 
         <p class="field-hint" style="margin-top: 1.5rem;">
             Source: this site's import of Minneapolis Police Department open data. The current
-            year is a partial count (through today), not a full-year total. "Destruction/damage/
+            year is projected: the year-to-date count divided by the share of the year's total
+            that was already recorded by this date in 2021 through last year. The dashed line and
+            hollow marker are the projection, the solid dot is the actual count so far. Hover or
+            tap a year for exact numbers. "Destruction/damage/
             vandalism of property" is MPD's own category name and isn't vehicle-specific -- see
             <a asp-controller="Map" asp-action="Index">the map</a> for details.
         </p>
@@ -277,4 +313,5 @@
     <script src="~/js/format.js" asp-append-version="true"></script>
     <script src="~/js/map-theme.js" asp-append-version="true"></script>
     <script src="~/js/home-map.js" asp-append-version="true"></script>
+    <script src="~/js/city-chart-tooltip.js" asp-append-version="true"></script>
 }

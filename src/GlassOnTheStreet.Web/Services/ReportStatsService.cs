@@ -1,4 +1,5 @@
 using GlassOnTheStreet.Web.Data;
+using GlassOnTheStreet.Web.Infrastructure;
 using GlassOnTheStreet.Web.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -168,13 +169,50 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
             .Select(r => r.ReportedDate)
             .ToListAsync(cancellationToken);
 
-        var currentYear = DateOnly.FromDateTime(DateTime.UtcNow).Year;
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
+        var currentYear = today.Year;
         var counts = new List<YearlyCount>();
+        var priorYtdTotal = 0;
+        var priorFullTotal = 0;
         for (var year = startYear; year <= currentYear; year++)
         {
-            counts.Add(new YearlyCount(year, dates.Count(d => d.Year == year)));
+            var yearCount = dates.Count(d => d.Year == year);
+            if (year < currentYear)
+            {
+                // Same calendar cutoff in each earlier year (Feb 29 falls
+                // back to Feb 28), to measure how much of a typical year's
+                // total has already happened by today's date.
+                var cutoff = new DateOnly(year, today.Month, Math.Min(today.Day, DateTime.DaysInMonth(year, today.Month)));
+                priorYtdTotal += dates.Count(d => d.Year == year && d <= cutoff);
+                priorFullTotal += yearCount;
+                counts.Add(new YearlyCount(year, yearCount));
+            }
+            else
+            {
+                counts.Add(new YearlyCount(
+                    year, yearCount,
+                    ProjectYearEnd(yearCount, priorYtdTotal, priorFullTotal),
+                    today));
+            }
         }
 
         return counts;
+    }
+
+    /// <summary>
+    /// Projects a full-year total from a year-to-date count, using the share
+    /// of the year that was already done by this date in earlier years
+    /// (pooled across those years, so one odd year doesn't dominate).
+    /// Null when there's no prior data to base a share on.
+    /// </summary>
+    public static int? ProjectYearEnd(int yearToDate, int priorYearsToDate, int priorYearsFullTotal)
+    {
+        if (priorYearsFullTotal <= 0 || priorYearsToDate <= 0)
+        {
+            return null;
+        }
+
+        var share = priorYearsToDate / (double)priorYearsFullTotal;
+        return (int)Math.Round(yearToDate / share);
     }
 }
