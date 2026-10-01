@@ -43,7 +43,13 @@ public class OfficialDataSyncBackgroundService(
 
     private const string CleanReimportTaskKey = "CleanReimport2026-09-30";
     private const string ResnapUserReportsTaskKey = "ResnapUserReports2026-09-30";
-    private static readonly DateOnly CleanReimportStartDate = new(2020, 1, 1);
+    private static readonly DateOnly CleanReimportStartDate = new(2019, 1, 1);
+
+    // Pre-COVID baseline: MPD's current records feed starts in January 2019
+    // (earlier dates are a handful of stray rows per year), so this is the
+    // earliest real data. Additive and non-destructive, unlike the clean
+    // reimport: case-number dedup skips everything already on file.
+    private const string BackfillFrom2019TaskKey = "BackfillFrom2019-2026-10-01";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -57,6 +63,7 @@ public class OfficialDataSyncBackgroundService(
         }
 
         await RunCleanReimportOnceAsync(stoppingToken);
+        await RunBackfillFrom2019OnceAsync(stoppingToken);
         await RunResnapUserReportsOnceAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -133,6 +140,37 @@ public class OfficialDataSyncBackgroundService(
             // an interrupted or failed clean reimport should retry on the
             // next startup rather than silently leave the data half-wiped.
             logger.LogError(ex, "One-time clean reimport failed; will retry on next startup");
+        }
+    }
+
+    private async Task RunBackfillFrom2019OnceAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
+
+            if (await db.OneTimeTasks.AnyAsync(t => t.Key == BackfillFrom2019TaskKey, cancellationToken))
+            {
+                return;
+            }
+
+            var lookbackDays = (int)(DateOnly.FromDateTime(DateTime.UtcNow).ToDateTime(TimeOnly.MinValue)
+                - CleanReimportStartDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
+            logger.LogWarning("Running one-time MPD backfill from {StartDate}", CleanReimportStartDate);
+
+            var importService = scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>();
+            var result = await importService.ImportAsync(lookbackDays, cancellationToken);
+            logger.LogInformation(
+                "MPD backfill finished: fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
+                result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
+
+            db.OneTimeTasks.Add(new OneTimeTask { Key = BackfillFrom2019TaskKey });
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "MPD backfill failed; will retry on next startup");
         }
     }
 

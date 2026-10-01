@@ -1,4 +1,5 @@
 using System.Text;
+using GlassOnTheStreet.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GlassOnTheStreet.Web.Controllers;
@@ -9,23 +10,34 @@ namespace GlassOnTheStreet.Web.Controllers;
 /// -- changes essentially continuously) reflects the actual current time
 /// instead of going stale the moment someone forgets to hand-edit a file.
 /// </summary>
-public class SitemapController(IConfiguration configuration) : Controller
+public class SitemapController(IConfiguration configuration, ITrendsService trendsService) : Controller
 {
     private record SitemapEntry(string Path, string ChangeFreq, DateTime? LastModUtc);
 
     [HttpGet("sitemap.xml")]
-    public IActionResult Index()
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         var baseUrl = (configuration["Site:BaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
         var now = DateTime.UtcNow;
 
-        var entries = new[]
+        var areas = await trendsService.GetAreaIndexAsync(cancellationToken);
+
+        var entries = new List<SitemapEntry>
         {
             new SitemapEntry("/", "daily", now),
             new SitemapEntry("/map", "daily", now),
+            new SitemapEntry("/trends", "daily", now),
             new SitemapEntry("/report", "monthly", null),
-            new SitemapEntry("/privacy", "monthly", null)
+            new SitemapEntry("/privacy", "monthly", null),
+            new SitemapEntry("/neighborhoods", "daily", now)
         };
+
+        // Every ward and neighborhood page with enough data to be worth indexing
+        // (the page itself marks thinner ones noindex).
+        foreach (var area in areas.Wards.Concat(areas.Neighborhoods).Where(a => a.Counts.Sum() >= 30))
+        {
+            entries.Add(new SitemapEntry(area.Url, "daily", now));
+        }
 
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");

@@ -829,3 +829,629 @@ fieldset {
     height: 52vh;
   }
 }
+
+/* ---------- /trends dashboard ---------- */
+
+.trends-headline {
+  font-size: 1.05rem;
+  max-width: 760px;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.trends-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.trends-filter {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 220px;
+}
+
+.trends-filter span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.trends-filter select {
+  padding: 0.5rem 0.65rem;
+  font-size: 0.95rem;
+}
+
+.trends-reset {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+#trends.is-loading .trends-card {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.trends-card {
+  border-top: 1px solid var(--rule);
+  padding: 1.5rem 0 1.25rem;
+}
+
+.trends-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.trends-card-title {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.trends-card-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  max-width: 620px;
+}
+
+.trends-download {
+  flex: none;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.trends-canvas {
+  position: relative;
+  width: 100%;
+}
+
+.trends-svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  outline: none;
+}
+
+.trends-svg:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.trends-grid {
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+.trends-axis {
+  font-family: "Manrope", sans-serif;
+  font-size: 11px;
+  fill: var(--ink-soft);
+}
+
+.trends-end-label {
+  font-family: "Manrope", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.trends-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trends-line.is-current {
+  stroke-width: 3;
+}
+
+.trends-dot-partial {
+  fill: var(--paper);
+  stroke-width: 2.5;
+}
+
+.trends-dot {
+  stroke: var(--paper);
+  stroke-width: 2;
+}
+
+.trends-guide {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.trends-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.trends-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+}
+
+.trends-legend-item:hover {
+  background: var(--paper-raised);
+}
+
+.trends-legend-item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.trends-legend-item.is-off {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+.trends-legend-key {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 2px solid;
+  box-sizing: border-box;
+}
+
+.trends-legend-key.is-current {
+  border-top-width: 3px;
+}
+
+.trends-legend-item.is-off .trends-legend-key {
+  border-top-style: dotted;
+  opacity: 0.6;
+}
+
+.trends-legend-reset {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  padding: 0.2rem 0.4rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.trends-legend-hollow {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.trends-legend-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  color: var(--ink-soft);
+}
+
+/* Tooltip shared by every chart. */
+.trends-tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: 140px;
+  max-width: 260px;
+  padding: 0.55rem 0.7rem;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s ease-out;
+}
+
+.trends-tooltip.is-visible {
+  opacity: 1;
+}
+
+.trends-tip-title {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  margin-bottom: 0.2rem;
+}
+
+.trends-tip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.trends-tip-row strong {
+  font-size: 0.95rem;
+  min-width: 3.2em;
+  font-variant-numeric: tabular-nums;
+}
+
+.trends-tip-key {
+  align-self: center;
+  width: 12px;
+  height: 2px;
+  flex: none;
+}
+
+.trends-tip-label {
+  opacity: 0.75;
+}
+
+/* Same-period stats. */
+.trends-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.5rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.trends-stat-label {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.trends-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.trends-stat-arrow {
+  font-size: 0.9rem;
+  margin-right: 0.35rem;
+  color: var(--ink-soft);
+}
+
+.trends-bar-fill {
+  fill: #b4b3ad;
+}
+
+.trends-bar-fill.is-current {
+  fill: var(--accent);
+}
+
+.trends-bar {
+  outline: none;
+  cursor: default;
+}
+
+.trends-bar.is-active .trends-bar-fill:not(.is-current),
+.trends-bar:focus-visible .trends-bar-fill:not(.is-current) {
+  fill: #77766f;
+}
+
+.trends-bar.is-active .trends-bar-fill.is-current,
+.trends-bar:focus-visible .trends-bar-fill.is-current {
+  fill: #c2410c;
+}
+
+.trends-bar-value {
+  font-family: "Manrope", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+.trends-hit {
+  fill: transparent;
+}
+
+/* Heatmap. */
+.trends-cell {
+  outline: none;
+}
+
+.trends-cell.is-empty {
+  fill: none;
+  stroke: var(--rule);
+  stroke-dasharray: 2 3;
+}
+
+.trends-cell.is-partial {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
+.trends-cell.is-active,
+.trends-cell:focus-visible {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+/* Area rankings. */
+.trends-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.trends-tab {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.trends-tab.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.trends-areas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.trends-area {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(120px, 190px) 1fr 4rem 5.5rem 90px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.9rem;
+}
+
+.trends-area-rank {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.trends-area-name {
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+
+.trends-area-name:hover,
+.trends-area-name:focus-visible {
+  text-decoration-color: var(--ink);
+}
+
+.trends-area-bar {
+  display: block;
+  height: 10px;
+}
+
+.trends-area-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+}
+
+.trends-area-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.trends-area-change {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.trends-spark {
+  display: block;
+}
+
+.trends-spark-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.trends-empty {
+  color: var(--ink-soft);
+}
+
+/* Table view. */
+.trends-table {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.trends-table summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.trends-table table {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  display: block;
+  overflow-x: auto;
+}
+
+.trends-table th,
+.trends-table td {
+  text-align: right;
+  padding: 0.25rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.trends-table th:first-child,
+.trends-table td:first-child {
+  text-align: left;
+}
+
+@media (max-width: 700px) {
+  .trends-card-head {
+    flex-direction: column;
+  }
+
+  .trends-area {
+    grid-template-columns: 1.25rem 1fr 3.5rem 5rem;
+    grid-template-areas: "rank name count change" ". bar bar spark";
+  }
+
+  .trends-area-rank { grid-area: rank; }
+  .trends-area-name { grid-area: name; }
+  .trends-area-count { grid-area: count; }
+  .trends-area-change { grid-area: change; }
+  .trends-area-bar { grid-area: bar; }
+  .trends-area-spark { grid-area: spark; }
+}
+
+/* ---------- neighborhood and ward pages ---------- */
+
+.area-crumbs {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-bottom: 1rem;
+}
+
+.area-crumbs a {
+  color: var(--ink-soft);
+}
+
+.area-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+
+.area-links .btn-outline {
+  display: inline-block;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.85rem;
+}
+
+.area-table {
+  width: 100%;
+  max-width: 760px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.75rem;
+  display: block;
+  overflow-x: auto;
+}
+
+.area-table th,
+.area-table td {
+  text-align: right;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.area-table th:first-child,
+.area-table td:first-child {
+  text-align: left;
+}
+
+.area-bars {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  max-width: 560px;
+}
+
+.area-bars li {
+  display: grid;
+  grid-template-columns: 7rem 1fr 3.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+}
+
+.area-bars strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.area-related {
+  list-style: none;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0;
+  columns: 2;
+  column-gap: 2rem;
+  max-width: 560px;
+}
+
+.area-related li {
+  padding: 0.2rem 0;
+  font-size: 0.9rem;
+}
+
+.area-related span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  margin-left: 0.4rem;
+}
+
+.trends-area-link {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-decoration: none;
+  margin-left: 0.4rem;
+}
+
+@media (max-width: 700px) {
+  .area-related {
+    columns: 1;
+  }
+}
+
+.trends-area-namecell {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 0.4rem;
+}
+
+.trends-area-link:hover {
+  color: var(--ink);
+}

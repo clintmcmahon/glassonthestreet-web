@@ -1,0 +1,205 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model GlassOnTheStreet.Web.Services.AreaPageData
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var t = Model.Trends;
+    var years = t.Years;
+    var cur = t.SamePeriod[^1];
+    var prior = t.SamePeriod[^2];
+    var first = t.SamePeriod[0];
+    var year = t.CurrentYear;
+    var isWard = Model.Kind == "ward";
+    var through = t.Through.ToString("MMM d", CultureInfo.InvariantCulture);
+    var placeName = isWard ? $"{Model.Name}, Minneapolis" : $"{Model.Name} neighborhood, Minneapolis";
+
+    string Change(int now, int then) =>
+        then == 0 ? "" : $"{(now >= then ? "up" : "down")} {Math.Abs(Math.Round((now - then) / (double)then * 100)).ToString("0", CultureInfo.InvariantCulture)}%";
+
+    var changePrior = Change(cur, prior);
+    var topCategory = Model.Categories.OrderByDescending(c => c.Counts[^1]).First();
+    var topBucket = Model.TimeOfDay.Where(b => b.Label != "Not recorded").OrderByDescending(b => b.Count).First();
+    var bucketTotal = Model.TimeOfDay.Sum(b => b.Count);
+    string When(string bucket) => bucket switch
+    {
+        "Overnight" => "overnight",
+        "Morning" => "in the morning",
+        "Afternoon" => "in the afternoon",
+        "Evening" => "in the evening",
+        _ => bucket.ToLowerInvariant()
+    };
+    var categoryTotal = Model.Categories.Sum(c => c.Counts[^1]);
+
+    ViewData["Title"] = $"Car Break-Ins in {Model.Name}, Minneapolis | Glass on the Street";
+    ViewData["Description"] =
+        $"{Model.Name} has had {cur.ToString("N0", CultureInfo.InvariantCulture)} MPD-reported car break-ins, auto thefts and vandalism cases so far in {year}" +
+        (changePrior.Length > 0 ? $", {changePrior} from {year - 1}" : "") + ". Year-by-year data back to 2019.";
+
+    // Too little data to be a useful page: keep it reachable but out of search.
+    if (Model.TotalReports < 30)
+    {
+        ViewData["NoIndex"] = true;
+    }
+
+    var parentPath = "/neighborhoods";
+    var datasetJson = StructuredData.Dataset(baseUrl, Model.Url,
+        $"Car break-in and auto theft reports in {placeName}",
+        $"MPD-reported theft from motor vehicle, motor vehicle theft, vehicle parts theft and property damage reports in {placeName}, by month and year, 2019 to {t.Through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)}.",
+        placeName, t.Through, "/api/trends" + (isWard ? $"?ward={Model.Ward}" : $"?neighborhood={Uri.EscapeDataString(Model.Name)}"));
+    var breadcrumbJson = StructuredData.Breadcrumbs(baseUrl,
+        ("Home", "/"), (isWard ? "Neighborhoods and wards" : "Neighborhoods", parentPath), (Model.Name, Model.Url));
+    var barsLabel = $"Reports in {Model.Name}, Jan 1 to {through}, {years[0]} to {year}";
+    var exploreUrl = isWard ? $"/trends?ward={Model.Ward}" : $"/trends?neighborhood={Uri.EscapeDataString(Model.Name)}";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(datasetJson))
+    @Html.Raw(StructuredData.Tag(breadcrumbJson))
+}
+
+<div class="page">
+    <nav class="area-crumbs" aria-label="Breadcrumb">
+        <a asp-controller="Home" asp-action="Index">Home</a> /
+        <a href="@parentPath">Neighborhoods and wards</a> /
+        <span>@Model.Name</span>
+    </nav>
+
+    <p class="kicker">@(isWard ? "Ward" : "Neighborhood") &middot; Minneapolis</p>
+    <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Car break-ins in @Model.Name, Minneapolis</h1>
+
+    <p class="trends-headline">
+        From Jan 1 through @through, @year, the Minneapolis Police Department recorded
+        <strong>@cur.ToString("N0", CultureInfo.InvariantCulture)</strong> car break-in, auto theft, vehicle parts theft and
+        property damage reports in @(isWard ? Model.Name : "the " + Model.Name + " neighborhood")@(changePrior.Length > 0 ? $": {changePrior} from {prior.ToString("N0", CultureInfo.InvariantCulture)} in the same period of {year - 1}" : "")@(Change(cur, first) is { Length: > 0 } c ? $", and {c} from {first.ToString("N0", CultureInfo.InvariantCulture)} in {years[0]}" : "").
+        That ranks @Model.Name <strong>#@Model.Rank of @Model.RankedOf</strong> @(isWard ? "wards" : "Minneapolis neighborhoods") by reports this year.
+        @if (categoryTotal > 0)
+        {
+            <text>The most common category was @topCategory.Label.ToLowerInvariant() (@topCategory.Counts[^1].ToString("N0", CultureInfo.InvariantCulture), @Math.Round(topCategory.Counts[^1] * 100.0 / categoryTotal).ToString("0", CultureInfo.InvariantCulture)% of the total).</text>
+        }
+        @if (bucketTotal > 0 && topBucket.Count > 0)
+        {
+            <text> Reports with a recorded time most often happened @When(topBucket.Label).</text>
+        }
+    </p>
+
+    <div class="area-links">
+        <a class="btn-outline" href="@exploreUrl">Explore interactively</a>
+        <a class="btn-outline" asp-controller="Map" asp-action="Index">See the map</a>
+        <a class="btn-outline" asp-controller="Report" asp-action="Index">Report a break-in</a>
+        @if (!isWard && Model.Ward is { } ward)
+        {
+            <a class="btn-outline" href="/wards/@ward">Ward @ward</a>
+        }
+    </div>
+
+    <section class="trends-card" aria-labelledby="area-period-title">
+        <h2 id="area-period-title" class="trends-card-title">@Model.Name reports by year, Jan 1 to @through</h2>
+        <p class="trends-card-sub">The same calendar window every year, so @year is compared like for like.</p>
+        <partial name="_YearBars" model="@((years, t.SamePeriod, barsLabel))" />
+        <table class="area-table">
+            <thead><tr><th>Year</th><th>Reports</th><th>Change from prior year</th></tr></thead>
+            <tbody>
+                @for (var i = 0; i < years.Length; i++)
+                {
+                    <tr>
+                        <td>@years[i]</td>
+                        <td>@t.SamePeriod[i].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@(i > 0 && Change(t.SamePeriod[i], t.SamePeriod[i - 1]) is { Length: > 0 } ch ? ch : "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="trends-card" aria-labelledby="area-cat-title">
+        <h2 id="area-cat-title" class="trends-card-title">By MPD category</h2>
+        <p class="trends-card-sub">Reports from Jan 1 to @through. "Property damage / vandalism" is MPD's own category and isn't vehicle-specific.</p>
+        <table class="area-table">
+            <thead>
+                <tr>
+                    <th>Category</th><th>@years[0]</th><th>@(year - 1)</th><th>@year</th><th>Change from @(year - 1)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var category in Model.Categories)
+                {
+                    <tr>
+                        <td>@category.Label</td>
+                        <td>@category.Counts[0].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@category.Counts[^2].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@category.Counts[^1].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@Change(category.Counts[^1], category.Counts[^2])</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="trends-card" aria-labelledby="area-time-title">
+        <h2 id="area-time-title" class="trends-card-title">Time of day, @year</h2>
+        <p class="trends-card-sub">When reports in @Model.Name happened, Jan 1 to @through. Many reports have no recorded time.</p>
+        <ul class="area-bars">
+            @{ var timeMax = Math.Max(1, Model.TimeOfDay.Max(b => b.Count)); }
+            @foreach (var bucket in Model.TimeOfDay.Where(b => b.Label != "Not recorded" || b.Count > 0))
+            {
+                <li>
+                    <span class="area-bars-label">@bucket.Label</span>
+                    <span class="trends-area-bar"><span class="trends-area-bar-fill" style="width: @((bucket.Count * 100.0 / timeMax).ToString("0.#", CultureInfo.InvariantCulture))%"></span></span>
+                    <strong>@bucket.Count.ToString("N0", CultureInfo.InvariantCulture)</strong>
+                </li>
+            }
+        </ul>
+    </section>
+
+    <section class="trends-card" aria-labelledby="area-month-title">
+        <h2 id="area-month-title" class="trends-card-title">Reports by month</h2>
+        <details class="trends-table" open>
+            <summary>Monthly counts, @years[0] to @year</summary>
+            <table class="area-table">
+                <thead>
+                    <tr>
+                        <th>Year</th>
+                        @foreach (var month in new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" })
+                        {
+                            <th>@month</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < years.Length; i++)
+                    {
+                        <tr>
+                            <td>@years[i]</td>
+                            @for (var m = 0; m < 12; m++)
+                            {
+                                <td>@(t.Monthly[i][m] is { } v ? v.ToString("N0", CultureInfo.InvariantCulture) : "")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </details>
+    </section>
+
+    @if (Model.Related.Count > 0)
+    {
+        <section class="trends-card" aria-labelledby="area-related-title">
+            <h2 id="area-related-title" class="trends-card-title">@(isWard ? "Neighborhoods in " + Model.Name : "Nearby in Ward " + Model.Ward)</h2>
+            <ul class="area-related">
+                @foreach (var related in Model.Related)
+                {
+                    <li><a href="@related.Url">@related.Name</a> <span>@related.Count.ToString("N0", CultureInfo.InvariantCulture) reports in @year</span></li>
+                }
+            </ul>
+            <p><a href="@parentPath">All Minneapolis neighborhoods and wards</a></p>
+        </section>
+    }
+
+    <p class="field-hint" style="margin-top: 1.5rem;">
+        Source: this site's import of Minneapolis Police Department open data, counted by report date through the
+        last date MPD has published. Counts are raw totals, not adjusted for population. 2019 is the first year of
+        MPD's current records feed and its early months run well below later years, so read comparisons against 2019 with care.
+        This is not an official crime statistic.
+    </p>
+</div>

@@ -1,0 +1,194 @@
+@using GlassOnTheStreet.Web.Infrastructure
+@using System.Globalization
+@inject IConfiguration Configuration
+@model GlassOnTheStreet.Web.Services.TrendsData
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var months = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    ViewData["Title"] = "Minneapolis Auto Theft and Break-In Trends | Glass on the Street";
+    ViewData["Description"] = "Minneapolis car break-in, auto theft and vandalism trends from MPD data, 2019 to today. Compare years and filter by category, ward and neighborhood.";
+
+    var current = Model.SamePeriod[^1];
+    var prior = Model.SamePeriod[^2];
+    var baseline = Model.SamePeriod[0];
+    var priorYear = Model.CurrentYear - 1;
+    var firstYear = Model.Years[0];
+
+    string Change(int now, int then, int year) =>
+        then == 0 ? "" : $"{(now >= then ? "up" : "down")} {Math.Abs(Math.Round((now - then) / (double)then * 100)).ToString("0", CultureInfo.InvariantCulture)}% from {year}";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Dataset(baseUrl, "/trends",
+        "Minneapolis car break-in, auto theft and vandalism trends, 2019 to today",
+        "Monthly and year-over-year counts of MPD-reported theft from motor vehicle, motor vehicle theft, vehicle parts theft and property damage in Minneapolis, with neighborhood and ward rankings.",
+        "Minneapolis, Minnesota", Model.Through, "/api/trends")))
+}
+
+<div class="page" id="trends" data-first-year="@firstYear">
+    <p class="kicker">Minneapolis</p>
+    <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Minneapolis car break-in and auto theft trends</h1>
+    <p class="lede" style="max-width: 720px;">
+        Minneapolis Police Department records for theft from vehicles, vehicle theft, parts theft
+        and property damage, @firstYear to today. 2019 is the last full year before COVID.
+    </p>
+
+    <p id="trends-headline" class="trends-headline">
+        Through @Model.Through.ToString("MMM d, yyyy", CultureInfo.InvariantCulture), MPD has recorded
+        <strong>@current.Format()</strong> reports in these categories since Jan 1@(Change(current, prior, priorYear) is { Length: > 0 } c1 ? $": {c1}" : "")@(Change(current, baseline, firstYear) is { Length: > 0 } c2 ? $", and {c2}" : "").
+    </p>
+
+    <div class="trends-filters" role="group" aria-label="Filters">
+        <label class="trends-filter">
+            <span>Category</span>
+            <select id="filter-category">
+                <option value="">All four categories</option>
+                <option value="theft-from-vehicle">Theft from motor vehicle</option>
+                <option value="parts-theft">Vehicle parts theft</option>
+                <option value="vehicle-theft">Motor vehicle theft</option>
+                <option value="property-damage">Property damage / vandalism</option>
+            </select>
+        </label>
+        <label class="trends-filter">
+            <span>Area</span>
+            <select id="filter-area">
+                <option value="">All of Minneapolis</option>
+            </select>
+        </label>
+        <button type="button" id="filter-reset" class="btn-outline trends-reset" hidden>Reset filters</button>
+    </div>
+
+    <section class="trends-card" id="chart-yoy" aria-labelledby="yoy-title">
+        <div class="trends-card-head">
+            <div>
+                <h2 id="yoy-title" class="trends-card-title">Reports by month, year over year</h2>
+                <p class="trends-card-sub">Each line is one year. Hover for every year's count in a month.</p>
+            </div>
+            <button type="button" class="btn-outline trends-download" data-download="yoy">Download CSV</button>
+        </div>
+        <div class="trends-legend" data-legend></div>
+        <div class="trends-canvas" data-canvas></div>
+        <details class="trends-table" data-table>
+            <summary>View as table</summary>
+            <table>
+                <thead><tr><th>Month</th>@foreach (var y in Model.Years) { <th>@y</th> }</tr></thead>
+                <tbody>
+                    @for (var mi = 0; mi < 12; mi++)
+                    {
+                        <tr>
+                            <td>@months[mi]</td>
+                            @for (var yi = 0; yi < Model.Years.Length; yi++)
+                            {
+                                <td>@(Model.Monthly[yi][mi] is { } v ? v.Format() : "")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </details>
+    </section>
+
+    <section class="trends-card" id="chart-period" aria-labelledby="period-title">
+        <div class="trends-card-head">
+            <div>
+                <h2 id="period-title" class="trends-card-title">Same period, every year</h2>
+                <p class="trends-card-sub">Jan 1 through @Model.Through.ToString("MMM d", CultureInfo.InvariantCulture) of each year, so the current year is compared like for like.</p>
+            </div>
+            <button type="button" class="btn-outline trends-download" data-download="period">Download CSV</button>
+        </div>
+        <div class="trends-stats" data-stats></div>
+        <div class="trends-canvas" data-canvas></div>
+        <details class="trends-table" data-table open>
+            <summary>View as table</summary>
+            <table>
+                <thead><tr><th>Year</th><th>Reports Jan 1 to @Model.Through.ToString("MMM d", CultureInfo.InvariantCulture)</th></tr></thead>
+                <tbody>
+                    @for (var i = 0; i < Model.Years.Length; i++)
+                    {
+                        <tr><td>@Model.Years[i]</td><td>@Model.SamePeriod[i].Format()</td></tr>
+                    }
+                </tbody>
+            </table>
+        </details>
+    </section>
+
+    <section class="trends-card" id="chart-heat" aria-labelledby="heat-title">
+        <div class="trends-card-head">
+            <div>
+                <h2 id="heat-title" class="trends-card-title">Seasonality</h2>
+                <p class="trends-card-sub">Darker months have more reports. Hover a cell for the count.</p>
+            </div>
+            <button type="button" class="btn-outline trends-download" data-download="heat">Download CSV</button>
+        </div>
+        <div class="trends-canvas" data-canvas></div>
+        <details class="trends-table" data-table>
+            <summary>View as table</summary>
+            <table>
+                <thead><tr><th>Year</th>@foreach (var m in months) { <th>@m</th> }</tr></thead>
+                <tbody>
+                    @for (var yi = 0; yi < Model.Years.Length; yi++)
+                    {
+                        <tr>
+                            <td>@Model.Years[yi]</td>
+                            @for (var mi = 0; mi < 12; mi++)
+                            {
+                                <td>@(Model.Monthly[yi][mi] is { } v ? v.Format() : "")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </details>
+    </section>
+
+    <section class="trends-card" id="chart-areas" aria-labelledby="areas-title">
+        <div class="trends-card-head">
+            <div>
+                <h2 id="areas-title" class="trends-card-title">Where it's happening</h2>
+                <p class="trends-card-sub">Top 10 by reports so far this year. Counts, not per-resident rates. Click a name to filter the whole page.</p>
+            </div>
+            <button type="button" class="btn-outline trends-download" data-download="areas">Download CSV</button>
+        </div>
+        <div class="trends-tabs" role="tablist" aria-label="Area type">
+            <button type="button" role="tab" class="trends-tab is-active" data-areas-tab="neighborhoods" aria-selected="true">Neighborhoods</button>
+            <button type="button" role="tab" class="trends-tab" data-areas-tab="wards" aria-selected="false">Wards</button>
+        </div>
+        <div class="trends-canvas" data-canvas></div>
+        <details class="trends-table" data-table>
+            <summary>View as table</summary>
+            @foreach (var (label, list) in new[] { ("Neighborhoods", Model.Neighborhoods), ("Wards", Model.Wards) })
+            {
+                <table>
+                    <caption>@label, Jan 1 to @Model.Through.ToString("MMM d", CultureInfo.InvariantCulture)</caption>
+                    <thead><tr><th>Area</th>@foreach (var y in Model.Years) { <th>@y</th> }</tr></thead>
+                    <tbody>
+                        @foreach (var area in list)
+                        {
+                            <tr>
+                                <td><a href="@area.Url">@area.Name</a></td>
+                                @foreach (var count in area.Counts) { <td>@count.Format()</td> }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </details>
+    </section>
+
+    <p class="field-hint" style="margin-top: 1.5rem;">
+        Source: this site's import of Minneapolis Police Department open data, counted by report date.
+        The current year runs through the last date MPD has published, and every comparison uses the same
+        calendar window. "Property damage / vandalism" is MPD's own category and isn't vehicle-specific.
+        Counts are raw totals, not adjusted for population. 2019 is the first year of MPD's current
+        records feed, and its early months (January to April) run well below every later year. We
+        can't tell from the data whether that is a real pre-COVID low or the feed ramping up, so read
+        comparisons against 2019 with care.
+        <a asp-controller="Map" asp-action="Index">See the map</a> or browse
+        <a asp-controller="Areas" asp-action="Index">every neighborhood and ward</a>.
+    </p>
+</div>
+
+@section Scripts {
+    <script src="~/js/format.js" asp-append-version="true"></script>
+    <script src="~/js/trends.js" asp-append-version="true"></script>
+}

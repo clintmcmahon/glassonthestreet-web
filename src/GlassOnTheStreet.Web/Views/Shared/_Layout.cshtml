@@ -17,6 +17,10 @@
     <title>@pageTitle</title>
     <meta name="description" content="@description" />
     <link rel="canonical" href="@canonicalUrl" />
+    @if (ViewData["NoIndex"] is true)
+    {
+        <meta name="robots" content="noindex" />
+    }
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Glass on the Street" />
@@ -31,7 +35,7 @@
     <meta name="twitter:description" content="@description" />
     <meta name="twitter:image" content="@socialImage" />
 
-    <script type="application/ld+json">
+    @Html.Raw("<script type=\"application/ld+json\">")
     {
         "@@context": "https://schema.org",
         "@@type": "WebSite",
@@ -76,6 +80,7 @@
             </a>
             <nav class="masthead-nav">
                 <a asp-controller="Map" asp-action="Index">Map</a>
+                <a asp-controller="Trends" asp-action="Index">Trends</a>
                 <a asp-controller="Report" asp-action="Index" class="masthead-cta">Report a break-in</a>
             </nav>
         </div>
@@ -89,7 +94,11 @@
     <footer class="site-footer">
         <div class="site-footer-inner">
             <p>Glass on the Street is an independent, resident-run record of car break-ins across Minneapolis. It is not affiliated with the Minneapolis Police Department.</p>
-            <p><a asp-controller="Home" asp-action="Privacy">How we handle location data</a></p>
+            <p>
+                <a asp-controller="Trends" asp-action="Index">Trends</a> &middot;
+                <a asp-controller="Areas" asp-action="Index">Neighborhoods and wards</a> &middot;
+                <a asp-controller="Home" asp-action="Privacy">How we handle location data</a>
+            </p>
         </div>
     </footer>
 

@@ -1,0 +1,72 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model GlassOnTheStreet.Web.Services.AreaIndexData
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var year = Model.Years[^1];
+    var through = Model.Through.ToString("MMM d", CultureInfo.InvariantCulture);
+
+    ViewData["Title"] = "Car Break-Ins by Minneapolis Neighborhood | Glass on the Street";
+    ViewData["Description"] = $"Car break-in, auto theft and vandalism reports for all {Model.Neighborhoods.Count} Minneapolis neighborhoods and 13 wards, {year} so far versus last year. MPD data back to 2019.";
+
+    string Change(double? pct) => pct is null ? "" : $"{(pct >= 0 ? "up" : "down")} {Math.Abs(Math.Round(pct.Value)).ToString("0", CultureInfo.InvariantCulture)}%";
+    var breadcrumbJson = StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Neighborhoods and wards", "/neighborhoods"));
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(breadcrumbJson))
+}
+
+<div class="page">
+    <p class="kicker">Minneapolis</p>
+    <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Car break-ins by Minneapolis neighborhood and ward</h1>
+    <p class="lede" style="max-width: 720px;">
+        Reports of theft from vehicles, vehicle theft, parts theft and property damage from Minneapolis Police
+        Department data, Jan 1 to @through, @year, compared with the same period of @(year - 1).
+        Pick a place for its year-by-year history back to 2019.
+    </p>
+
+    <section class="trends-card" aria-labelledby="wards-title">
+        <h2 id="wards-title" class="trends-card-title">Wards</h2>
+        <table class="area-table">
+            <thead><tr><th>Ward</th><th>@year</th><th>@(year - 1)</th><th>Change</th></tr></thead>
+            <tbody>
+                @foreach (var ward in Model.Wards)
+                {
+                    <tr>
+                        <td><a href="@ward.Url">@ward.Name</a></td>
+                        <td>@ward.Counts[^1].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@ward.Counts[^2].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@Change(ward.ChangeVsPrior)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="trends-card" aria-labelledby="hoods-title">
+        <h2 id="hoods-title" class="trends-card-title">Neighborhoods</h2>
+        <p class="trends-card-sub">Most reports first.</p>
+        <table class="area-table">
+            <thead><tr><th>Neighborhood</th><th>@year</th><th>@(year - 1)</th><th>Change</th></tr></thead>
+            <tbody>
+                @foreach (var hood in Model.Neighborhoods)
+                {
+                    <tr>
+                        <td><a href="@hood.Url">@hood.Name</a></td>
+                        <td>@hood.Counts[^1].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@hood.Counts[^2].ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@Change(hood.ChangeVsPrior)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <p class="field-hint" style="margin-top: 1.5rem;">
+        Source: this site's import of Minneapolis Police Department open data. Counts are raw totals, not adjusted for
+        population, and "property damage / vandalism" is MPD's own category and isn't vehicle-specific.
+        <a asp-controller="Trends" asp-action="Index">Explore the full trends dashboard</a>.
+    </p>
+</div>

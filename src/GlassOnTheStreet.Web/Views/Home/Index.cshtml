@@ -1,7 +1,7 @@
 @using GlassOnTheStreet.Web.Services
 @model GlassOnTheStreet.Web.Controllers.HomePageViewModel
 @{
-    ViewData["Title"] = "Glass on the Street — Minneapolis Car Break-In Map";
+    ViewData["Title"] = "Minneapolis Car Break-Ins Map and Trends | Glass on the Street";
     var stats = Model.Stats;
     var gap = Model.ReportingGap;
     var changeText = stats.PercentChange is null
@@ -9,10 +9,8 @@
         : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
     var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
     ViewData["Description"] =
-        "Report car break-ins in Minneapolis — smashed windows and cars rifled through. " +
-        "Enough reports and we can show police and city hall where and when it's happening. " +
-        $"{stats.Count} reports in the last 30 days" +
-        (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
+        $"{stats.Count.Format()} Minneapolis car break-in and theft reports in the last 30 days. " +
+        "Map, trends and neighborhood data from residents and MPD, 2019 to today.";
 
     var maxTrend = Model.Trend.Count > 0 ? Math.Max(1, Model.Trend.Max(t => t.Count)) : 1;
 
@@ -82,7 +80,7 @@
 <div class="page">
     <p class="kicker">Minneapolis</p>
     <h1 class="display" style="font-size: 2.6rem; max-width: 720px;">
-        We track smashed windows and rifled-through cars to report to city hall.
+        Minneapolis car break-ins: we track smashed windows and rifled-through cars to report to city hall.
     </h1>
     <p class="lede">
         Report a car break-in in under a minute. Enough reports and we can
@@ -176,7 +174,7 @@
 
 <div class="breakout city-comparison-section">
     <div class="city-comparison-inner">
-        <h2 class="graph-heading" style="margin-bottom: 0.25rem;">How these have trended since 2021</h2>
+        <h2 class="graph-heading" style="margin-bottom: 0.25rem;">How these have trended since 2019</h2>
         <p class="field-hint" style="max-width: 640px; margin-bottom: 1.5rem;">
             Minneapolis Police Department's own numbers, imported and counted by this site, year
             by year. Not resident reports -- these are MPD's official records for each category.
@@ -198,7 +196,7 @@
 
             <div class="city-chart">
                 <h3 class="city-chart-title">@series.Title</h3>
-                <svg viewBox="0 0 @chartW @chartH" class="city-chart-svg" role="group" aria-label="@series.Title, Minneapolis, 2021 to today">
+                <svg viewBox="0 0 @chartW @chartH" class="city-chart-svg" role="group" aria-label="@series.Title, Minneapolis, 2019 to today">
                     @for (var g = 0; g <= yMax; g += gridStep)
                     {
                         var gy = PlotY(g, yMax);
@@ -265,7 +263,7 @@
         <p class="field-hint" style="margin-top: 1.5rem;">
             Source: this site's import of Minneapolis Police Department open data. The current
             year is projected: the year-to-date count divided by the share of the year's total
-            that was already recorded by this date in 2021 through last year. The dashed line and
+            that was already recorded by this date in 2019 through last year. The dashed line and
             hollow marker are the projection, the solid dot is the actual count so far. Hover or
             tap a year for exact numbers. "Destruction/damage/
             vandalism of property" is MPD's own category name and isn't vehicle-specific -- see

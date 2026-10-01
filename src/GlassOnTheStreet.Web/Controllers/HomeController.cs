@@ -24,9 +24,9 @@ public class HomeController(IReportStatsService statsService, ISyncStatusService
         var categories = await statsService.GetCategoryCountsAsync(yearStart, to: null, cancellationToken);
 
         // Yearly trend for the homepage's "how these categories have
-        // trended since 2021" charts -- our own imported MPD data, not a
+        // trended since 2019" charts -- our own imported MPD data, not a
         // third-party source.
-        const int trendStartYear = 2021;
+        const int trendStartYear = 2019;
         var theftFromVehicleTrend = await statsService.GetYearlyCountsAsync(IncidentType.Unknown, trendStartYear, cancellationToken);
         var propertyDamageTrend = await statsService.GetYearlyCountsAsync(IncidentType.PropertyDamage, trendStartYear, cancellationToken);
         var vehicleTheftTrend = await statsService.GetYearlyCountsAsync(IncidentType.VehicleStolen, trendStartYear, cancellationToken);

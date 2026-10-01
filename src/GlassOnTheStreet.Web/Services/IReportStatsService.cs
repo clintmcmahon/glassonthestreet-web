@@ -54,7 +54,7 @@ public interface IReportStatsService
     /// Year-by-year counts for a single MPD-imported IncidentType, from
     /// startYear through the current year. The current year carries a
     /// projected full-year total. Used for the homepage's
-    /// "how these categories have trended since 2021" charts -- our own
+    /// "how these categories have trended since 2019" charts -- our own
     /// data, not a third-party source.
     /// </summary>
     Task<IReadOnlyList<YearlyCount>> GetYearlyCountsAsync(

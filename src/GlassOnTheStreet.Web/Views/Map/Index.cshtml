@@ -1,6 +1,8 @@
+@inject IConfiguration Configuration
 @model GlassOnTheStreet.Web.Controllers.MapPageViewModel
 @{
-    ViewData["Title"] = "The Map";
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    ViewData["Title"] = "Minneapolis Car Break-In Map | Glass on the Street";
     var stats = Model.Stats;
     var changeText = stats.PercentChange is null
         ? "—"
@@ -8,9 +10,8 @@
     var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
     var gap = Model.ReportingGap;
     ViewData["Description"] =
-        "An interactive map of car break-ins across Minneapolis, combining resident reports with Minneapolis Police Department data, filterable by date. " +
-        $"{stats.Count} reports in the last 30 days" +
-        (stats.PercentChange is null ? "." : $", {changeText} versus the prior 30 days.");
+        $"Interactive Minneapolis car break-in map: {stats.Count.Format()} reports in the last 30 days from residents and MPD. " +
+        "Filter by date, neighborhood and ward.";
 
     var timeOfDayOrder = new[] { "Overnight", "Morning", "Afternoon", "Evening", "NotSure" };
     var timeOfDayLabel = new Dictionary<string, string>
@@ -29,32 +30,15 @@
 }
 
 @section StructuredData {
-    <script type="application/ld+json">
-    {
-        "@@context": "https://schema.org",
-        "@@type": "Dataset",
-        "name": "Glass on the Street — Minneapolis car break-in reports",
-        "description": "Resident-submitted car break-in reports for Minneapolis, Minnesota, combined with Minneapolis Police Department theft-from-vehicle, vehicle-parts-theft, and motor-vehicle-theft records. Locations are snapped to the middle of the block for privacy.",
-        "spatialCoverage": {
-            "@@type": "Place",
-            "name": "Minneapolis, Minnesota"
-        },
-        "creator": {
-            "@@type": "Organization",
-            "name": "Glass on the Street"
-        },
-        "distribution": {
-            "@@type": "DataDownload",
-            "encodingFormat": "application/geo+json",
-            "contentUrl": "/api/reports"
-        }
-    }
-    </script>
+    @Html.Raw(StructuredData.Tag(StructuredData.Dataset(baseUrl, "/map",
+        "Minneapolis car break-in reports map",
+        "Resident-submitted car break-in reports for Minneapolis, Minnesota, combined with Minneapolis Police Department theft-from-vehicle, vehicle-parts-theft, motor-vehicle-theft and property-damage records. Locations are snapped to the middle of the block for privacy.",
+        "Minneapolis, Minnesota", DateOnly.FromDateTime(DateTime.UtcNow), "/api/reports")))
 }
 
 <div class="page" style="padding-bottom: 1.5rem;">
     <p class="kicker">The map</p>
-    <h1 style="font-size: 1.9rem;">Where break-ins are being reported</h1>
+    <h1 style="font-size: 1.9rem;">Minneapolis car break-in map: where break-ins are being reported</h1>
     <p class="lede" style="font-size: 1rem;">
         Gray dots are MPD's own data — the city doesn't record whether that
         was a smashed window or an unlocked door, so those get an honest

@@ -99,15 +99,19 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
 
     public async Task<IReadOnlyList<MonthlyCount>> GetMonthlyTrendAsync(int months, CancellationToken cancellationToken = default)
     {
+        // Complete months only. A month that started yesterday would plot as
+        // a near-zero bar and read as a collapse, so the current month is
+        // left out (the "last 30 days" stat covers the recent stretch).
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var rangeStart = new DateOnly(today.Year, today.Month, 1).AddMonths(-(months - 1));
+        var thisMonth = new DateOnly(today.Year, today.Month, 1);
+        var rangeStart = thisMonth.AddMonths(-months);
 
         // Pulled as bare dates and bucketed in memory rather than a SQL
         // GroupBy on Year/Month -- keeps this independent of whether the
         // provider translates DateOnly.Year/.Month, and the row count for a
         // "last N months" window is small enough that this costs nothing.
         var dates = await db.Reports
-            .Where(r => r.Status == ReportStatus.Active && r.ReportedDate >= rangeStart)
+            .Where(r => r.Status == ReportStatus.Active && r.ReportedDate >= rangeStart && r.ReportedDate < thisMonth)
             .Select(r => r.ReportedDate)
             .ToListAsync(cancellationToken);
 
@@ -169,7 +173,15 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
             .Select(r => r.ReportedDate)
             .ToListAsync(cancellationToken);
 
+        // Measured through the feed's last date rather than today's: MPD
+        // posts with a lag, and a current year missing its last few days
+        // would understate the share and bias the projection low.
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
+        if (dates.Count > 0 && dates.Max() < today)
+        {
+            today = dates.Max();
+        }
+
         var currentYear = today.Year;
         var counts = new List<YearlyCount>();
         var priorYtdTotal = 0;

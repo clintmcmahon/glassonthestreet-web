@@ -19,6 +19,7 @@ if (builder.Environment.IsDevelopment())
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddMemoryCache();
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Server=localhost;Database=glass_on_the_street;User=root;Password=;";
@@ -36,6 +37,7 @@ builder.Services.AddScoped<IGeofenceService, GeofenceService>();
 builder.Services.AddScoped<IBlockAnchorService, BlockAnchorService>();
 builder.Services.AddScoped<ICaptchaService, TurnstileCaptchaService>();
 builder.Services.AddScoped<IReportStatsService, ReportStatsService>();
+builder.Services.AddScoped<ITrendsService, TrendsService>();
 builder.Services.AddScoped<ISyncStatusService, SyncStatusService>();
 
 builder.Services.AddHttpClient<IGeocodingService, GeocodingService>(client =>

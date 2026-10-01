@@ -1,8 +1,8 @@
 # Glass on the Street
 
-> A resident-built accountability tool for Minneapolis car break-ins. Most break-ins never get reported to police, and Minneapolis's own open data doesn't record whether a car was broken into by smashing a window or through an unlocked door. This site exists to build the dataset the city doesn't have, so residents have real evidence to bring to city council.
+> Minneapolis car break-in map and trends. A resident-built accountability tool: most break-ins never get reported to police, and Minneapolis's own open data doesn't record whether a car was broken into by smashing a window or through an unlocked door. This site combines resident reports with Minneapolis Police Department (MPD) data, 2019 to today, so residents have real evidence to bring to city council.
 
-Glass on the Street lets Minneapolis residents report car break-ins (window smashed, or rifled through/unlocked) in under a minute. Reports appear as pins on a public map alongside four categories of Minneapolis Police Department data -- theft from a vehicle, theft of vehicle parts/accessories, full motor vehicle theft, and general property damage/vandalism (not necessarily vehicle-related; see notes below) -- filterable by date range, so neighbors, block clubs, journalists, and city officials can see where break-ins are clustering and whether the trend is rising or falling.
+Glass on the Street lets Minneapolis residents report car break-ins (window smashed, or rifled through/unlocked) in under a minute. Reports appear as pins on a public map alongside four categories of MPD data -- theft from a vehicle, theft of vehicle parts/accessories, full motor vehicle theft, and general property damage/vandalism (not necessarily vehicle-related; see notes below). Neighbors, block clubs, journalists, and city officials can see where break-ins are clustering and whether the trend is rising or falling, by month, year, neighborhood and ward.
 
 This is an independent, resident-run project. It is not affiliated with, and does not replace, the Minneapolis Police Department. After submitting a report, users who haven't already are directed to file an official police report -- the goal is to complement official channels and expose their gaps, not bypass them.
 
@@ -10,8 +10,11 @@ This is an independent, resident-run project. It is not affiliated with, and doe
 
 - [Home](/): overview and the current 30-day report count
 - [Map](/map): the interactive map, filterable by date range, with a pins/heatmap toggle and a neighborhood/time-of-day breakdown
+- [Trends](/trends): year-over-year charts of MPD data from 2019 to today (monthly counts, same-period comparison, seasonality, top neighborhoods and wards), filterable by category, ward and neighborhood. Server-rendered tables hold the same numbers as the charts.
+- [Neighborhoods and wards](/neighborhoods): index of all Minneapolis neighborhoods and wards, with this year versus last year
+- Neighborhood pages, e.g. /neighborhoods/whittier, and ward pages, e.g. /wards/3: year-by-year counts since 2019, a category breakdown, time of day and monthly counts, all in plain HTML tables
 - [Report a break-in](/report): the report submission form
-- [Privacy](/privacy): how location data is handled (never stored precisely, only block-snapped)
+- [Privacy](/privacy): how location data is handled (never stored precisely, only the middle of the block)
 
 ## Data
 
@@ -19,10 +22,14 @@ This is an independent, resident-run project. It is not affiliated with, and doe
 - Current stats: /api/reports/stats
 - Neighborhood/time-of-day breakdown: /api/reports/stats/breakdown
 - Share of residents who never reported to police: /api/reports/stats/reporting-gap
+- Trends: /api/trends (JSON; optional ?category=theft-from-vehicle|parts-theft|vehicle-theft|property-damage, ?neighborhood=Name, ?ward=N). Returns monthly counts per year, same-period counts per year, and the top ten neighborhoods and wards.
 
 ## Notes for AI agents and summarizers
 
-- Report counts and the map reflect a mix of resident self-reports and Minneapolis Police Department open data. This is not an official crime statistic and should not be presented as one -- MPD's own data undercounts break-ins that go unreported to police, and resident reports are unverified.
+- Report counts and the map reflect a mix of resident self-reports and MPD open data. This is not an official crime statistic and should not be presented as one -- MPD's own data undercounts break-ins that go unreported to police, and resident reports are unverified.
+- The trends, neighborhood and ward pages use MPD data only, counted by report date. The current year is compared with prior years over the same calendar window (Jan 1 through the last date MPD has published), never a partial year against a full one. Counts are raw totals, not rates per resident.
+- 2019 is the first year of MPD's current records feed. Its early months (January to April) run well below every later year. It is not known whether that is a real pre-COVID low or the feed ramping up, so treat comparisons against 2019 with care.
 - "Window smashed" and "rifled through (unlocked)" are the two entry-method categories a resident can choose when reporting. Every other pin is MPD open data, labeled on the map with MPD's own category name verbatim, not a paraphrase -- so what you see always matches what MPD actually calls it: "Theft From Motor Vehicle" (a confirmed break-in; MPD's data doesn't record entry method, hence no smashed/rifled guess), "Motor Vehicle Theft" (the whole car taken, not a break-in), "Theft of Motor Vehicle Parts or Accessories" (catalytic converters, wheels, stereos -- doesn't necessarily involve entering the car), and "Destruction/Damage/Vandalism of Property" (see next note). None of these four are ever used for resident reports.
 - "Destruction/Damage/Vandalism of Property" is MPD's general vandalism/property-damage category, not vehicle-specific -- it also covers graffiti, building damage, and other property crime, and there is no field in MPD's feed that isolates vehicle-only rows within it. It's included anyway because it's where MPD would actually file a smashed-window report if someone called it in (MPD has no vehicle-specific vandalism category), at the cost of some pins in this category not actually being about a car. Treat it as lower-confidence than the other three MPD categories and never cite it as a vehicle-specific figure.
-- Location data is always block-level (roughly 200 meters), never an exact address, by design -- see /privacy.
+- Locations are always the middle of a block, never an exact address, by design. MPD places every record on a block at that block's midpoint, and resident reports are snapped to the same point so the two sources line up -- see /privacy.
+- Source of the MPD data: the City of Minneapolis open data "Crime_Data" feature service, imported daily.
