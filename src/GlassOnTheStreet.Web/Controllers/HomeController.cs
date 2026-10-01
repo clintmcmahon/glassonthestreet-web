@@ -5,7 +5,7 @@ using GlassOnTheStreet.Web.Services;
 
 namespace GlassOnTheStreet.Web.Controllers;
 
-public class HomeController(IReportStatsService statsService, ISyncStatusService syncStatusService) : Controller
+public class HomeController(IReportStatsService statsService, ISyncStatusService syncStatusService, ITrendsService trendsService) : Controller
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -33,9 +33,13 @@ public class HomeController(IReportStatsService statsService, ISyncStatusService
 
         var lastSyncedAt = await syncStatusService.GetLastSyncedAtAsync(cancellationToken);
 
+        // Year-to-date comparison and the top areas, from the same cached
+        // MPD dataset that powers /trends.
+        var trends = await trendsService.GetTrendsAsync(new TrendFilter(null, null, null), cancellationToken);
+
         return View(new HomePageViewModel(
             stats, reportingGap, trend, categories,
-            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend, lastSyncedAt));
+            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend, lastSyncedAt, trends));
     }
 
     [HttpGet("privacy")]
@@ -59,4 +63,5 @@ public record HomePageViewModel(
     IReadOnlyList<YearlyCount> TheftFromVehicleTrend,
     IReadOnlyList<YearlyCount> PropertyDamageTrend,
     IReadOnlyList<YearlyCount> VehicleTheftTrend,
-    DateTime? MpdLastSyncedAt);
+    DateTime? MpdLastSyncedAt,
+    TrendsData Trends);

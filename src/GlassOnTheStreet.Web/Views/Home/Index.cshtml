@@ -12,6 +12,17 @@
         $"{stats.Count.Format()} Minneapolis car break-in and theft reports in the last 30 days. " +
         "Map, trends and neighborhood data from residents and MPD, 2019 to today.";
 
+    // Year to date vs the same window of earlier years (Jan 1 through the
+    // last date MPD has published), the same numbers /trends leads with.
+    var ytd = Model.Trends;
+    var ytdNow = ytd.SamePeriod[^1];
+    var ytdPrior = ytd.SamePeriod[^2];
+    var ytdBase = ytd.SamePeriod[0];
+    string Pct(int now, int then) =>
+        then == 0 ? "n/a" : $"{(now >= then ? "+" : "-")}{Math.Abs(Math.Round((now - then) / (double)then * 100)).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
+    string PctClass(int now, int then) => then == 0 ? "" : now > then ? "up" : now < then ? "down" : "";
+    var ytdThrough = ytd.Through.ToString("MMM d", System.Globalization.CultureInfo.InvariantCulture);
+
     var maxTrend = Model.Trend.Count > 0 ? Math.Max(1, Model.Trend.Max(t => t.Count)) : 1;
 
     var categoryOrder = new[] { "WindowSmashed", "Rifled", "Unknown", "PartsTheft", "VehicleStolen", "PropertyDamage" };
@@ -43,13 +54,15 @@
     // no peer-city comparison here, just our own numbers over time.
     var yearlyCharts = new[]
     {
-        (Title: "Theft from motor vehicle", Counts: Model.TheftFromVehicleTrend),
-        (Title: "Destruction/damage/vandalism of property", Counts: Model.PropertyDamageTrend),
-        (Title: "Motor vehicle theft", Counts: Model.VehicleTheftTrend)
+        (Title: "Theft from motor vehicle", Slug: "theft-from-vehicle", Counts: Model.TheftFromVehicleTrend),
+        (Title: "Destruction/damage/vandalism of property", Slug: "property-damage", Counts: Model.PropertyDamageTrend),
+        (Title: "Motor vehicle theft", Slug: "vehicle-theft", Counts: Model.VehicleTheftTrend)
     };
 
-    const int chartW = 1000, chartH = 220;
-    const int marginLeft = 56, marginRight = 56, marginTop = 16, marginBottom = 30;
+    // Compact geometry: three charts sit side by side on desktop, so the
+    // viewBox is close to the rendered width and labels stay legible.
+    const int chartW = 360, chartH = 200;
+    const int marginLeft = 42, marginRight = 54, marginTop = 14, marginBottom = 28;
 
     int NiceMax(int actualMax)
     {
@@ -106,10 +119,32 @@
         }
     </div>
 
+    <div class="stat-line stat-line-year">
+        <div class="stat">
+            <div class="stat-value">@ytdNow.Format()</div>
+            <div class="stat-label">reports so far in @ytd.CurrentYear, Jan 1 to @ytdThrough</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value @PctClass(ytdNow, ytdPrior)">@Pct(ytdNow, ytdPrior)</div>
+            <div class="stat-label">vs. the same period of @(ytd.CurrentYear - 1)</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value @PctClass(ytdNow, ytdBase)">@Pct(ytdNow, ytdBase)</div>
+            <div class="stat-label">vs. @ytd.Years[0], the last year before COVID</div>
+        </div>
+    </div>
+    <p class="field-hint stat-line-note">
+        MPD data through @ytdThrough, the last date it has published. 2019 is the first year of MPD's
+        current records feed and runs low early in the year, so read that comparison with care.
+        <a asp-controller="Trends" asp-action="Index">See the full trends &rarr;</a>
+    </p>
+
     <p>
         <a class="btn" asp-controller="Report" asp-action="Index">Report a break-in</a>
         &nbsp;
         <a class="btn btn-outline" asp-controller="Map" asp-action="Index">View the map</a>
+        &nbsp;
+        <a class="btn btn-outline" asp-controller="Trends" asp-action="Index">Explore the trends</a>
     </p>
 
     <div class="map-frame map-frame-preview">
@@ -170,6 +205,39 @@
         </div>
     </div>
 
+    <div class="graphs-grid graphs-grid-even">
+        <div>
+            <h2 class="graph-heading">Neighborhoods with the most reports in @ytd.CurrentYear</h2>
+            <ol class="home-areas">
+                @foreach (var (area, i) in ytd.Neighborhoods.Take(5).Select((a, i) => (a, i)))
+                {
+                    <li>
+                        <span class="home-area-rank">@(i + 1)</span>
+                        <a href="@area.Url">@area.Name</a>
+                        <strong>@area.Counts[^1].Format()</strong>
+                        <span class="home-area-change @(area.ChangeVsPrior is > 0 ? "up" : area.ChangeVsPrior is < 0 ? "down" : "")">@(area.ChangeVsPrior is { } c ? $"{(c >= 0 ? "+" : "-")}{Math.Abs(Math.Round(c)).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%" : "")</span>
+                    </li>
+                }
+            </ol>
+            <a class="home-areas-more" asp-controller="Areas" asp-action="Index">All neighborhoods and wards &rarr;</a>
+        </div>
+        <div>
+            <h2 class="graph-heading">Wards with the most reports in @ytd.CurrentYear</h2>
+            <ol class="home-areas">
+                @foreach (var (area, i) in ytd.Wards.Take(5).Select((a, i) => (a, i)))
+                {
+                    <li>
+                        <span class="home-area-rank">@(i + 1)</span>
+                        <a href="@area.Url">@area.Name</a>
+                        <strong>@area.Counts[^1].Format()</strong>
+                        <span class="home-area-change @(area.ChangeVsPrior is > 0 ? "up" : area.ChangeVsPrior is < 0 ? "down" : "")">@(area.ChangeVsPrior is { } c ? $"{(c >= 0 ? "+" : "-")}{Math.Abs(Math.Round(c)).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%" : "")</span>
+                    </li>
+                }
+            </ol>
+            <p class="field-hint">Reports Jan 1 to @ytdThrough, with the change from the same period of @(ytd.CurrentYear - 1).</p>
+        </div>
+    </div>
+
 </div>
 
 <div class="breakout city-comparison-section">
@@ -180,6 +248,7 @@
             by year. Not resident reports -- these are MPD's official records for each category.
         </p>
 
+        <div class="city-charts-grid">
         @foreach (var series in yearlyCharts)
         {
             var counts = series.Counts;
@@ -195,7 +264,7 @@
             var chartBottom = chartH - marginBottom;
 
             <div class="city-chart">
-                <h3 class="city-chart-title">@series.Title</h3>
+                <h3 class="city-chart-title"><a href="/trends?category=@series.Slug">@series.Title</a></h3>
                 <svg viewBox="0 0 @chartW @chartH" class="city-chart-svg" role="group" aria-label="@series.Title, Minneapolis, 2019 to today">
                     @for (var g = 0; g <= yMax; g += gridStep)
                     {
@@ -206,7 +275,7 @@
                     @for (var i = 0; i < n; i++)
                     {
                         var isProjectedYear = i == n - 1 && hasProjection;
-                        var axisLabel = isProjectedYear ? $"{counts[i].Year} (proj.)" : counts[i].Year.ToString();
+                        var axisLabel = isProjectedYear ? $"{counts[i].Year}*" : counts[i].Year.ToString();
                         @Html.Raw($"<text x=\"{F(PlotX(n, i))}\" y=\"{chartH - 6}\" class=\"city-chart-axis-label\" text-anchor=\"middle\">{axisLabel}</text>")
                     }
                     <polyline points="@solidPoints" class="city-chart-line minneapolis" />
@@ -259,15 +328,17 @@
                 </svg>
             </div>
         }
+        </div>
 
         <p class="field-hint" style="margin-top: 1.5rem;">
             Source: this site's import of Minneapolis Police Department open data. The current
-            year is projected: the year-to-date count divided by the share of the year's total
+            year (*) is projected: the year-to-date count divided by the share of the year's total
             that was already recorded by this date in 2019 through last year. The dashed line and
             hollow marker are the projection, the solid dot is the actual count so far. Hover or
             tap a year for exact numbers. "Destruction/damage/
             vandalism of property" is MPD's own category name and isn't vehicle-specific -- see
             <a asp-controller="Map" asp-action="Index">the map</a> for details.
+            <a asp-controller="Trends" asp-action="Index">Compare every year, month and neighborhood in Trends &rarr;</a>
         </p>
     </div>
 </div>

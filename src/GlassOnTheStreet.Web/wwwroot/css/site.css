@@ -540,6 +540,9 @@ fieldset {
   font-size: 0.72rem;
   color: var(--ink-soft);
   margin-top: 0.15rem;
+  /* Two lines tall even when a label fits on one, so every bar's baseline lines up. */
+  min-height: 2.1em;
+  text-align: center;
 }
 
 /* Category breakdown on the homepage reuses .breakdown-row/-bar-track/-bar
@@ -1454,4 +1457,141 @@ fieldset {
 
 .trends-area-link:hover {
   color: var(--ink);
+}
+
+/* ---------- homepage: year-to-date row, top areas, compact charts ---------- */
+
+.stat-line-year {
+  margin-top: -1rem;
+  border-top: none;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.stat-line-year .stat-value {
+  font-size: 2rem;
+}
+
+.stat-line-note {
+  max-width: 720px;
+  margin: 0 0 1.5rem;
+}
+
+.graphs-grid-even {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 2rem;
+}
+
+.home-areas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home-areas li {
+  display: grid;
+  grid-template-columns: 1.4rem 1fr auto 3.6rem;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.95rem;
+}
+
+.home-areas a {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+
+.home-areas a:hover {
+  text-decoration-color: var(--ink);
+}
+
+.home-areas strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.home-area-rank {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.home-area-change {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-area-change.up {
+  color: var(--accent);
+}
+
+.home-area-change.down {
+  color: var(--positive);
+}
+
+.home-areas-more {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.city-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.city-charts-grid .city-chart {
+  margin-top: 0;
+  min-width: 0;
+}
+
+.city-chart-title a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+
+.city-chart-title a:hover {
+  text-decoration-color: var(--ink);
+}
+
+@media (max-width: 980px) {
+  .city-charts-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 780px) {
+  .graphs-grid-even {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .stat-line-year {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+
+  .stat-line-year .stat {
+    min-width: 0;
+  }
+
+  .stat-line-year .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .stat-line-year .stat-label {
+    font-size: 0.75rem;
+  }
 }
