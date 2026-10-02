@@ -1,0 +1,131 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var through = (DateOnly)ViewData["Through"]!;
+    var population = (IPopulationService)ViewData["Population"]!;
+    var contact = ViewData["ContactEmail"] as string;
+    var today = DateTime.UtcNow.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
+
+    ViewData["Title"] = "Methodology, Sources and How to Cite | Glass on the Street";
+    ViewData["Description"] = "Where our Minneapolis crime numbers come from, what is counted, how comparisons and rates work, known limits, and how to cite them.";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Methodology", "/methodology"))))
+}
+
+<div class="page page-narrow" style="max-width: 760px;">
+    <p class="kicker">Methodology and press</p>
+    <h1 class="display" style="font-size: 2.2rem;">Where these numbers come from and how to use them</h1>
+    <p class="lede" style="font-size: 1.05rem;">
+        Everything on the crime pages comes from the Minneapolis Police Department's public data. This page says exactly
+        what is counted, how, and where the numbers can mislead.
+    </p>
+
+    <h2 class="method-h">Source and freshness</h2>
+    <p>
+        The data is the City of Minneapolis open data "Crime_Data" feed, published by MPD and imported here every day.
+        Each daily import looks back 30 days to catch records MPD posts late. The numbers on the site run
+        <strong>through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</strong>, the last date the feed has, not
+        today's date. MPD posts with a lag of a few days, so the most recent days are always the least complete.
+    </p>
+
+    <h2 class="method-h">What is counted</h2>
+    <p>
+        The unit on <a asp-controller="Crime" asp-action="Index">the crime pages</a>, the car break-in pages, the neighborhood
+        and ward pages and the homepage charts is an <em>offense</em>, using MPD's own offense count: a case with two victims is
+        two offenses. They all read the same data, so a number matches wherever it appears. The map and the "last 30 days" count
+        on the homepage count pins instead (one per MPD case, plus resident reports), so those can run slightly lower.
+        Dates are the day the offense occurred in Central Time.
+    </p>
+    <p>
+        Offenses are grouped in plain language from MPD's offense category and offense name. Nothing is guessed beyond that mapping:
+    </p>
+    <dl class="method-defs">
+        @foreach (var group in CrimeGroups.Crimes)
+        {
+            <dt>@group.Label</dt>
+            <dd>@group.Definition</dd>
+        }
+    </dl>
+    <p>
+        <strong>Not counted as crimes.</strong> The feed also holds rows that aren't separate offenses. They are shown apart and
+        never added to a crime total, so nothing is counted twice:
+    </p>
+    <dl class="method-defs">
+        @foreach (var metric in CrimeGroups.Metrics)
+        {
+            <dt>@metric.Label</dt>
+            <dd>@metric.Definition</dd>
+        }
+    </dl>
+
+    <h2 class="method-h">How comparisons are made</h2>
+    <ul>
+        <li><strong>Same period.</strong> The current year is compared with earlier years over the same calendar window, January 1 through the last published date. A partial year is never set against a full one.</li>
+        <li><strong>Months.</strong> The month still in progress is drawn as an open marker with no line into it, because a slope toward an unfinished month reads as a drop.</li>
+        <li><strong>Projection.</strong> The homepage's projected full-year figure divides the year-to-date count by the share of the year that had already happened by this date in earlier years (pooled across them). It is an estimate and is labeled as one.</li>
+        <li><strong>Wards.</strong> MPD assigns the current (2022) ward boundaries to every record, including older ones. We checked a sample across years and the assignment is consistent, so ward trends compare like with like.</li>
+    </ul>
+
+    <h2 class="method-h">Rates per 1,000 residents</h2>
+    <p>
+        Rates divide offenses by residents counted in the 2020 Census. Resident counts for each neighborhood and ward are built
+        from Census Bureau block counts, assigning each block to the city's neighborhood and ward boundaries by its internal point;
+        the totals add to @population.CityTotal.ToString("N0", CultureInfo.InvariantCulture) residents. Two cautions:
+        places with many workers and visitors (Downtown, Uptown, industrial areas) look high because their offenses are set
+        against residents only, and a rate is withheld for any neighborhood with fewer than @population.MinimumForRate.ToString("N0", CultureInfo.InvariantCulture) residents.
+        The resident counts are a 2020 snapshot and aren't updated each year. The build script is
+        <a href="https://github.com/clintmcmahon/glassonthestreet-web/blob/main/tools/build_population.py">in the repository</a>.
+    </p>
+
+    <h2 class="method-h">Locations</h2>
+    <p>
+        MPD places every record at the midpoint of its block rather than its exact address, and this site uses those points as
+        given. Resident reports are snapped to the same block midpoints. The "near me" tool counts offenses whose block midpoint is
+        within the chosen radius, so it describes blocks, not addresses.
+    </p>
+
+    <h2 class="method-h">Known limits</h2>
+    <ul>
+        <li>These are reported crimes. Many incidents, especially car break-ins where nothing is taken, are never reported.</li>
+        <li>MPD can reclassify or add records after publishing, so a past month can change slightly.</li>
+        <li>2019 is the first year of MPD's current records feed. Its early months (January to April) run well below every later year, and the data alone can't say whether that is real or the feed ramping up. Treat comparisons against 2019 with care.</li>
+        <li>Times of day are as reported and are often rounded to the hour.</li>
+        <li>MPD's data doesn't say whether a car window was smashed or a door was unlocked, which is why this site also collects resident reports.</li>
+        <li>Counts are totals, and a ranking of places by count mostly reflects where people live, work and gather. Use the per-resident rates, and the caution above, before drawing conclusions about a neighborhood.</li>
+        <li>This is an independent, resident-run project. It is not affiliated with the Minneapolis Police Department, and nothing here is an official crime statistic.</li>
+    </ul>
+
+    <h2 class="method-h">How to cite this</h2>
+    <p>Suggested citation (change the date to the day you accessed it):</p>
+    <blockquote class="method-cite">
+        Glass on the Street. (@DateTime.UtcNow.Year). <em>Minneapolis crime statistics</em>. Retrieved @today, from
+        @baseUrl/crime. Data: Minneapolis Police Department, via City of Minneapolis open data, through
+        @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture).
+    </blockquote>
+    <p>
+        Every page states the date its data runs through. The month-by-month reports at
+        <a asp-controller="Monthly" asp-action="Index">/monthly</a> have a permanent link for each month.
+    </p>
+
+    <h2 class="method-h">For journalists and researchers</h2>
+    <ul>
+        <li><a asp-controller="Data" asp-action="Index">Downloads and API</a>: CSV files by month, neighborhood and ward, plus a JSON API behind every chart.</li>
+        <li><a asp-controller="Monthly" asp-action="Index">Monthly reports</a>: a short, sourced summary of each month with the headline numbers and biggest movers.</li>
+        <li>Every chart has a table view and a CSV download, a PNG download and an embed code.</li>
+        <li>Incident-level data, with the exact fields we use, is at the <a href="https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0">source feed</a>.</li>
+        @if (!string.IsNullOrWhiteSpace(contact))
+        {
+            <li>Questions or corrections: <a href="mailto:@contact">@contact</a></li>
+        }
+    </ul>
+
+    <h2 class="method-h">Corrections</h2>
+    <p>
+        No corrections have been needed so far. If a number here is wrong, it will be fixed and listed on this page with the date
+        and what changed.
+    </p>
+</div>

@@ -1,0 +1,53 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model IReadOnlyList<GlassOnTheStreet.Web.Services.MonthSummary>
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    string Move(double? pct) => pct is null ? "" : $"{(pct >= 0 ? "+" : "-")}{Math.Abs(Math.Round(pct.Value)).ToString("0", CultureInfo.InvariantCulture)}%";
+    var latest = Model.FirstOrDefault();
+
+    ViewData["Title"] = "Minneapolis Crime, Month by Month | Glass on the Street";
+    ViewData["Description"] = "Minneapolis crime for every month since 2019: total offenses, change from the prior month and year, and the biggest movers by type and neighborhood.";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Monthly reports", "/monthly"))))
+}
+
+<div class="page page-narrow" style="max-width: 760px;">
+    <p class="kicker">Monthly reports</p>
+    <h1 class="display" style="font-size: 2.2rem;">Minneapolis crime, month by month</h1>
+    <p class="lede" style="font-size: 1.05rem;">
+        One page for every finished month since 2019, built from MPD's open data: the total, the change from the previous
+        month and from a year earlier, and what moved most. Each month has its own permanent link.
+        <a href="/monthly.xml">Subscribe with RSS</a>.
+    </p>
+
+    @if (latest is not null)
+    {
+        <p>
+            Latest: <a href="/monthly/@latest.Year-@latest.Month.ToString("D2")"><strong>@latest.Label</strong></a>,
+            @latest.Total.Format() offenses (@Move(latest.ChangeVsLastYear) from a year earlier).
+        </p>
+    }
+
+    @foreach (var year in Model.GroupBy(m => m.Year))
+    {
+        <h2 class="method-h">@year.Key</h2>
+        <table class="area-table data-table">
+            <thead><tr><th>Month</th><th>Offenses</th><th>vs. previous month</th><th>vs. a year earlier</th></tr></thead>
+            <tbody>
+                @foreach (var m in year)
+                {
+                    <tr>
+                        <td><a href="/monthly/@m.Year-@m.Month.ToString("D2")">@m.Label</a></td>
+                        <td>@m.Total.Format()</td>
+                        <td>@Move(m.ChangeVsPriorMonth)</td>
+                        <td>@Move(m.ChangeVsLastYear)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

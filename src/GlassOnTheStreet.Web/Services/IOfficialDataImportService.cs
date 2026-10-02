@@ -12,6 +12,12 @@ public interface IOfficialDataImportService
     Task<OfficialImportResult> ImportAsync(int lookbackDays, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Imports the same categories for a Central Time date range (inclusive).
+    /// Idempotent, so a range can be rerun safely after an interruption.
+    /// </summary>
+    Task<OfficialImportResult> ImportRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// True while an import (manual or the daily background sync) is
     /// actually running. A large lookback can take minutes -- long past
     /// nginx's default proxy read timeout -- so the admin UI kicks the

@@ -6,6 +6,7 @@
     var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
     var months = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
     ViewData["Title"] = "Minneapolis Auto Theft and Break-In Trends | Glass on the Street";
+    ViewData["OgImage"] = "/og/trends.png";
     ViewData["Description"] = "Minneapolis car break-in, auto theft and vandalism trends from MPD data, 2019 to today. Compare years and filter by category, ward and neighborhood.";
 
     var current = Model.SamePeriod[^1];
@@ -88,7 +89,7 @@
         </details>
     </section>
 
-    <section class="trends-card" id="chart-period" aria-labelledby="period-title">
+    <section class="trends-card" id="chart-period" aria-labelledby="period-title" data-embed="year-bars" data-embed-scope="car">
         <div class="trends-card-head">
             <div>
                 <h2 id="period-title" class="trends-card-title">Same period, every year</h2>
@@ -175,6 +176,8 @@
         </details>
     </section>
 
+    <partial name="_Cite" model="@(("Minneapolis car break-in and auto theft trends", "/trends", Model.Through))" />
+
     <p class="field-hint" style="margin-top: 1.5rem;">
         Source: this site's import of Minneapolis Police Department open data, counted by report date.
         The current year runs through the last date MPD has published, and every comparison uses the same
@@ -191,4 +194,5 @@
 @section Scripts {
     <script src="~/js/format.js" asp-append-version="true"></script>
     <script src="~/js/trends.js" asp-append-version="true"></script>
+    <script src="~/js/chart-share.js" asp-append-version="true"></script>
 }

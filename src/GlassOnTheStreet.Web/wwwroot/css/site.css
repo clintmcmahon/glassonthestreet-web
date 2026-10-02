@@ -1595,3 +1595,329 @@ fieldset {
     font-size: 0.75rem;
   }
 }
+
+/* Admin data status panel. */
+.admin-data-status {
+  margin: 1rem 0 0;
+}
+
+.admin-data-status summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.admin-data-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 3rem;
+  align-items: flex-start;
+}
+
+/* ---------- /crime additions ---------- */
+
+.trends-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: -0.25rem 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.trends-sort[hidden] {
+  display: none;
+}
+
+.trends-area-rate {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.groups-table {
+  max-width: none;
+}
+
+.groups-caption {
+  caption-side: top;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  padding: 0.75rem 0 0.25rem;
+}
+
+.groups-total td {
+  font-weight: 700;
+  border-top: 2px solid var(--ink);
+}
+
+.groups-table td:first-child .trends-area-name {
+  font-weight: 600;
+}
+
+/* ---------- methodology and data pages ---------- */
+
+.method-h {
+  font-size: 1.25rem;
+  margin: 2.25rem 0 0.5rem;
+}
+
+.method-defs {
+  margin: 0.75rem 0;
+}
+
+.method-defs dt {
+  font-weight: 700;
+  margin-top: 0.6rem;
+  font-size: 0.95rem;
+}
+
+.method-defs dd {
+  margin: 0.1rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.method-cite {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--rule);
+  background: var(--paper-raised);
+  font-size: 0.9rem;
+}
+
+.data-table {
+  display: table;
+}
+
+.data-table td,
+.data-table th {
+  white-space: normal;
+  text-align: left;
+  vertical-align: top;
+}
+
+code {
+  font-size: 0.85em;
+  background: var(--paper-raised);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+}
+
+/* ---------- monthly reports ---------- */
+
+.monthly-narrative {
+  max-width: 720px;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.monthly-narrative p {
+  font-size: 1.02rem;
+  margin: 0 0 0.9rem;
+}
+
+.monthly-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.9rem;
+}
+
+/* ---------- near me and compare ---------- */
+
+.near-form label[for="near-address"] {
+  margin-top: 1.5rem;
+}
+
+.near-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.near-row input {
+  flex: 1 1 260px;
+  width: auto;
+}
+
+.near-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.near-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.near-headline {
+  font-size: 1.15rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.near-where {
+  color: var(--ink-soft);
+  margin: 0 0 1rem;
+}
+
+.near-sep td {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  text-align: left;
+}
+
+.near-recent {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.near-recent li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.near-date {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  min-width: 6.5rem;
+}
+
+.near-block {
+  color: var(--ink-soft);
+}
+
+.compare-slots,
+.compare-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+/* ---------- share tools ---------- */
+
+.cite-box {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+}
+
+.cite-box summary,
+.share-embed summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.share-embed {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.85rem;
+}
+
+.share-embed textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  margin-top: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  padding: 0.5rem;
+}
+
+.share-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .masthead-nav {
+    flex-wrap: wrap;
+    gap: 0.5rem 1.1rem;
+  }
+}
+
+/* ---------- homepage: explore the data ---------- */
+
+.explore-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.explore-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  text-decoration: none;
+  color: var(--ink);
+  transition: border-color 0.12s;
+}
+
+.explore-card:hover,
+.explore-card:focus-visible {
+  border-color: var(--ink);
+}
+
+.explore-card strong {
+  font-size: 1rem;
+}
+
+.explore-card span {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .explore-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .explore-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phones: tighter tables, and the offense table drops its "change from 2019" column
+   (it stays in the table view and the CSV) so the rest fits without side-scrolling. */
+@media (max-width: 600px) {
+  .area-table th,
+  .area-table td {
+    padding: 0.3rem 0.4rem;
+    font-size: 0.8rem;
+  }
+
+  .groups-table th:nth-child(5),
+  .groups-table td:nth-child(5) {
+    display: none;
+  }
+
+  .groups-table .near-sep td {
+    display: table-cell;
+  }
+
+  .near-recent .near-date {
+    min-width: 5.5rem;
+  }
+}

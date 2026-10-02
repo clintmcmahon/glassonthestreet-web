@@ -16,6 +16,52 @@
             : "MPD data has not synced yet.")
     </p>
 
+    @{ var status = Model.DataStatus; }
+    <details class="admin-data-status" open>
+        <summary>Data status</summary>
+        <p class="field-hint">
+            @status.MpdTotal.Format() MPD rows@(status.Earliest is { } first && status.Latest is { } last ? $", report dates {first:yyyy-MM-dd} to {last:yyyy-MM-dd}" : "").
+            Import running: <strong>@(Model.ImportRunning ? "yes" : "no")</strong>.
+            During an import these counts grow as pages load. <a href="/admin">Refresh</a>
+        </p>
+        <div class="admin-data-grid">
+            <table class="admin-table">
+                <thead><tr><th>Year</th><th>Car categories (map)</th><th>All offenses (crime stats)</th></tr></thead>
+                <tbody>
+                    @{
+                        var carByYear = status.MpdRowsByYear.ToDictionary(r => r.Year, r => r.Count);
+                        var allByYear = status.IncidentRowsByYear.ToDictionary(r => r.Year, r => r.Count);
+                    }
+                    @foreach (var year in carByYear.Keys.Union(allByYear.Keys).OrderBy(y => y))
+                    {
+                        <tr>
+                            <td>@year</td>
+                            <td>@(carByYear.TryGetValue(year, out var carCount) ? carCount.Format() : "0")</td>
+                            <td>@(allByYear.TryGetValue(year, out var allCount) ? allCount.Format() : "0")</td>
+                        </tr>
+                    }
+                    <tr><td><strong>Total</strong></td><td><strong>@status.MpdTotal.Format()</strong></td><td><strong>@status.IncidentTotal.Format()</strong></td></tr>
+                </tbody>
+            </table>
+            <table class="admin-table">
+                <thead><tr><th>One-time startup task</th><th>Status</th></tr></thead>
+                <tbody>
+                    @foreach (var task in status.Tasks)
+                    {
+                        <tr>
+                            <td>@task.Description<br /><span class="field-hint">@task.Key</span></td>
+                            <td>@(task.CoveredBy is not null ? "Done (covered by an earlier import)" : task.CompletedAt is { } done ? $"Done {done.FormatSyncTimestamp()}" : "Not run yet")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="field-hint">
+            A task that stays "Not run yet" after a deploy is waiting on the next startup or on a running import.
+            Imports are loaded one year at a time and are safe to interrupt: a restart (including a deploy) repeats only the year that was running.
+        </p>
+    </details>
+
     @if (Model.ImportRunning)
     {
         <p class="field-hint" style="border: 1px solid var(--accent); color: var(--accent); padding: 0.6rem 0.9rem; margin: 1rem 0;">

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GlassOnTheStreet.Web.Services;
 
-public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsService
+public class ReportStatsService(GlassOnTheStreetContext db, IncidentDataCache incidents) : IReportStatsService
 {
     public async Task<ReportStats> GetStatsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
     {
@@ -164,23 +164,28 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
     public async Task<IReadOnlyList<YearlyCount>> GetYearlyCountsAsync(
         IncidentType incidentType, int startYear, CancellationToken cancellationToken = default)
     {
+        // The car categories come from the same full MPD feed as the crime pages (offense
+        // counts), so the homepage charts agree with them.
+        var groupKey = incidentType switch
+        {
+            IncidentType.Unknown => "theft-from-vehicle",
+            IncidentType.VehicleStolen => "vehicle-theft",
+            IncidentType.PartsTheft => "parts-theft",
+            IncidentType.PropertyDamage => "vandalism",
+            _ => null
+        };
+        var dataset = await incidents.GetAsync(cancellationToken);
+        var groupIndex = groupKey is null ? -1 : CrimeGroups.IndexOf(groupKey);
         var startDate = new DateOnly(startYear, 1, 1);
-        var dates = await db.Reports
-            .Where(r => r.Status == ReportStatus.Active
-                && r.SourceType == SourceType.OfficialImport
-                && r.IncidentType == incidentType
-                && r.ReportedDate >= startDate)
-            .Select(r => r.ReportedDate)
-            .ToListAsync(cancellationToken);
+        var dates = dataset.Rows
+            .Where(r => r.Group == groupIndex && r.Date >= startDate)
+            .Select(r => (r.Date, r.Count))
+            .ToList();
 
         // Measured through the feed's last date rather than today's: MPD
         // posts with a lag, and a current year missing its last few days
         // would understate the share and bias the projection low.
-        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
-        if (dates.Count > 0 && dates.Max() < today)
-        {
-            today = dates.Max();
-        }
+        var today = dataset.Through;
 
         var currentYear = today.Year;
         var counts = new List<YearlyCount>();
@@ -188,14 +193,14 @@ public class ReportStatsService(GlassOnTheStreetContext db) : IReportStatsServic
         var priorFullTotal = 0;
         for (var year = startYear; year <= currentYear; year++)
         {
-            var yearCount = dates.Count(d => d.Year == year);
+            var yearCount = dates.Where(d => d.Date.Year == year).Sum(d => d.Count);
             if (year < currentYear)
             {
                 // Same calendar cutoff in each earlier year (Feb 29 falls
                 // back to Feb 28), to measure how much of a typical year's
                 // total has already happened by today's date.
                 var cutoff = new DateOnly(year, today.Month, Math.Min(today.Day, DateTime.DaysInMonth(year, today.Month)));
-                priorYtdTotal += dates.Count(d => d.Year == year && d <= cutoff);
+                priorYtdTotal += dates.Where(d => d.Date.Year == year && d.Date <= cutoff).Sum(d => d.Count);
                 priorFullTotal += yearCount;
                 counts.Add(new YearlyCount(year, yearCount));
             }

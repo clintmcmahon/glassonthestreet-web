@@ -1,0 +1,137 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model GlassOnTheStreet.Web.Controllers.ComparePageModel
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var compare = Model.Compare;
+    var palette = new[] { "#2a78d6", "#e34948", "#1baf7a", "#eda100" };
+    var through = compare.Through.ToString("MMM d", CultureInfo.InvariantCulture);
+    var unit = Model.ByRate ? "offenses per 1,000 residents" : "offenses";
+    var names = string.Join(" vs ", compare.Series.Select(s => s.Name));
+
+    ViewData["Title"] = "Compare Minneapolis Neighborhoods by Crime | Glass on the Street";
+    ViewData["Description"] = "Compare crime in Minneapolis neighborhoods and wards side by side, year by year since 2019, as counts or per 1,000 residents. MPD data.";
+
+    var slots = Enumerable.Range(0, 4).Select(i => i < Model.SelectedKeys.Count ? Model.SelectedKeys[i] : "").ToList();
+    var series = compare.Series
+        .Select((s, i) => (s.Name, Values: Model.ByRate ? s.Rates : s.Counts.Select(c => (double?)c).ToArray(), Color: palette[i % palette.Length]))
+        .ToList();
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Compare areas", "/compare"))))
+}
+
+<div class="page">
+    <p class="kicker">Compare</p>
+    <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Compare Minneapolis neighborhoods and wards</h1>
+    <p class="lede" style="max-width: 720px;">
+        Pick up to four places and see offenses Jan 1 to @through of every year since @compare.Years[0], side by side.
+        Use per 1,000 residents when the places differ in size.
+    </p>
+
+    <form method="get" class="compare-form">
+        <div class="compare-slots">
+            @for (var i = 0; i < 4; i++)
+            {
+                <label class="trends-filter">
+                    <span>Place @(i + 1)</span>
+                    <select name="slot@(i)" data-slot>
+                        <option value="">(none)</option>
+                        <option value="minneapolis" selected="@(slots[i] == "minneapolis")">All of Minneapolis</option>
+                        <optgroup label="Wards">
+                            @foreach (var ward in Model.WardOptions)
+                            {
+                                <option value="ward-@ward" selected="@(slots[i] == $"ward-{ward}")">Ward @ward</option>
+                            }
+                        </optgroup>
+                        <optgroup label="Neighborhoods">
+                            @foreach (var name in Model.NeighborhoodOptions)
+                            {
+                                var slug = AreaSlug.For(name);
+                                <option value="@slug" selected="@(slots[i] == slug)">@name</option>
+                            }
+                        </optgroup>
+                    </select>
+                </label>
+            }
+        </div>
+        <input type="hidden" name="areas" id="compare-areas" value="@string.Join(",", Model.SelectedKeys)" />
+        <div class="compare-row">
+            <label class="trends-filter">
+                <span>Offense type</span>
+                <select name="group">
+                    <option value="">All crimes</option>
+                    @foreach (var g in CrimeGroups.Crimes)
+                    {
+                        <option value="@g.Key" selected="@(Model.Group == g.Key)">@g.Label</option>
+                    }
+                </select>
+            </label>
+            <label class="trends-filter">
+                <span>Measure</span>
+                <select name="metric">
+                    <option value="count" selected="@(!Model.ByRate)">Number of offenses</option>
+                    <option value="rate" selected="@Model.ByRate">Per 1,000 residents</option>
+                </select>
+            </label>
+            <button type="submit" class="btn">Compare</button>
+        </div>
+    </form>
+
+    @if (compare.Series.Count == 0)
+    {
+        <p>Pick at least one place above.</p>
+    }
+    else
+    {
+        <section class="trends-card" aria-labelledby="cmp-title">
+            <h2 id="cmp-title" class="trends-card-title">@compare.GroupLabel: @names</h2>
+            <p class="trends-card-sub">@unit.Substring(0, 1).ToUpperInvariant()@unit.Substring(1), Jan 1 to @through each year.</p>
+            <partial name="_MultiLine" model="@((compare.Years, (IReadOnlyList<(string Name, double?[] Values, string Color)>)series, $"{compare.GroupLabel}, {unit}, {names}", Model.ByRate))" />
+
+            <table class="area-table">
+                <thead>
+                    <tr><th>Place</th><th>Residents (2020)</th>@foreach (var y in compare.Years) { <th>@y</th> }</tr>
+                </thead>
+                <tbody>
+                    @foreach (var (s, i) in compare.Series.Select((s, i) => (s, i)))
+                    {
+                        <tr>
+                            <td><a href="@s.Url">@s.Name</a></td>
+                            <td>@(s.Population?.ToString("N0", CultureInfo.InvariantCulture))</td>
+                            @for (var yi = 0; yi < compare.Years.Length; yi++)
+                            {
+                                var value = Model.ByRate ? s.Rates[yi] : s.Counts[yi];
+                                <td>@(value is { } v ? (Model.ByRate ? v.ToString("N1", CultureInfo.InvariantCulture) : v.ToString("N0", CultureInfo.InvariantCulture)) : "")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+
+    <partial name="_Cite" model="@(("Comparing Minneapolis neighborhoods and wards by crime", "/compare", compare.Through))" />
+
+    <p class="field-hint" style="margin-top: 1.5rem;">
+        Source: MPD open data, counted by the date the offense occurred, with the current year through the last published date.
+        Rates use 2020 Census residents and are withheld for neighborhoods with under 1,000 residents. Places with many workers or
+        visitors (Downtown, Uptown, industrial areas) look high because only residents are counted. Reported crimes only.
+        See <a asp-controller="Methodology" asp-action="Index">the methodology</a>.
+    </p>
+</div>
+
+@section Scripts {
+    <script src="~/js/chart-share.js" asp-append-version="true"></script>
+    <script>
+        // Fold the four selects into the single "areas" parameter so the address stays short and shareable.
+        document.querySelector('.compare-form').addEventListener('submit', function () {
+            var keys = Array.prototype.map.call(document.querySelectorAll('[data-slot]'), function (s) { return s.value; })
+                .filter(function (v) { return v; });
+            document.getElementById('compare-areas').value = keys.join(',');
+            document.querySelectorAll('[data-slot]').forEach(function (s) { s.disabled = true; });
+        });
+    </script>
+}

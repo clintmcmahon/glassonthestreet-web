@@ -8,7 +8,8 @@ public record TrendFilter(IncidentType? Category, string? Neighborhood, int? War
 /// <param name="Counts">Same-period count for each year, aligned with TrendsData.Years.</param>
 /// <param name="ChangeVsPrior">Percent change of the current year vs the prior year; null when the prior count is zero.</param>
 /// <param name="Url">The area's own page, e.g. /neighborhoods/whittier.</param>
-public record AreaTrend(string Name, int[] Counts, double? ChangeVsPrior, string Url);
+/// <param name="RatePerThousand">This year's count per 1,000 residents; null when residents are unknown or too few.</param>
+public record AreaTrend(string Name, int[] Counts, double? ChangeVsPrior, string Url, double? RatePerThousand = null, int? Population = null);
 
 /// <param name="Monthly">Per year, 12 monthly counts; months after the data's end are null.</param>
 /// <param name="SamePeriod">Per year, the count from Jan 1 through the same month and day as Through.</param>

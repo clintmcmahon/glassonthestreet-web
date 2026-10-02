@@ -1,0 +1,145 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model GlassOnTheStreet.Web.Services.MonthlyReport
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var path = $"/monthly/{Model.Year}-{Model.Month:D2}";
+    string Move(double? pct) => pct is null ? "n/a" : $"{(pct >= 0 ? "+" : "-")}{Math.Abs(Math.Round(pct.Value)).ToString("0", CultureInfo.InvariantCulture)}%";
+    double? Pct(int now, int then) => then == 0 ? null : Math.Round((now - then) / (double)then * 100, 1);
+
+    ViewData["Title"] = $"Minneapolis Crime in {Model.Label} | Glass on the Street";
+    ViewData["OgImage"] = $"/og/monthly/{Model.Year}-{Model.Month:D2}.png";
+    ViewData["Description"] = Model.Narrative[0].Length <= 155 ? Model.Narrative[0] : Model.Narrative[0][..152] + "...";
+    var breadcrumbJson = StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Monthly reports", "/monthly"), (Model.Label, path));
+    var today = DateTime.UtcNow.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(breadcrumbJson))
+    @Html.Raw(StructuredData.Tag(StructuredData.Dataset(baseUrl, path,
+        $"Minneapolis offenses by type, {Model.Label}",
+        $"MPD-reported offenses in Minneapolis in {Model.Label} by type, compared with the prior month and the same month a year earlier.",
+        "Minneapolis, Minnesota", Model.Through, "/data/crime-monthly.csv")))
+}
+
+<div class="page">
+    <nav class="area-crumbs" aria-label="Breadcrumb">
+        <a asp-controller="Home" asp-action="Index">Home</a> /
+        <a asp-controller="Monthly" asp-action="Index">Monthly reports</a> /
+        <span>@Model.Label</span>
+    </nav>
+
+    <p class="kicker">Monthly report</p>
+    <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Minneapolis crime in @Model.Label</h1>
+
+    <div class="stat-line">
+        <div class="stat">
+            <div class="stat-value">@Model.Total.Format()</div>
+            <div class="stat-label">offenses recorded</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value @(Pct(Model.Total, Model.PriorMonthTotal) is > 0 ? "up" : "down")">@Move(Pct(Model.Total, Model.PriorMonthTotal))</div>
+            <div class="stat-label">vs. the previous month</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value @(Pct(Model.Total, Model.LastYearTotal) is > 0 ? "up" : "down")">@Move(Pct(Model.Total, Model.LastYearTotal))</div>
+            <div class="stat-label">vs. @MonthlyReportService.Label(Model.Year - 1, Model.Month)</div>
+        </div>
+    </div>
+
+    @if (Model.IsProvisional)
+    {
+        <p class="field-hint">
+            Provisional: MPD posts some records late, so this month's counts can still rise slightly.
+            Data runs through @Model.Through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture).
+        </p>
+    }
+
+    <div class="monthly-narrative">
+        @foreach (var line in Model.Narrative)
+        {
+            <p>@line</p>
+        }
+    </div>
+
+    <section class="trends-card" aria-labelledby="trend-title">
+        <h2 id="trend-title" class="trends-card-title">The last 13 months</h2>
+        <p class="trends-card-sub">All offenses by month, ending with @Model.Label (highlighted).</p>
+        <partial name="_BarSeries" model="@((Model.TrendLabels, Model.Trend, Model.Trend.Length - 1, $"Offenses per month for the 13 months ending {Model.Label}"))" />
+    </section>
+
+    <section class="trends-card" aria-labelledby="types-title">
+        <h2 id="types-title" class="trends-card-title">By offense type</h2>
+        <table class="area-table groups-table">
+            <thead>
+                <tr><th>Type</th><th>@Model.Label</th><th>@MonthlyReportService.Label(Model.Year - (Model.Month == 1 ? 1 : 0), Model.Month == 1 ? 12 : Model.Month - 1)</th><th>Change</th><th>@MonthlyReportService.Label(Model.Year - 1, Model.Month)</th><th>Change</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Model.Groups)
+                {
+                    <tr>
+                        <td>@g.Label</td>
+                        <td>@g.Count.Format()</td>
+                        <td>@g.PriorMonth.Format()</td>
+                        <td>@Move(g.ChangeVsPriorMonth)</td>
+                        <td>@g.LastYear.Format()</td>
+                        <td>@Move(g.ChangeVsLastYear)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    @if (Model.Increases.Count > 0 || Model.Decreases.Count > 0)
+    {
+        <section class="trends-card" aria-labelledby="movers-title">
+            <h2 id="movers-title" class="trends-card-title">Neighborhoods that changed most</h2>
+            <p class="trends-card-sub">Compared with @MonthlyReportService.Label(Model.Year - 1, Model.Month), by number of offenses, among neighborhoods with at least 20 in either month.</p>
+            <div class="admin-data-grid">
+                @foreach (var (title, list) in new[] { ("Up", Model.Increases), ("Down", Model.Decreases) })
+                {
+                    <table class="area-table">
+                        <caption class="groups-caption">@title</caption>
+                        <thead><tr><th>Neighborhood</th><th>@Model.Label</th><th>@MonthlyReportService.Label(Model.Year - 1, Model.Month)</th><th>Change</th></tr></thead>
+                        <tbody>
+                            @foreach (var m in list)
+                            {
+                                <tr>
+                                    <td><a href="@m.Url">@m.Name</a></td>
+                                    <td>@m.Count.Format()</td>
+                                    <td>@m.LastYear.Format()</td>
+                                    <td>@Move(m.Percent)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+    }
+
+    <nav class="monthly-nav" aria-label="Other months">
+        @if (Model.Previous is { } prev)
+        {
+            <a href="/monthly/@prev.Year-@prev.Month.ToString("D2")">&larr; @MonthlyReportService.Label(prev.Year, prev.Month)</a>
+        }
+        <a asp-controller="Monthly" asp-action="Index">All months</a>
+        @if (Model.Next is { } next)
+        {
+            <a href="/monthly/@next.Year-@next.Month.ToString("D2")">@MonthlyReportService.Label(next.Year, next.Month) &rarr;</a>
+        }
+    </nav>
+
+    <p class="field-hint" style="margin-top: 1.5rem;">
+        Source: Minneapolis Police Department open data, counted by the date the offense occurred, through
+        @Model.Through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture). Offenses are counted as MPD counts them and exclude shots-fired
+        calls, gunshot wound victims and subset rows. Reported crimes only. See the
+        <a asp-controller="Methodology" asp-action="Index">methodology</a>. Cite as: Glass on the Street, "Minneapolis crime in @Model.Label,"
+        @baseUrl@path, accessed @today. Raw counts by month are in the <a href="/data/crime-monthly.csv">CSV</a>.
+    </p>
+</div>
+
+@section Scripts {
+    <script src="~/js/chart-share.js" asp-append-version="true"></script>
+}

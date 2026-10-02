@@ -1,16 +1,22 @@
-// /trends dashboard. Fetches /api/trends for the current filters and draws
-// four views from the one response: year-over-year lines, same-period
-// columns, a month-by-year heatmap and the area rankings. Charts are plain
-// SVG/HTML; every label that comes from the API goes in with textContent.
+// Dashboard script for /trends (car-related crime) and /crime (every offense).
+// Fetches the page's API (data-api) for the current filters and draws the
+// views from the one response: year-over-year lines, same-period columns, a
+// month-by-year heatmap, the area rankings and, when the response carries
+// them, an hour-by-weekday heatmap and an offense-group table. Charts are
+// plain SVG/HTML; every label that comes from the API goes in with textContent.
 (function () {
   var root = document.getElementById("trends");
   if (!root) return;
+
+  var API = root.dataset.api || "/api/trends";
+  var UNIT = root.dataset.unit || "reports";
+  var ALL_PHRASE = root.dataset.allPhrase || "reports in these categories";
 
   var SVGNS = "http://www.w3.org/2000/svg";
   var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var fmt = function (n) { return formatNumber(n); };
 
-  var state = { category: "", area: "", areasTab: "neighborhoods", hidden: {} };
+  var state = { category: "", area: "", areasTab: "neighborhoods", hidden: {}, sort: "" };
   var data = null;
   var tables = {}; // chart key -> { headers, rows } for the table view and CSV
   var requestId = 0;
@@ -39,7 +45,7 @@
     if (value <= 0) return 10;
     var rough = value * 1.08;
     var magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
-    var steps = [1, 2, 2.5, 5, 10];
+    var steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
     for (var i = 0; i < steps.length; i++) {
       if (steps[i] * magnitude >= rough) return steps[i] * magnitude;
     }
@@ -183,7 +189,7 @@
     function y(value) { return m.t + innerH * (1 - value / yMax); }
 
     var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg", tabindex: "0", role: "group",
-      "aria-label": "Monthly reports for " + years[0] + " to " + years[cur] + ". Use the left and right arrow keys to move between months." }, canvas);
+      "aria-label": "Monthly " + UNIT + " for " + years[0] + " to " + years[cur] + ". Use the left and right arrow keys to move between months." }, canvas);
 
     var step = yMax / 4;
     for (var g = 0; g <= 4; g++) {
@@ -352,7 +358,7 @@
         htmlEl("div", "trends-tip-title", year + (i === cur ? " (so far)" : ""), tip);
         var row = htmlEl("div", "trends-tip-row", null, tip);
         htmlEl("strong", null, fmt(counts[i]), row);
-        htmlEl("span", "trends-tip-label", "reports, " + windowLabel, row);
+        htmlEl("span", "trends-tip-label", UNIT + ", " + windowLabel, row);
         if (i > 0) {
           var change = percentChange(counts[i], counts[i - 1]);
           var delta = htmlEl("div", "trends-tip-row", null, tip);
@@ -369,7 +375,7 @@
     });
 
     tables.period = {
-      headers: ["Year", "Reports " + windowLabel],
+      headers: ["Year", UNIT.charAt(0).toUpperCase() + UNIT.slice(1) + " " + windowLabel],
       rows: years.map(function (year, i) { return [String(year), counts[i]]; })
     };
   }
@@ -422,7 +428,7 @@
             x: cx + gap / 2, y: cy + gap / 2, width: cellW - gap, height: rowH - gap, rx: 3,
             class: "trends-cell" + (v === null ? " is-empty" : "") + (isPartial ? " is-partial" : ""),
             tabindex: v === null ? "-1" : "0", role: "img",
-            "aria-label": v === null ? "" : MONTHS[mi] + " " + year + ": " + fmt(v) + " reports" + (isPartial ? " so far" : "")
+            "aria-label": v === null ? "" : MONTHS[mi] + " " + year + ": " + fmt(v) + " " + UNIT + (isPartial ? " so far" : "")
           }, svg);
           if (v === null) return;
           cell.style.fill = rampColor(maxValue ? v / maxValue : 0);
@@ -431,7 +437,7 @@
             htmlEl("div", "trends-tip-title", MONTHS[mi] + " " + year + (isPartial ? " (through " + monthDayLabel(data.through) + ")" : ""), tip);
             var row = htmlEl("div", "trends-tip-row", null, tip);
             htmlEl("strong", null, fmt(v), row);
-            htmlEl("span", "trends-tip-label", "reports", row);
+            htmlEl("span", "trends-tip-label", UNIT, row);
             placeTooltip(canvas, tip, cx + cellW / 2, cy + rowH / 2);
             cell.classList.add("is-active");
           }
@@ -485,9 +491,11 @@
     var years = data.years, cur = years.length - 1;
 
     if (!list.length) {
-      htmlEl("p", "trends-empty", "No reports in this period.", canvas);
+      htmlEl("p", "trends-empty", "No " + UNIT + " in this period.", canvas);
     } else {
-      var max = Math.max.apply(null, list.map(function (a) { return a.counts[cur]; })) || 1;
+      var byRate = state.sort === "rate";
+      var metric = function (a) { return byRate ? (a.ratePerThousand || 0) : a.counts[cur]; };
+      var max = Math.max.apply(null, list.map(metric)) || 1;
       var ol = htmlEl("ol", "trends-areas", null, canvas);
       list.forEach(function (area, i) {
         var li = htmlEl("li", "trends-area", null, ol);
@@ -507,8 +515,11 @@
         });
         var barWrap = htmlEl("span", "trends-area-bar", null, li);
         var fill = htmlEl("span", "trends-area-bar-fill", null, barWrap);
-        fill.style.width = (area.counts[cur] / max * 100) + "%";
-        htmlEl("strong", "trends-area-count", fmt(area.counts[cur]), li);
+        fill.style.width = (metric(area) / max * 100) + "%";
+        var countEl = htmlEl("strong", "trends-area-count", fmt(area.counts[cur]), li);
+        if (area.ratePerThousand !== undefined && area.ratePerThousand !== null) {
+          htmlEl("small", "trends-area-rate", area.ratePerThousand.toLocaleString("en-US") + " per 1,000", countEl);
+        }
         var change = htmlEl("span", "trends-area-change", null, li);
         change.textContent = area.changeVsPrior === null ? "n/a" : arrowFor(area.changeVsPrior) + " " + Math.abs(Math.round(area.changeVsPrior)) + "%";
         change.title = "vs " + years[cur - 1] + ", same period";
@@ -522,14 +533,161 @@
       headers: ["Area"].concat(years.map(function (y) { return y + " (Jan 1 to " + monthDayLabel(data.through) + ")"; })),
       rows: list.map(function (a) { return [a.name].concat(a.counts); })
     };
+    if (list.length && list[0].ratePerThousand !== undefined) {
+      tables.areas.headers.push("Per 1,000 residents, " + years[cur], "Residents (2020)");
+      tables.areas.rows = list.map(function (a, i) {
+        return tables.areas.rows[i].concat([a.ratePerThousand === null ? "" : a.ratePerThousand, a.population === null ? "" : a.population]);
+      });
+    }
+    var sortBox = document.getElementById("areas-sort");
+    if (sortBox) {
+      sortBox.hidden = !(list.length && list[0].ratePerThousand !== undefined);
+      sortBox.querySelectorAll("[data-sort]").forEach(function (b) {
+        var active = b.dataset.sort === state.sort;
+        b.classList.toggle("is-active", active);
+        b.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
+  }
+
+  // ---------- hour by weekday ----------
+
+  function renderHour() {
+    var section = document.getElementById("chart-hour");
+    if (!section || !data.hourWeekday) return;
+    var canvas = canvasOf("chart-hour");
+    canvas.textContent = "";
+
+    var days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    var hourLabel = function (h) { return (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? " AM" : " PM"); };
+    var W = Math.max(canvas.clientWidth, 320);
+    var labelW = 38, topH = 20, rowH = W < 520 ? 22 : 26, gap = 2;
+    var cellW = (W - labelW) / 24;
+    var H = topH + 7 * rowH + 38;
+
+    var maxValue = 0;
+    data.hourWeekday.forEach(function (row) { row.forEach(function (v) { if (v > maxValue) maxValue = v; }); });
+
+    var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg", role: "group",
+      "aria-label": "Offenses by hour of day and weekday over the last 12 months, darker means more" }, canvas);
+
+    [0, 3, 6, 9, 12, 15, 18, 21].forEach(function (h) {
+      var t = svgEl("text", { x: labelW + cellW * h + cellW / 2, y: 13, class: "trends-axis", "text-anchor": "middle" }, svg);
+      t.textContent = W < 520 ? String(h % 12 === 0 ? 12 : h % 12) + (h < 12 ? "a" : "p") : hourLabel(h);
+    });
+
+    var tip = tooltipFor(canvas);
+    days.forEach(function (day, di) {
+      var dt = svgEl("text", { x: labelW - 8, y: topH + rowH * di + rowH / 2 + 4, class: "trends-axis", "text-anchor": "end" }, svg);
+      dt.textContent = day;
+      for (var h = 0; h < 24; h++) {
+        (function (h) {
+          var v = data.hourWeekday[di][h];
+          var cx = labelW + cellW * h, cy = topH + rowH * di;
+          var cell = svgEl("rect", { x: cx + gap / 2, y: cy + gap / 2, width: cellW - gap, height: rowH - gap, rx: 2, class: "trends-cell", tabindex: "0", role: "img",
+            "aria-label": day + " " + hourLabel(h) + ": " + fmt(v) + " " + UNIT }, svg);
+          cell.style.fill = rampColor(maxValue ? v / maxValue : 0);
+          function show() {
+            tip.textContent = "";
+            htmlEl("div", "trends-tip-title", day + ", " + hourLabel(h) + " to " + hourLabel((h + 1) % 24), tip);
+            var row = htmlEl("div", "trends-tip-row", null, tip);
+            htmlEl("strong", null, fmt(v), row);
+            htmlEl("span", "trends-tip-label", UNIT + ", last 12 months", row);
+            placeTooltip(canvas, tip, cx + cellW / 2, cy + rowH / 2);
+            cell.classList.add("is-active");
+          }
+          function hide() { hideTooltip(canvas); cell.classList.remove("is-active"); }
+          cell.addEventListener("pointerenter", show);
+          cell.addEventListener("pointerleave", hide);
+          cell.addEventListener("focus", show);
+          cell.addEventListener("blur", hide);
+        })(h);
+      }
+    });
+
+    var keyY = topH + 7 * rowH + 12, keyW = Math.min(200, W - labelW);
+    var defs = svgEl("defs", {}, svg);
+    var grad = svgEl("linearGradient", { id: "hour-ramp" }, defs);
+    for (var s = 0; s <= 4; s++) svgEl("stop", { offset: (s * 25) + "%", "stop-color": rampColor(s / 4) }, grad);
+    svgEl("rect", { x: labelW, y: keyY, width: keyW, height: 8, rx: 4, fill: "url(#hour-ramp)" }, svg);
+    var lo = svgEl("text", { x: labelW, y: keyY + 22, class: "trends-axis" }, svg);
+    lo.textContent = "0";
+    var hi = svgEl("text", { x: labelW + keyW, y: keyY + 22, class: "trends-axis", "text-anchor": "end" }, svg);
+    hi.textContent = fmt(maxValue) + " in an hour slot";
+
+    tables.hour = {
+      headers: ["Weekday"].concat(Array.apply(null, Array(24)).map(function (_, h) { return hourLabel(h); })),
+      rows: days.map(function (day, di) { return [day].concat(data.hourWeekday[di]); })
+    };
+  }
+
+  // ---------- offense groups ----------
+
+  function renderGroups() {
+    var box = document.getElementById("groups-body");
+    if (!box || !data.groups) return;
+    box.textContent = "";
+    var years = data.years, cur = years.length - 1;
+    var windowLabel = "Jan 1 to " + monthDayLabel(data.through);
+
+    var table = htmlEl("table", "area-table groups-table", null, box);
+    htmlEl("caption", "groups-caption", windowLabel + ", " + data.scope + ". Offenses, counted per MPD's offense count.", table);
+    var thead = htmlEl("thead", null, null, table);
+    var hr = htmlEl("tr", null, null, thead);
+    var cols = ["Group", String(years[cur]), String(years[cur - 1]), "Change from " + years[cur - 1], "Change from " + years[0]];
+    if (data.population) cols.push("Per 1,000 residents");
+    cols.forEach(function (h) { htmlEl("th", null, h, hr); });
+    var tbody = htmlEl("tbody", null, null, table);
+
+    function addRow(g) {
+      var tr = htmlEl("tr", null, null, tbody);
+      var first = htmlEl("td", null, null, tr);
+      var btn = htmlEl("button", "trends-area-name", g.label, first);
+      btn.type = "button";
+      btn.title = g.definition;
+      btn.addEventListener("click", function () {
+        categorySelect.value = g.key;
+        state.category = g.key;
+        load();
+        section("trends").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      htmlEl("td", null, fmt(g.counts[cur]), tr);
+      htmlEl("td", null, fmt(g.counts[cur - 1]), tr);
+      htmlEl("td", null, g.changeVsPrior === null ? "" : formatChange(g.changeVsPrior), tr);
+      htmlEl("td", null, g.changeVsBase === null ? "" : formatChange(g.changeVsBase), tr);
+      if (data.population) htmlEl("td", null, g.ratePerThousand === null ? "" : g.ratePerThousand.toLocaleString("en-US"), tr);
+    }
+
+    data.groups.forEach(addRow);
+
+    var total = data.groups.reduce(function (acc, g) { return acc.map(function (v, i) { return v + g.counts[i]; }); }, years.map(function () { return 0; }));
+    var totalRow = htmlEl("tr", "groups-total", null, tbody);
+    htmlEl("td", null, "All crimes", totalRow);
+    htmlEl("td", null, fmt(total[cur]), totalRow);
+    htmlEl("td", null, fmt(total[cur - 1]), totalRow);
+    htmlEl("td", null, formatChange(percentChange(total[cur], total[cur - 1])), totalRow);
+    htmlEl("td", null, formatChange(percentChange(total[cur], total[0])), totalRow);
+    if (data.population) htmlEl("td", null, (Math.round(total[cur] * 10000 / data.population) / 10).toLocaleString("en-US"), totalRow);
+
+    var sep = htmlEl("tr", "near-sep", null, tbody);
+    var sepCell = htmlEl("td", null, "Not counted as crimes: calls and subsets of the offenses above", sep);
+    sepCell.colSpan = cols.length;
+    data.metrics.forEach(addRow);
+
+    tables.groups = {
+      headers: ["Group", "Counted as crime"].concat(years.map(function (y) { return y + " (" + windowLabel + ")"; })),
+      rows: data.groups.concat(data.metrics).map(function (g) { return [g.label, g.isCrime ? "yes" : "no"].concat(g.counts); })
+    };
   }
 
   // ---------- tables and CSV ----------
 
   function renderTables() {
     Object.keys(tables).forEach(function (key) {
-      var id = { yoy: "chart-yoy", period: "chart-period", heat: "chart-heat", areas: "chart-areas" }[key];
-      var details = section(id).querySelector("[data-table]");
+      var id = { yoy: "chart-yoy", period: "chart-period", heat: "chart-heat", areas: "chart-areas", hour: "chart-hour", groups: "chart-groups" }[key];
+      var host = id && section(id);
+      var details = host && host.querySelector("[data-table]");
+      if (!details) return;
       details.querySelectorAll("table").forEach(function (old) { old.remove(); });
       var table = htmlEl("table", null, null, details);
       var thead = htmlEl("thead", null, null, table);
@@ -574,6 +732,7 @@
     if (state.category) params.set("category", state.category);
     if (state.area.indexOf("ward:") === 0) params.set("ward", state.area.slice(5));
     if (state.area.indexOf("n:") === 0) params.set("neighborhood", state.area.slice(2));
+    if (state.sort) params.set("sort", state.sort);
     return params.toString();
   }
 
@@ -623,7 +782,7 @@
     var el = document.getElementById("trends-headline");
     var scope = [];
     var catOption = categorySelect.options[categorySelect.selectedIndex];
-    scope.push(state.category ? catOption.textContent.toLowerCase() + " reports" : "reports in these categories");
+    scope.push(state.category ? catOption.textContent.toLowerCase() + " " + UNIT : ALL_PHRASE);
     if (state.area) scope.push("in " + areaSelect.options[areaSelect.selectedIndex].textContent);
     el.textContent = "";
     el.appendChild(document.createTextNode("Through " + monthDayLabel(data.through) + ", " + years[cur] + ", MPD has recorded "));
@@ -642,6 +801,8 @@
     renderPeriod();
     renderHeat();
     renderAreas();
+    renderHour();
+    renderGroups();
     renderTables();
     updateHeadline();
     resetButton.hidden = !state.category && !state.area;
@@ -652,7 +813,7 @@
     var qs = queryString();
     root.classList.add("is-loading");
     syncUrl();
-    fetch("/api/trends" + (qs ? "?" + qs : ""))
+    fetch(API + (qs ? "?" + qs : ""))
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (json) {
         if (id !== requestId) return;
@@ -693,6 +854,13 @@
     });
   });
 
+  root.querySelectorAll("[data-sort]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      state.sort = button.dataset.sort;
+      load();
+    });
+  });
+
   var resizeTimer = null;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
@@ -702,6 +870,7 @@
   // Restore filters from the URL so a filtered view can be shared.
   var params = new URLSearchParams(location.search);
   state.category = params.get("category") || "";
+  state.sort = params.get("sort") === "rate" ? "rate" : "";
   if (params.get("ward")) state.area = "ward:" + params.get("ward");
   if (params.get("neighborhood")) state.area = "n:" + params.get("neighborhood");
   categorySelect.value = state.category;

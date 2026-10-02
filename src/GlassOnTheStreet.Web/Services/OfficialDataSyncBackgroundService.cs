@@ -1,37 +1,39 @@
 using GlassOnTheStreet.Web.Data;
+using GlassOnTheStreet.Web.Infrastructure;
 using GlassOnTheStreet.Web.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace GlassOnTheStreet.Web.Services;
 
+/// <param name="CoveredBy">Earlier one-time tasks whose completion already covers this one.</param>
+public record ExpectedTask(string Key, string Description, IReadOnlyList<string> CoveredBy);
+
 /// <summary>
-/// Keeps the MPD-sourced side of the map current without anyone having to
-/// remember to click Import in /admin. Runs once shortly after startup and
-/// then once a day. A short lookback (3 days) is enough to overlap the
-/// city portal's own daily refresh cadence -- ExternalCaseNumber dedup
-/// (see MinneapolisOpenDataImportService) makes re-fetching already-seen
-/// records a no-op, so overlap is harmless.
+/// Keeps the MPD-sourced data current without anyone clicking Import. Runs
+/// shortly after startup and then once a day.
 ///
-/// Before falling into that regular loop, it runs a one-time clean
-/// reimport exactly once (guarded by a OneTimeTasks marker row, since a
-/// fresh deploy publishes a fresh filesystem -- a marker file wouldn't
-/// survive): every existing MPD-imported report is deleted and the full
-/// history from CleanReimportStartDate is re-fetched from scratch. This
-/// exists to recover from data accumulated across this service's various
-/// bug fixes and category changes (dead categories, miscounted vandalism,
-/// etc.) with a genuinely clean slate, rather than trying to patch old
-/// rows in place. Resident-submitted reports (SourceType.UserReport) are
-/// never touched by this.
+/// History is loaded one calendar year at a time, each year its own
+/// marker row (OneTimeTasks). That matters because every deploy restarts the
+/// app: an import cancelled by a restart loses at most the year it was in,
+/// and the next start skips every year already marked done. Imports are
+/// additive and deduplicated (nothing is deleted), so a rerun is always safe.
 ///
-/// The clean reimport is rerun when the importer changes what it stores
-/// (2026-09-30: MPD's own block anchors are now kept as-is instead of being
-/// re-snapped to a grid). Once it has run, a second one-time task re-anchors
-/// resident reports that were saved under the old grid snapping, using the
-/// MPD anchors the reimport just loaded.
+///   CarImport-{year}       the four car-related categories shown on the map (Reports)
+///   IncidentImport-{year}  the full MPD feed, every offense (MpdIncidents)
 ///
-/// IOfficialDataImportService and GlassOnTheStreetContext are scoped, but
-/// a BackgroundService is a singleton, so each run gets its own
-/// IServiceScope rather than holding one for the app's whole lifetime.
+/// The history pass runs on every tick, not only at startup, so a year that
+/// failed (the city feed was down) is retried the next day.
+///
+/// The old one-shot tasks ("CleanReimport...", "BackfillFrom2019...") are not trusted
+/// here: they marked themselves done after runs that a failed page had silently
+/// truncated, so every year is verified by importing it (deduplicated, so rows already
+/// on file are skipped).
+///
+/// A third one-time task re-anchors resident reports saved under the old grid
+/// snapping to MPD's block midpoints; it runs once the car data is loaded.
+///
+/// The importers and GlassOnTheStreetContext are scoped, but a
+/// BackgroundService is a singleton, so each run gets its own IServiceScope.
 /// </summary>
 public class OfficialDataSyncBackgroundService(
     IServiceScopeFactory scopeFactory,
@@ -39,17 +41,37 @@ public class OfficialDataSyncBackgroundService(
 {
     private static readonly TimeSpan StartupDelay = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan SyncInterval = TimeSpan.FromDays(1);
-    private const int LookbackDays = 3;
 
-    private const string CleanReimportTaskKey = "CleanReimport2026-09-30";
-    private const string ResnapUserReportsTaskKey = "ResnapUserReports2026-09-30";
-    private static readonly DateOnly CleanReimportStartDate = new(2019, 1, 1);
+    // MPD posts some records late, so each daily sync looks back a month.
+    private const int LookbackDays = 30;
 
-    // Pre-COVID baseline: MPD's current records feed starts in January 2019
-    // (earlier dates are a handful of stray rows per year), so this is the
-    // earliest real data. Additive and non-destructive, unlike the clean
-    // reimport: case-number dedup skips everything already on file.
-    private const string BackfillFrom2019TaskKey = "BackfillFrom2019-2026-10-01";
+    // MPD's current records feed starts here; earlier dates are stray rows.
+    public const int FirstYear = 2019;
+
+    public const string ResnapUserReportsTaskKey = "ResnapUserReports2026-09-30";
+
+    public static string CarImportKey(int year) => $"CarImport-{year}";
+
+    public static string IncidentImportKey(int year) => $"IncidentImport-{year}";
+
+    /// <summary>The startup tasks, in the order they run, for the admin Data status panel.</summary>
+    public static IReadOnlyList<ExpectedTask> ExpectedTasks(int currentYear)
+    {
+        var tasks = new List<ExpectedTask>();
+        for (var year = FirstYear; year <= currentYear; year++)
+        {
+            tasks.Add(new ExpectedTask(CarImportKey(year), $"Car-related MPD categories, {year}", []));
+        }
+
+        tasks.Add(new ExpectedTask(ResnapUserReportsTaskKey, "Re-anchor resident reports to block midpoints", []));
+
+        for (var year = FirstYear; year <= currentYear; year++)
+        {
+            tasks.Add(new ExpectedTask(IncidentImportKey(year), $"All MPD offenses, {year}", []));
+        }
+
+        return tasks;
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -62,29 +84,25 @@ public class OfficialDataSyncBackgroundService(
             return;
         }
 
-        await RunCleanReimportOnceAsync(stoppingToken);
-        await RunBackfillFrom2019OnceAsync(stoppingToken);
-        await RunResnapUserReportsOnceAsync(stoppingToken);
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
-                var importService = scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>();
-                var result = await importService.ImportAsync(LookbackDays, stoppingToken);
-
-                logger.LogInformation(
-                    "Scheduled MPD sync: fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
-                    result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
-
-                var syncStatusService = scope.ServiceProvider.GetRequiredService<ISyncStatusService>();
-                await syncStatusService.RecordSyncAsync(stoppingToken);
+                await RunHistoryAsync(stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // A failed sync (network blip, city portal downtime) should
-                // never take the app down -- just try again on the next tick.
+                // Network blip or city portal downtime: nothing was marked
+                // done for the failed year, so the next tick picks it up.
+                logger.LogWarning(ex, "MPD history import failed; will retry on the next interval");
+            }
+
+            try
+            {
+                await RunDailySyncAsync(stoppingToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
                 logger.LogWarning(ex, "Scheduled MPD sync failed; will retry on the next interval");
             }
 
@@ -99,143 +117,151 @@ public class OfficialDataSyncBackgroundService(
         }
     }
 
-    private async Task RunCleanReimportOnceAsync(CancellationToken cancellationToken)
+    private async Task RunDailySyncAsync(CancellationToken cancellationToken)
     {
+        using var scope = scopeFactory.CreateScope();
+        var today = CentralToday();
+
+        var cars = scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>();
+        var carResult = await cars.ImportAsync(LookbackDays, cancellationToken);
+        logger.LogInformation(
+            "Scheduled MPD sync (car categories): fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
+            carResult.Fetched, carResult.Imported, carResult.SkippedDuplicate, carResult.SkippedInvalid);
+
+        var incidents = scope.ServiceProvider.GetRequiredService<IMpdIncidentImportService>();
+        var incidentResult = await incidents.ImportRangeAsync(today.AddDays(-LookbackDays), today, cancellationToken);
+        logger.LogInformation(
+            "Scheduled MPD sync (all offenses): fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
+            incidentResult.Fetched, incidentResult.Imported, incidentResult.SkippedDuplicate, incidentResult.SkippedInvalid);
+
+        var syncStatusService = scope.ServiceProvider.GetRequiredService<ISyncStatusService>();
+        await syncStatusService.RecordSyncAsync(cancellationToken);
+    }
+
+    private async Task RunHistoryAsync(CancellationToken cancellationToken)
+    {
+        var today = CentralToday();
+
+        for (var year = FirstYear; year <= today.Year; year++)
+        {
+            await RunChunkAsync(CarImportKey(year), [], year, today, async (scope, from, to) =>
+                await scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>().ImportRangeAsync(from, to, cancellationToken),
+                cancellationToken);
+        }
+
         try
         {
-            using var scope = scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
-
-            if (await db.OneTimeTasks.AnyAsync(t => t.Key == CleanReimportTaskKey, cancellationToken))
-            {
-                return;
-            }
-
-            logger.LogWarning(
-                "Running one-time clean reimport: deleting all existing MPD-imported reports and re-importing from {StartDate}",
-                CleanReimportStartDate);
-
-            var deleted = await db.Reports
-                .Where(r => r.SourceType == SourceType.OfficialImport)
-                .ExecuteDeleteAsync(cancellationToken);
-            logger.LogInformation("Clean reimport: deleted {Deleted} existing MPD-imported reports", deleted);
-
-            var lookbackDays = (int)(DateOnly.FromDateTime(DateTime.UtcNow).ToDateTime(TimeOnly.MinValue)
-                - CleanReimportStartDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
-            var importService = scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>();
-            var result = await importService.ImportAsync(lookbackDays, cancellationToken);
-            logger.LogInformation(
-                "Clean reimport finished: fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
-                result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
-
-            var syncStatusService = scope.ServiceProvider.GetRequiredService<ISyncStatusService>();
-            await syncStatusService.RecordSyncAsync(cancellationToken);
-
-            db.OneTimeTasks.Add(new OneTimeTask { Key = CleanReimportTaskKey });
-            await db.SaveChangesAsync(cancellationToken);
+            await RunResnapUserReportsOnceAsync(today.Year, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Deliberately does NOT mark the task complete on failure --
-            // an interrupted or failed clean reimport should retry on the
-            // next startup rather than silently leave the data half-wiped.
-            logger.LogError(ex, "One-time clean reimport failed; will retry on next startup");
+            // Not worth blocking the incident import over; retried next tick.
+            logger.LogError(ex, "Resident report re-anchoring failed; will retry on the next interval");
+        }
+
+        for (var year = FirstYear; year <= today.Year; year++)
+        {
+            await RunChunkAsync(IncidentImportKey(year), [], year, today, async (scope, from, to) =>
+                await scope.ServiceProvider.GetRequiredService<IMpdIncidentImportService>().ImportRangeAsync(from, to, cancellationToken),
+                cancellationToken);
         }
     }
 
-    private async Task RunBackfillFrom2019OnceAsync(CancellationToken cancellationToken)
+    private async Task RunChunkAsync(
+        string key, IReadOnlyList<string> coveredBy, int year, DateOnly today,
+        Func<IServiceScope, DateOnly, DateOnly, Task<OfficialImportResult>> import,
+        CancellationToken cancellationToken)
     {
-        try
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
+
+        if (await IsDoneAsync(db, key, coveredBy, cancellationToken))
         {
-            using var scope = scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
-
-            if (await db.OneTimeTasks.AnyAsync(t => t.Key == BackfillFrom2019TaskKey, cancellationToken))
-            {
-                return;
-            }
-
-            var lookbackDays = (int)(DateOnly.FromDateTime(DateTime.UtcNow).ToDateTime(TimeOnly.MinValue)
-                - CleanReimportStartDate.ToDateTime(TimeOnly.MinValue)).TotalDays;
-            logger.LogWarning("Running one-time MPD backfill from {StartDate}", CleanReimportStartDate);
-
-            var importService = scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>();
-            var result = await importService.ImportAsync(lookbackDays, cancellationToken);
-            logger.LogInformation(
-                "MPD backfill finished: fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
-                result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
-
-            db.OneTimeTasks.Add(new OneTimeTask { Key = BackfillFrom2019TaskKey });
-            await db.SaveChangesAsync(cancellationToken);
+            return;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogError(ex, "MPD backfill failed; will retry on next startup");
-        }
+
+        var from = new DateOnly(year, 1, 1);
+        var to = year == today.Year ? today : new DateOnly(year, 12, 31);
+        logger.LogWarning("Importing {Key}: {From} to {To}", key, from, to);
+
+        var result = await import(scope, from, to);
+        logger.LogInformation(
+            "{Key} finished: fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
+            key, result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
+
+        // Marked only after the whole range was read. A restart before this
+        // line repeats the year, which is safe because rows are deduplicated.
+        db.OneTimeTasks.Add(new OneTimeTask { Key = key });
+        await db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task RunResnapUserReportsOnceAsync(CancellationToken cancellationToken)
+    private static async Task<bool> IsDoneAsync(
+        GlassOnTheStreetContext db, string key, IReadOnlyList<string> coveredBy, CancellationToken cancellationToken)
     {
-        try
-        {
-            using var scope = scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
-
-            if (await db.OneTimeTasks.AnyAsync(t => t.Key == ResnapUserReportsTaskKey, cancellationToken))
-            {
-                return;
-            }
-
-            // The clean reimport marker is what proves the MPD anchors this
-            // job looks up are the unsnapped ones. If it didn't complete,
-            // wait for the next startup rather than anchor to stale points.
-            if (!await db.OneTimeTasks.AnyAsync(t => t.Key == CleanReimportTaskKey, cancellationToken))
-            {
-                return;
-            }
-
-            var anchors = scope.ServiceProvider.GetRequiredService<IBlockAnchorService>();
-            var reports = await db.Reports
-                .Where(r => r.SourceType == SourceType.UserReport)
-                .ToListAsync(cancellationToken);
-
-            logger.LogWarning("Re-anchoring {Count} resident reports to block midpoints", reports.Count);
-
-            var moved = 0;
-            var skipped = 0;
-            foreach (var report in reports)
-            {
-                // Only the previously snapped point is available here (the
-                // precise one was never stored), so this is best effort:
-                // a report near a block boundary can land on a neighboring block.
-                var anchor = await anchors.SnapAsync(report.DisplayLat, report.DisplayLng, cancellationToken);
-                if (anchor.Method == "coarse-grid")
-                {
-                    // Leave it: replacing a block-level point with a coarser one would lose information.
-                    logger.LogWarning("Report {ReportId}: no block anchor found, left unchanged", report.Id);
-                    skipped++;
-                }
-                else
-                {
-                    logger.LogInformation(
-                        "Report {ReportId}: ({OldLat}, {OldLng}) -> ({NewLat}, {NewLng}) via {Method}",
-                        report.Id, report.DisplayLat, report.DisplayLng, anchor.Lat, anchor.Lng, anchor.Method);
-                    report.DisplayLat = anchor.Lat;
-                    report.DisplayLng = anchor.Lng;
-                    moved++;
-                }
-
-                // Nominatim's usage policy: at most one request per second.
-                await Task.Delay(TimeSpan.FromMilliseconds(1100), cancellationToken);
-            }
-
-            db.OneTimeTasks.Add(new OneTimeTask { Key = ResnapUserReportsTaskKey });
-            await db.SaveChangesAsync(cancellationToken);
-            logger.LogWarning("Re-anchored resident reports: {Moved} moved, {Skipped} left unchanged", moved, skipped);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogError(ex, "Resident report re-anchoring failed; will retry on next startup");
-        }
+        var keys = coveredBy.Append(key).ToList();
+        return await db.OneTimeTasks.AnyAsync(t => keys.Contains(t.Key), cancellationToken);
     }
+
+    private async Task RunResnapUserReportsOnceAsync(int currentYear, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
+
+        if (await db.OneTimeTasks.AnyAsync(t => t.Key == ResnapUserReportsTaskKey, cancellationToken))
+        {
+            return;
+        }
+
+        // The car categories must be loaded first: this job looks up MPD's
+        // own block anchors. If a year is still missing, wait for the next tick.
+        for (var year = FirstYear; year <= currentYear; year++)
+        {
+            if (!await IsDoneAsync(db, CarImportKey(year), [], cancellationToken))
+            {
+                return;
+            }
+        }
+
+        var anchors = scope.ServiceProvider.GetRequiredService<IBlockAnchorService>();
+        var reports = await db.Reports
+            .Where(r => r.SourceType == SourceType.UserReport)
+            .ToListAsync(cancellationToken);
+
+        logger.LogWarning("Re-anchoring {Count} resident reports to block midpoints", reports.Count);
+
+        var moved = 0;
+        var skipped = 0;
+        foreach (var report in reports)
+        {
+            // Only the previously snapped point is available here (the
+            // precise one was never stored), so this is best effort:
+            // a report near a block boundary can land on a neighboring block.
+            var anchor = await anchors.SnapAsync(report.DisplayLat, report.DisplayLng, cancellationToken);
+            if (anchor.Method == "coarse-grid")
+            {
+                // Leave it: replacing a block-level point with a coarser one would lose information.
+                logger.LogWarning("Report {ReportId}: no block anchor found, left unchanged", report.Id);
+                skipped++;
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Report {ReportId}: ({OldLat}, {OldLng}) -> ({NewLat}, {NewLng}) via {Method}",
+                    report.Id, report.DisplayLat, report.DisplayLng, anchor.Lat, anchor.Lng, anchor.Method);
+                report.DisplayLat = anchor.Lat;
+                report.DisplayLng = anchor.Lng;
+                moved++;
+            }
+
+            // Nominatim's usage policy: at most one request per second.
+            await Task.Delay(TimeSpan.FromMilliseconds(1100), cancellationToken);
+        }
+
+        db.OneTimeTasks.Add(new OneTimeTask { Key = ResnapUserReportsTaskKey });
+        await db.SaveChangesAsync(cancellationToken);
+        logger.LogWarning("Re-anchored resident reports: {Moved} moved, {Skipped} left unchanged", moved, skipped);
+    }
+
+    private static DateOnly CentralToday() =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
 }

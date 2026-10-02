@@ -93,7 +93,7 @@ public class MinneapolisOpenDataImportService(
         await ImportLock.WaitAsync(cancellationToken);
         try
         {
-            return await ImportCoreAsync(lookbackDays, cancellationToken);
+            return await ImportCoreAsync(DateTime.UtcNow.AddDays(-Math.Abs(lookbackDays)), null, cancellationToken);
         }
         finally
         {
@@ -101,9 +101,26 @@ public class MinneapolisOpenDataImportService(
         }
     }
 
-    private async Task<OfficialImportResult> ImportCoreAsync(int lookbackDays, CancellationToken cancellationToken)
+    public async Task<OfficialImportResult> ImportRangeAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
     {
-        var cutoffMs = DateTimeOffset.UtcNow.AddDays(-Math.Abs(lookbackDays)).ToUnixTimeMilliseconds();
+        // The feed stores Occurred_Date in UTC; the range is in Central dates.
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(from.ToDateTime(TimeOnly.MinValue), CentralTime.Zone);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(to.AddDays(1).ToDateTime(TimeOnly.MinValue), CentralTime.Zone);
+
+        await ImportLock.WaitAsync(cancellationToken);
+        try
+        {
+            return await ImportCoreAsync(startUtc, endUtc, cancellationToken);
+        }
+        finally
+        {
+            ImportLock.Release();
+        }
+    }
+
+    private async Task<OfficialImportResult> ImportCoreAsync(DateTime fromUtc, DateTime? toUtcExclusive, CancellationToken cancellationToken)
+    {
+        var cutoffMs = new DateTimeOffset(DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
         var existingCaseNumbers = await db.Reports
             .Where(r => r.ExternalCaseNumber != null)
             .Select(r => r.ExternalCaseNumber!)
@@ -126,7 +143,8 @@ public class MinneapolisOpenDataImportService(
                         " OR Offense LIKE '%Theft of Motor Vehicle Parts or Accessories%'" +
                         " OR Offense LIKE '%Motor Vehicle Theft%'" +
                         " OR Offense LIKE '%Destruction/Damage/Vandalism of Property%')" +
-                        $" AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'";
+                        $" AND Occurred_Date >= TIMESTAMP '{cutoffTimestamp}'" +
+                        (toUtcExclusive is { } end ? $" AND Occurred_Date < TIMESTAMP '{end:yyyy-MM-dd HH:mm:ss}'" : "");
             var url = "query" +
                        $"?where={Uri.EscapeDataString(where)}" +
                        "&outFields=Case_Number,Address,Occurred_Date,Offense,Neighborhood,Ward,Precinct,wgsXAnon,wgsYAnon," +
@@ -137,20 +155,12 @@ public class MinneapolisOpenDataImportService(
                        $"&resultRecordCount={PageSize}" +
                        "&f=geojson";
 
-            using var response = await httpClient.GetAsync(url, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                logger.LogWarning("Minneapolis open data request failed with {StatusCode}", response.StatusCode);
-                break;
-            }
-
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            var doc = await JsonSerializer.DeserializeAsync<JsonElement>(stream, cancellationToken: cancellationToken);
-
-            if (!doc.TryGetProperty("features", out var features) || features.ValueKind != JsonValueKind.Array)
-            {
-                break;
-            }
+            // A page that can't be read after retries is a failure, not the end of the
+            // data. It used to `break` here and report success, which let a single 504
+            // from the city's feed leave the oldest years silently missing.
+            var doc = await ArcGisPageFetcher.GetPageAsync(httpClient, url, logger, cancellationToken)
+                ?? throw new InvalidOperationException($"MPD feed returned no readable page at offset {offset}; the import is incomplete.");
+            var features = doc.GetProperty("features");
 
             var pageCount = 0;
             var importedThisPage = 0;

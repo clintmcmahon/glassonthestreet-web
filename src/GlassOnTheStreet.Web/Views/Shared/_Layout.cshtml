@@ -7,7 +7,7 @@
     var pageTitle = rawTitle.Contains("Glass on the Street") ? rawTitle : $"{rawTitle} — Glass on the Street";
     var description = ViewData["Description"] as string ??
         "Most Minneapolis car break-ins never get reported, and the city's own data can't tell a smashed window from an unlocked door. Residents are building the dataset it takes to hold the city accountable.";
-    var socialImage = baseUrl + "/og-image.png";
+    var socialImage = baseUrl + (ViewData["OgImage"] as string ?? "/og-image.png");
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -80,7 +80,9 @@
             </a>
             <nav class="masthead-nav">
                 <a asp-controller="Map" asp-action="Index">Map</a>
-                <a asp-controller="Trends" asp-action="Index">Trends</a>
+                <a asp-controller="Trends" asp-action="Index">Break-in trends</a>
+                <a asp-controller="Crime" asp-action="Index">Crime stats</a>
+                <a asp-controller="Near" asp-action="Index">Near me</a>
                 <a asp-controller="Report" asp-action="Index" class="masthead-cta">Report a break-in</a>
             </nav>
         </div>
@@ -95,8 +97,16 @@
         <div class="site-footer-inner">
             <p>Glass on the Street is an independent, resident-run record of car break-ins across Minneapolis. It is not affiliated with the Minneapolis Police Department.</p>
             <p>
-                <a asp-controller="Trends" asp-action="Index">Trends</a> &middot;
+                <a asp-controller="Crime" asp-action="Index">Crime stats</a> &middot;
+                <a asp-controller="Trends" asp-action="Index">Break-in trends</a> &middot;
+                <a asp-controller="Monthly" asp-action="Index">Monthly reports</a> &middot;
                 <a asp-controller="Areas" asp-action="Index">Neighborhoods and wards</a> &middot;
+                <a asp-controller="Compare" asp-action="Index">Compare areas</a> &middot;
+                <a asp-controller="Near" asp-action="Index">Near me</a>
+            </p>
+            <p>
+                <a asp-controller="Data" asp-action="Index">Data downloads</a> &middot;
+                <a asp-controller="Methodology" asp-action="Index">Methodology</a> &middot;
                 <a asp-controller="Home" asp-action="Privacy">How we handle location data</a>
             </p>
         </div>

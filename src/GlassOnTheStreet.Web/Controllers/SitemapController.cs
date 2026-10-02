@@ -10,7 +10,7 @@ namespace GlassOnTheStreet.Web.Controllers;
 /// -- changes essentially continuously) reflects the actual current time
 /// instead of going stale the moment someone forgets to hand-edit a file.
 /// </summary>
-public class SitemapController(IConfiguration configuration, ITrendsService trendsService) : Controller
+public class SitemapController(IConfiguration configuration, ITrendsService trendsService, MonthlyReportService monthlyReports) : Controller
 {
     private record SitemapEntry(string Path, string ChangeFreq, DateTime? LastModUtc);
 
@@ -21,6 +21,7 @@ public class SitemapController(IConfiguration configuration, ITrendsService tren
         var now = DateTime.UtcNow;
 
         var areas = await trendsService.GetAreaIndexAsync(cancellationToken);
+        var months = await monthlyReports.ListAsync(cancellationToken);
 
         var entries = new List<SitemapEntry>
         {
@@ -29,8 +30,20 @@ public class SitemapController(IConfiguration configuration, ITrendsService tren
             new SitemapEntry("/trends", "daily", now),
             new SitemapEntry("/report", "monthly", null),
             new SitemapEntry("/privacy", "monthly", null),
-            new SitemapEntry("/neighborhoods", "daily", now)
+            new SitemapEntry("/neighborhoods", "daily", now),
+            new SitemapEntry("/crime", "daily", now),
+            new SitemapEntry("/near", "monthly", null),
+            new SitemapEntry("/compare", "monthly", null),
+            new SitemapEntry("/monthly", "monthly", now),
+            new SitemapEntry("/methodology", "monthly", null),
+            new SitemapEntry("/data", "weekly", now)
         };
+
+        // One permanent page per finished month. Older months rarely change.
+        foreach (var month in months)
+        {
+            entries.Add(new SitemapEntry($"/monthly/{month.Year}-{month.Month:D2}", "monthly", null));
+        }
 
         // Every ward and neighborhood page with enough data to be worth indexing
         // (the page itself marks thinner ones noindex).

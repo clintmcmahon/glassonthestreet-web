@@ -38,6 +38,13 @@ builder.Services.AddScoped<IBlockAnchorService, BlockAnchorService>();
 builder.Services.AddScoped<ICaptchaService, TurnstileCaptchaService>();
 builder.Services.AddScoped<IReportStatsService, ReportStatsService>();
 builder.Services.AddScoped<ITrendsService, TrendsService>();
+builder.Services.AddSingleton<IPopulationService, PopulationService>();
+builder.Services.AddScoped<IncidentDataCache>();
+builder.Services.AddScoped<ICrimeStatsService, CrimeStatsService>();
+builder.Services.AddScoped<MonthlyReportService>();
+builder.Services.AddScoped<NearbyService>();
+builder.Services.AddSingleton<OgImageService>();
+builder.Services.AddScoped<CsvExportService>();
 builder.Services.AddScoped<ISyncStatusService, SyncStatusService>();
 
 builder.Services.AddHttpClient<IGeocodingService, GeocodingService>(client =>
@@ -63,6 +70,14 @@ builder.Services.AddHttpClient<IOfficialDataImportService, MinneapolisOpenDataIm
         "https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0/");
 });
 
+builder.Services.AddHttpClient<IMpdIncidentImportService, MpdIncidentImportService>(client =>
+{
+    // Same City of Minneapolis "Crime_Data" feature service; this importer reads every offense.
+    client.BaseAddress = new Uri(
+        "https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0/");
+    client.Timeout = TimeSpan.FromMinutes(3);
+});
+
 builder.Services.AddHostedService<OfficialDataSyncBackgroundService>();
 
 // Anonymous submissions get rate limited per IP so one person can't flood
@@ -84,6 +99,15 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    options.AddPolicy("near-lookup", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));

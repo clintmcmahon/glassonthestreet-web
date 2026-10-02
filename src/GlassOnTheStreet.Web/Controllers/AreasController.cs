@@ -8,7 +8,7 @@ namespace GlassOnTheStreet.Web.Controllers;
 /// real numbers in the HTML, so it can answer a search like "car break-ins
 /// in Whittier" and be read by crawlers that don't run JavaScript.
 /// </summary>
-public class AreasController(ITrendsService trendsService) : Controller
+public class AreasController(ITrendsService trendsService, ICrimeStatsService crimeStats) : Controller
 {
     [HttpGet("neighborhoods")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -31,6 +31,7 @@ public class AreasController(ITrendsService trendsService) : Controller
             return RedirectPermanent(page.Url);
         }
 
+        ViewData["Crime"] = await crimeStats.GetNeighborhoodSummaryAsync(slug, cancellationToken);
         return View("Detail", page);
     }
 
@@ -38,6 +39,12 @@ public class AreasController(ITrendsService trendsService) : Controller
     public async Task<IActionResult> Ward(int ward, CancellationToken cancellationToken)
     {
         var page = await trendsService.GetWardAsync(ward, cancellationToken);
-        return page is null ? NotFound() : View("Detail", page);
+        if (page is null)
+        {
+            return NotFound();
+        }
+
+        ViewData["Crime"] = await crimeStats.GetWardSummaryAsync(ward, cancellationToken);
+        return View("Detail", page);
     }
 }

@@ -1,0 +1,92 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var through = (DateOnly)ViewData["Through"]!;
+    var population = (IPopulationService)ViewData["Population"]!;
+
+    ViewData["Title"] = "Minneapolis Crime Data Downloads and API | Glass on the Street";
+    ViewData["Description"] = "Download Minneapolis crime counts by month, neighborhood and ward as CSV, with a JSON API behind every chart. MPD data, 2019 to today.";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Dataset(baseUrl, "/data",
+        "Minneapolis crime counts by month, neighborhood and ward",
+        "Aggregated counts of MPD-reported offenses in Minneapolis by month, year, neighborhood, ward and offense group, 2019 to today, with 2020 Census resident counts.",
+        "Minneapolis, Minnesota", through, "/data/crime-monthly.csv")))
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Data", "/data"))))
+}
+
+<div class="page page-narrow" style="max-width: 760px;">
+    <p class="kicker">Data</p>
+    <h1 class="display" style="font-size: 2.2rem;">Download the Minneapolis crime data</h1>
+    <p class="lede" style="font-size: 1.05rem;">
+        Aggregated counts from MPD's open data, through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture).
+        Free to use with attribution. Read the <a asp-controller="Methodology" asp-action="Index">methodology</a> first,
+        especially the notes on what is counted and the 2019 baseline.
+    </p>
+
+    <h2 class="method-h">CSV files</h2>
+    <table class="area-table data-table">
+        <thead><tr><th>File</th><th>Rows are</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><a href="/data/crime-monthly.csv">crime-monthly.csv</a></td>
+                <td>Citywide offenses by year, month and offense group. <code>month_complete</code> is false for the month in progress.</td>
+            </tr>
+            <tr>
+                <td><a href="/data/crime-by-neighborhood.csv">crime-by-neighborhood.csv</a></td>
+                <td>Offenses by calendar year, neighborhood and group, with the 2020 resident count. <code>year_complete</code> is false for the current year.</td>
+            </tr>
+            <tr>
+                <td><a href="/data/crime-by-ward.csv">crime-by-ward.csv</a></td>
+                <td>The same by ward.</td>
+            </tr>
+            <tr>
+                <td><a href="/data/population-2020.csv">population-2020.csv</a></td>
+                <td>Residents per neighborhood and ward from the 2020 Census. Method in the methodology page.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="field-hint">
+        In every file <code>is_crime</code> separates offenses from rows that aren't counted as crimes (shots-fired calls, gunshot
+        wound victims, subset rows). Add up only the <code>is_crime = true</code> rows for a total.
+    </p>
+
+    <h2 class="method-h">JSON API</h2>
+    <p>The same endpoints the charts use. No key needed; please be considerate.</p>
+    <table class="area-table data-table">
+        <thead><tr><th>Endpoint</th><th>Returns</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><code>/api/crime</code></td>
+                <td>All offenses. Optional <code>?category=</code> (a group key below), <code>?neighborhood=Name</code>, <code>?ward=N</code>, <code>?sort=rate</code>. Monthly counts per year, same-period counts, the group table, hour-by-weekday counts and area rankings.</td>
+            </tr>
+            <tr>
+                <td><code>/api/trends</code></td>
+                <td>The car-related categories only (theft from vehicle, vehicle theft, parts theft, property damage). Same shape; <code>?category=theft-from-vehicle|parts-theft|vehicle-theft|property-damage</code>.</td>
+            </tr>
+            <tr>
+                <td><code>/api/reports</code></td>
+                <td>Map data as GeoJSON, with <code>?from=&amp;to=</code>.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2 class="method-h">Group keys and definitions</h2>
+    <dl class="method-defs">
+        @foreach (var group in CrimeGroups.All)
+        {
+            <dt><code>@group.Key</code> @group.Label@(group.IsCrime ? "" : " (not counted as a crime)")</dt>
+            <dd>@group.Definition</dd>
+        }
+    </dl>
+
+    <h2 class="method-h">Using the data</h2>
+    <p>
+        Cite it as: Glass on the Street, Minneapolis crime statistics, @baseUrl/crime, data from the Minneapolis Police
+        Department through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture). Incident-level rows
+        are in the city's own <a href="https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Crime_Data/FeatureServer/0">Crime_Data feed</a>.
+    </p>
+</div>

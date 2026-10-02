@@ -1,0 +1,15 @@
+@using System.Globalization
+@inject IConfiguration Configuration
+@* "Cite this page": a ready-to-paste citation with the retrieval date and the date the data runs through. *@
+@model (string Title, string Path, DateOnly Through)
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var today = DateTime.UtcNow.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
+}
+<details class="cite-box">
+    <summary>Cite this page</summary>
+    <blockquote class="method-cite">
+        Glass on the Street. (@DateTime.UtcNow.Year). <em>@Model.Title</em>. Retrieved @today, from @baseUrl@Model.Path.
+        Data: Minneapolis Police Department, via City of Minneapolis open data, through @Model.Through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture).
+    </blockquote>
+</details>

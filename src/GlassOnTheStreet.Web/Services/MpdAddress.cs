@@ -71,6 +71,46 @@ public static class MpdAddress
     public static string BlockLabel(int houseNumber, string normalizedStreet) =>
         $"{houseNumber / 100:D4}XX {normalizedStreet}";
 
+    private static readonly HashSet<string> KeepUpper = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "N", "S", "E", "W", "NE", "NW", "SE", "SW", "MLK"
+    };
+
+    /// <summary>"0048XX 13TH AVE S" becomes "4800 block of 13th Ave S"; "4TH ST N / 1ST AVE N" becomes "4th St N &amp; 1st Ave N".</summary>
+    public static string Pretty(string? mpdAddress)
+    {
+        if (string.IsNullOrWhiteSpace(mpdAddress))
+        {
+            return "";
+        }
+
+        var address = mpdAddress.Trim();
+        var match = Regex.Match(address, @"^(\d{4})XX\s+(.+)$");
+        if (match.Success)
+        {
+            return $"{int.Parse(match.Groups[1].Value) * 100} block of {TitleStreet(match.Groups[2].Value)}";
+        }
+
+        return string.Join(" & ", address.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(TitleStreet));
+    }
+
+    private static string TitleStreet(string street) =>
+        string.Join(' ', street.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(token =>
+        {
+            if (KeepUpper.Contains(token))
+            {
+                return token.ToUpperInvariant();
+            }
+
+            var ordinal = Regex.Match(token, @"^(\d+)(ST|ND|RD|TH)$", RegexOptions.IgnoreCase);
+            if (ordinal.Success)
+            {
+                return ordinal.Groups[1].Value + ordinal.Groups[2].Value.ToLowerInvariant();
+            }
+
+            return char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant();
+        }));
+
     /// <summary>Leading digits of an OSM house number ("4836", "4836A", "4836-4838"), or null.</summary>
     public static int? ParseHouseNumber(string? houseNumber)
     {

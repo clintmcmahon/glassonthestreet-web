@@ -1,0 +1,51 @@
+@using System.Globalization
+@* Server-rendered multi-series line chart. Each point carries a native tooltip; the table below the chart holds every value. *@
+@model (int[] Years, IReadOnlyList<(string Name, double?[] Values, string Color)> Series, string Label, bool IsRate)
+@{
+    const int w = 720, h = 320, left = 52, right = 20, top = 16, bottom = 30;
+    var innerW = w - left - right;
+    var innerH = h - top - bottom;
+    var max = Math.Max(1, Model.Series.SelectMany(s => s.Values).Where(v => v is not null).Select(v => v!.Value).DefaultIfEmpty(1).Max());
+    var rough = max * 1.08;
+    var magnitude = Math.Pow(10, Math.Floor(Math.Log10(rough)));
+    var yMax = new[] { 1.0, 2.0, 2.5, 5.0, 10.0 }.Select(s => s * magnitude).First(v => v >= rough);
+    string F(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
+    double X(int i) => left + innerW * i / (double)Math.Max(1, Model.Years.Length - 1);
+    double Y(double v) => top + innerH * (1 - v / yMax);
+    string Fmt(double v) => Model.IsRate ? v.ToString("N1", CultureInfo.InvariantCulture) : v.ToString("N0", CultureInfo.InvariantCulture);
+
+    // Razor treats a literal <text> tag as its own pseudo-element, so SVG text goes through Html.Raw.
+    string T(double x, double y, string cls, string anchor, string content) =>
+        $"<text x=\"{F(x)}\" y=\"{F(y)}\" class=\"{cls}\" text-anchor=\"{anchor}\">{System.Net.WebUtility.HtmlEncode(content)}</text>";
+}
+<div class="trends-legend">
+    @foreach (var s in Model.Series)
+    {
+        <span class="trends-legend-static"><span class="trends-legend-key" style="border-top-color: @s.Color"></span>@s.Name</span>
+    }
+</div>
+<svg viewBox="0 0 @w @h" class="trends-svg" style="width: 100%; height: auto;" role="img" aria-label="@Model.Label">
+    @for (var g = 0; g <= 4; g++)
+    {
+        var gy = Y(yMax / 4 * g);
+        <line x1="@left" x2="@(w - right)" y1="@F(gy)" y2="@F(gy)" class="trends-grid" />
+        @Html.Raw(T(left - 8, gy + 4, "trends-axis", "end", Fmt(yMax / 4 * g)))
+    }
+    @for (var i = 0; i < Model.Years.Length; i++)
+    {
+        @Html.Raw(T(X(i), h - 8, "trends-axis", "middle", Model.Years[i].ToString(CultureInfo.InvariantCulture)))
+    }
+    @foreach (var s in Model.Series)
+    {
+        var points = Model.Years.Select((_, i) => (i, v: s.Values[i])).Where(p => p.v is not null)
+            .Select(p => $"{F(X(p.i))},{F(Y(p.v!.Value))}");
+        <polyline points="@string.Join(" ", points)" class="trends-line" style="stroke: @s.Color" />
+        @for (var i = 0; i < Model.Years.Length; i++)
+        {
+            if (s.Values[i] is { } value)
+            {
+                <circle cx="@F(X(i))" cy="@F(Y(value))" r="3.5" class="trends-dot" style="fill: @s.Color"><title>@s.Name, @Model.Years[i]: @Fmt(value)</title></circle>
+            }
+        }
+    }
+</svg>

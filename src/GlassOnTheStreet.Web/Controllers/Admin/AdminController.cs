@@ -7,6 +7,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GlassOnTheStreet.Web.Controllers.Admin;
 
+public record YearCount(int Year, int Count);
+
+/// <param name="CoveredBy">Key of an earlier task whose completion already covers this one, if that is how it is done.</param>
+public record OneTimeTaskStatus(string Key, string Description, DateTime? CompletedAt, string? CoveredBy);
+
+/// <summary>What is actually in the database, so a long import can be checked without opening it.</summary>
+public record DataStatus(
+    IReadOnlyList<YearCount> MpdRowsByYear,
+    int MpdTotal,
+    DateOnly? Earliest,
+    DateOnly? Latest,
+    IReadOnlyList<YearCount> IncidentRowsByYear,
+    int IncidentTotal,
+    IReadOnlyList<OneTimeTaskStatus> Tasks);
+
 public record AdminIndexViewModel(
     List<Report> Pending,
     List<Report> Recent,
@@ -14,13 +29,15 @@ public record AdminIndexViewModel(
     int Page,
     int TotalPages,
     int TotalRecent,
-    DateTime? MpdLastSyncedAt);
+    DateTime? MpdLastSyncedAt,
+    DataStatus DataStatus);
 
 [Route("admin")]
 [AdminBasicAuth]
 public class AdminController(
     GlassOnTheStreetContext db,
     IOfficialDataImportService importService,
+    IMpdIncidentImportService incidentImportService,
     ISyncStatusService syncStatusService) : Controller
 {
     private const int PageSize = 100;
@@ -60,8 +77,58 @@ public class AdminController(
 
         var lastSyncedAt = await syncStatusService.GetLastSyncedAtAsync(cancellationToken);
 
-        return View(new AdminIndexViewModel(pending, recent, importService.IsRunning, currentPage, totalPages, totalRecent, lastSyncedAt));
+        var dataStatus = await GetDataStatusAsync(cancellationToken);
+
+        return View(new AdminIndexViewModel(pending, recent, importService.IsRunning || incidentImportService.IsRunning, currentPage, totalPages, totalRecent, lastSyncedAt, dataStatus));
     }
+
+    private async Task<DataStatus> GetDataStatusAsync(CancellationToken cancellationToken)
+    {
+        // Bare dates bucketed in memory, as in the stats service: ~130k small
+        // rows, and it doesn't depend on the provider translating DateOnly.Year.
+        var dates = await db.Reports
+            .Where(r => r.SourceType == SourceType.OfficialImport)
+            .Select(r => r.ReportedDate)
+            .ToListAsync(cancellationToken);
+
+        var byYear = dates
+            .GroupBy(d => d.Year)
+            .OrderBy(g => g.Key)
+            .Select(g => new YearCount(g.Key, g.Count()))
+            .ToList();
+
+        // Grouped by date in SQL (about 2,800 rows) and rolled up to years here.
+        var incidentDays = await db.MpdIncidents
+            .GroupBy(i => i.OccurredDate)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        var incidentsByYear = incidentDays
+            .GroupBy(d => d.Date.Year)
+            .OrderBy(g => g.Key)
+            .Select(g => new YearCount(g.Key, g.Sum(d => d.Count)))
+            .ToList();
+
+        var completed = await db.OneTimeTasks.ToDictionaryAsync(t => t.Key, t => t.CompletedAt, cancellationToken);
+        var currentYear = DateTime.UtcNow.Year;
+        var tasks = OfficialDataSyncBackgroundService.ExpectedTasks(currentYear)
+            .Select(t =>
+            {
+                if (completed.TryGetValue(t.Key, out var at))
+                {
+                    return new OneTimeTaskStatus(t.Key, t.Description, at, null);
+                }
+
+                var covering = t.CoveredBy.FirstOrDefault(completed.ContainsKey);
+                return new OneTimeTaskStatus(t.Key, t.Description, covering is null ? null : completed[covering], covering);
+            })
+            .ToList();
+
+        return new DataStatus(
+            byYear, dates.Count,
+            dates.Count == 0 ? null : dates.Min(),
+            dates.Count == 0 ? null : dates.Max(),
+            incidentsByYear, incidentsByYear.Sum(y => y.Count),
+            tasks);    }
 
     [HttpPost("{id:int}/approve")]
     [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]

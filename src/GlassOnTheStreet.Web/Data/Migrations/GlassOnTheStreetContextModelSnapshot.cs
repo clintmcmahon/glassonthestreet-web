@@ -22,6 +22,84 @@ namespace GlassOnTheStreet.Web.Data.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("GlassOnTheStreet.Web.Models.MpdIncident", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("CaseNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("CrimeAgainst")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<short>("CrimeCount")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("ExternalKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("varchar(160)");
+
+                    b.Property<string>("GroupKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<bool>("IsCrime")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal?>("Lat")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("Lng")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("Neighborhood")
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<DateOnly>("OccurredDate")
+                        .HasColumnType("date");
+
+                    b.Property<byte>("OccurredHour")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<string>("Offense")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("OffenseCategory")
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<byte?>("Precinct")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<byte?>("Ward")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalKey")
+                        .IsUnique();
+
+                    b.HasIndex("OccurredDate");
+
+                    b.ToTable("MpdIncidents");
+                });
+
             modelBuilder.Entity("GlassOnTheStreet.Web.Models.OneTimeTask", b =>
                 {
                     b.Property<int>("Id")

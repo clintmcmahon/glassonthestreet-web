@@ -32,6 +32,7 @@
     var categoryTotal = Model.Categories.Sum(c => c.Counts[^1]);
 
     ViewData["Title"] = $"Car Break-Ins in {Model.Name}, Minneapolis | Glass on the Street";
+    ViewData["OgImage"] = isWard ? $"/og/ward/{Model.Ward}.png" : $"/og/neighborhood/{Model.Slug}.png";
     ViewData["Description"] =
         $"{Model.Name} has had {cur.ToString("N0", CultureInfo.InvariantCulture)} MPD-reported car break-ins, auto thefts and vandalism cases so far in {year}" +
         (changePrior.Length > 0 ? $", {changePrior} from {year - 1}" : "") + ". Year-by-year data back to 2019.";
@@ -50,6 +51,10 @@
     var breadcrumbJson = StructuredData.Breadcrumbs(baseUrl,
         ("Home", "/"), (isWard ? "Neighborhoods and wards" : "Neighborhoods", parentPath), (Model.Name, Model.Url));
     var barsLabel = $"Reports in {Model.Name}, Jan 1 to {through}, {years[0]} to {year}";
+    var crime = ViewData["Crime"] as AreaCrimeSummary;
+    var crimeExploreUrl = isWard ? $"/crime?ward={Model.Ward}" : $"/crime?neighborhood={Uri.EscapeDataString(Model.Name)}";
+    var compareKey = isWard ? $"ward-{Model.Ward}" : Model.Slug;
+    var embedSrc = isWard ? $"/embed/year-bars?scope=car&ward={Model.Ward}" : $"/embed/year-bars?scope=car&neighborhood={Uri.EscapeDataString(Model.Name)}";
     var exploreUrl = isWard ? $"/trends?ward={Model.Ward}" : $"/trends?neighborhood={Uri.EscapeDataString(Model.Name)}";
 }
 
@@ -93,7 +98,57 @@
         }
     </div>
 
-    <section class="trends-card" aria-labelledby="area-period-title">
+    @if (crime is not null)
+    {
+        var cd = crime.Data;
+        var crimeNow = cd.SamePeriod[^1];
+        var crimePrior = cd.SamePeriod[^2];
+        var crimeChange = Change(crimeNow, crimePrior);
+        <section class="trends-card" aria-labelledby="area-crime-title">
+            <h2 id="area-crime-title" class="trends-card-title">All reported crime in @Model.Name</h2>
+            <p class="trends-headline" style="margin-top: 0.5rem;">
+                From Jan 1 through @through, @year, MPD recorded <strong>@crimeNow.ToString("N0", CultureInfo.InvariantCulture)</strong> offenses of every kind
+                in @(isWard ? Model.Name : "the " + Model.Name + " neighborhood")@(crimeChange.Length > 0 ? $", {crimeChange} from {year - 1}" : "").
+                @if (cd.RatePerThousand is { } rate && cd.Population > 0)
+                {
+                    <text>That is <strong>@rate.ToString("N1", CultureInfo.InvariantCulture) offenses per 1,000 residents</strong> (@cd.Population.ToString("N0", CultureInfo.InvariantCulture) residents in the 2020 Census)@(crime.CityRatePerThousand is { } city ? $", against {city.ToString("N1", CultureInfo.InvariantCulture)} citywide" : "").</text>
+                }
+                @if (crime.RateRank is { } rr && crime.RateRankedOf is { } rn)
+                {
+                    <text> It ranks #@crime.Rank of @crime.RankedOf by number of offenses and #@rr of @rn by rate.</text>
+                }
+                else
+                {
+                    <text> It ranks #@crime.Rank of @crime.RankedOf by number of offenses.</text>
+                }
+            </p>
+            <table class="area-table groups-table">
+                <thead>
+                    <tr><th>Type</th><th>@year</th><th>@(year - 1)</th><th>Change</th>@if (cd.Population > 0) { <th>Per 1,000 residents</th> }</tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in cd.Groups.Where(g => g.Counts[^1] > 0 || g.Counts[^2] > 0))
+                    {
+                        <tr>
+                            <td title="@g.Definition">@g.Label</td>
+                            <td>@g.Counts[^1].ToString("N0", CultureInfo.InvariantCulture)</td>
+                            <td>@g.Counts[^2].ToString("N0", CultureInfo.InvariantCulture)</td>
+                            <td>@(g.ChangeVsPrior is { } p ? $"{(p >= 0 ? "up" : "down")} {Math.Abs(Math.Round(p)).ToString("0", CultureInfo.InvariantCulture)}%" : "")</td>
+                            @if (cd.Population > 0) { <td>@(g.RatePerThousand?.ToString("N1", CultureInfo.InvariantCulture))</td> }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="field-hint">
+                Rates count residents only, so places with many workers or visitors (Downtown, Uptown, industrial areas) look high.
+                Reported crimes only; shots-fired calls and subset rows are left out.
+                <a href="@crimeExploreUrl">Explore every offense type for @Model.Name</a> or
+                <a href="/compare?areas=@compareKey">compare it with other places</a>.
+            </p>
+        </section>
+    }
+
+    <section class="trends-card" aria-labelledby="area-period-title" data-embed="year-bars" data-embed-src="@embedSrc">
         <h2 id="area-period-title" class="trends-card-title">@Model.Name reports by year, Jan 1 to @through</h2>
         <p class="trends-card-sub">The same calendar window every year, so @year is compared like for like.</p>
         <partial name="_YearBars" model="@((years, t.SamePeriod, barsLabel))" />
@@ -196,6 +251,8 @@
         </section>
     }
 
+    <partial name="_Cite" model="@(($"Car break-ins and crime in {Model.Name}, Minneapolis", Model.Url, t.Through))" />
+
     <p class="field-hint" style="margin-top: 1.5rem;">
         Source: this site's import of Minneapolis Police Department open data, counted by report date through the
         last date MPD has published. Counts are raw totals, not adjusted for population. 2019 is the first year of
@@ -203,3 +260,7 @@
         This is not an official crime statistic.
     </p>
 </div>
+
+@section Scripts {
+    <script src="~/js/chart-share.js" asp-append-version="true"></script>
+}

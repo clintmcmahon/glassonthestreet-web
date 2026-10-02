@@ -33,7 +33,12 @@
     if (query.length < 4) return;
     searchTimer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+        // POST so the typed address isn't written into a URL (and so into server logs).
+        const res = await fetch("/api/geocode/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ q: query })
+        });
         if (!res.ok) return;
         const result = await res.json();
         map.flyTo({ center: [result.lng, result.lat], zoom: 15 });

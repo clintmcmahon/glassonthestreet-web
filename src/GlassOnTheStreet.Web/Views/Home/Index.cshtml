@@ -2,6 +2,7 @@
 @model GlassOnTheStreet.Web.Controllers.HomePageViewModel
 @{
     ViewData["Title"] = "Minneapolis Car Break-Ins Map and Trends | Glass on the Street";
+    ViewData["OgImage"] = "/og/trends.png";
     var stats = Model.Stats;
     var gap = Model.ReportingGap;
     var changeText = stats.PercentChange is null
@@ -236,6 +237,34 @@
             </ol>
             <p class="field-hint">Reports Jan 1 to @ytdThrough, with the change from the same period of @(ytd.CurrentYear - 1).</p>
         </div>
+    </div>
+
+    <h2 class="graph-heading" style="margin-top: 3rem;">Explore the data</h2>
+    <div class="explore-grid">
+        <a class="explore-card" asp-controller="Crime" asp-action="Index">
+            <strong>Crime statistics</strong>
+            <span>Every offense MPD records, 2019 to today, by type, neighborhood and hour of day.</span>
+        </a>
+        <a class="explore-card" asp-controller="Near" asp-action="Index">
+            <strong>Crime near you</strong>
+            <span>Enter an address to see what's been recorded within a quarter mile to a mile.</span>
+        </a>
+        <a class="explore-card" asp-controller="Monthly" asp-action="Index">
+            <strong>Monthly reports</strong>
+            <span>A sourced summary of every finished month, with a permanent link and an RSS feed.</span>
+        </a>
+        <a class="explore-card" asp-controller="Compare" asp-action="Index">
+            <strong>Compare areas</strong>
+            <span>Put neighborhoods or wards side by side, as counts or per 1,000 residents.</span>
+        </a>
+        <a class="explore-card" asp-controller="Trends" asp-action="Index">
+            <strong>Car break-in trends</strong>
+            <span>Theft from vehicles, vehicle theft and parts theft, year over year.</span>
+        </a>
+        <a class="explore-card" asp-controller="Data" asp-action="Index">
+            <strong>Downloads and methodology</strong>
+            <span>CSV files, a JSON API, and exactly how the numbers are built.</span>
+        </a>
     </div>
 
 </div>

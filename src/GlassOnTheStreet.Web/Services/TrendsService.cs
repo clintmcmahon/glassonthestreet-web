@@ -1,13 +1,11 @@
 using System.Text;
-using GlassOnTheStreet.Web.Data;
 using GlassOnTheStreet.Web.Infrastructure;
 using GlassOnTheStreet.Web.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace GlassOnTheStreet.Web.Services;
 
-public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITrendsService
+public class TrendsService(IncidentDataCache incidents, IMemoryCache cache) : ITrendsService
 {
     // MPD's current records feed starts here; earlier dates are stray rows.
     public const int FirstYear = 2019;
@@ -17,14 +15,14 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
     private const string CacheKey = "trends-dataset";
 
-    private readonly record struct Row(DateOnly Date, IncidentType Type, string? Neighborhood, int? Ward, TimeOfDay? TimeOfDay);
+    private readonly record struct Row(DateOnly Date, IncidentType Type, string? Neighborhood, int? Ward, TimeOfDay? TimeOfDay, int Count);
 
-    private sealed record Dataset(Row[] Rows, IReadOnlyDictionary<string, string> NeighborhoodBySlug);
+    private sealed record Dataset(Row[] Rows, IReadOnlyDictionary<string, string> NeighborhoodBySlug, DateOnly Through);
 
     public async Task<TrendsData> GetTrendsAsync(TrendFilter filter, CancellationToken cancellationToken = default)
     {
         var dataset = await LoadAsync(cancellationToken);
-        return Compute(dataset.Rows, filter, CentralToday());
+        return Compute(dataset.Rows, filter, dataset.Through);
     }
 
     public async Task<AreaPageData?> GetNeighborhoodAsync(string slug, CancellationToken cancellationToken = default)
@@ -37,12 +35,12 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
 
         var all = dataset.Rows;
         var areaRows = all.Where(r => string.Equals(r.Neighborhood, name, StringComparison.Ordinal)).ToArray();
-        var trends = Compute(all, new TrendFilter(null, name, null), CentralToday());
+        var trends = Compute(all, new TrendFilter(null, name, null), dataset.Through);
 
         // The ward most of this neighborhood's reports fall in (boundaries
         // don't line up exactly, so a neighborhood can touch more than one).
         var ward = areaRows.Where(r => r.Ward is not null).GroupBy(r => r.Ward!.Value)
-            .OrderByDescending(g => g.Count()).Select(g => (int?)g.Key).FirstOrDefault();
+            .OrderByDescending(g => g.Sum(r => r.Count)).Select(g => (int?)g.Key).FirstOrDefault();
 
         var rankings = RankAreas(all.Where(r => r.Neighborhood is not null), r => r.Neighborhood!, NeighborhoodUrl, trends.Years, DatePredicate(trends.Through), null);
         var rank = rankings.FindIndex(a => a.Name == name) + 1;
@@ -69,7 +67,7 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
             return null;
         }
 
-        var trends = Compute(all, new TrendFilter(null, null, ward), CentralToday());
+        var trends = Compute(all, new TrendFilter(null, null, ward), dataset.Through);
         var rankings = RankAreas(all.Where(r => r.Ward is not null), r => $"Ward {r.Ward}", r => WardUrl(int.Parse(r.Split(' ')[1])), trends.Years, DatePredicate(trends.Through), null);
         var rank = rankings.FindIndex(a => a.Name == $"Ward {ward}") + 1;
 
@@ -84,7 +82,7 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
     {
         var dataset = await LoadAsync(cancellationToken);
         var all = dataset.Rows;
-        var trends = Compute(all, new TrendFilter(null, null, null), CentralToday());
+        var trends = Compute(all, new TrendFilter(null, null, null), dataset.Through);
         var matches = DatePredicate(trends.Through);
 
         var neighborhoods = RankAreas(all.Where(r => r.Neighborhood is not null), r => r.Neighborhood!, NeighborhoodUrl, trends.Years, matches, null);
@@ -110,7 +108,7 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
                     var i = row.Date.Year - FirstYear;
                     if (i >= 0 && i < counts.Length)
                     {
-                        counts[i]++;
+                        counts[i] += row.Count;
                     }
                 }
 
@@ -122,10 +120,10 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
         var timeOfDay = new[] { TimeOfDay.Overnight, TimeOfDay.Morning, TimeOfDay.Afternoon, TimeOfDay.Evening, TimeOfDay.NotSure }
             .Select(bucket => new BucketCount(
                 bucket == TimeOfDay.NotSure ? "Not recorded" : bucket.ToString(),
-                areaRows.Count(r => r.Date.Year == currentYear && matches(r.Date) && (r.TimeOfDay ?? TimeOfDay.NotSure) == bucket)))
+                areaRows.Where(r => r.Date.Year == currentYear && matches(r.Date) && (r.TimeOfDay ?? TimeOfDay.NotSure) == bucket).Sum(r => r.Count)))
             .ToList();
 
-        return new AreaPageData(kind, name, slug, url, trends, categories, timeOfDay, rank, rankedOf, areaRows.Length, ward, related);
+        return new AreaPageData(kind, name, slug, url, trends, categories, timeOfDay, rank, rankedOf, areaRows.Sum(r => r.Count), ward, related);
     }
 
     public static string CategoryLabel(IncidentType type) => type switch
@@ -141,9 +139,29 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
 
     private static string WardUrl(int ward) => $"/wards/{ward}";
 
-    // The whole MPD set is ~130k small rows, so it's loaded once and every
-    // filter combination is computed in memory instead of going back to SQL.
-    // The feed syncs daily, so a half hour of staleness is invisible.
+    private static readonly string[] CarGroups = ["theft-from-vehicle", "vehicle-theft", "parts-theft", "vandalism"];
+
+    private static IncidentType TypeOf(string groupKey) => groupKey switch
+    {
+        "theft-from-vehicle" => IncidentType.Unknown,
+        "vehicle-theft" => IncidentType.VehicleStolen,
+        "parts-theft" => IncidentType.PartsTheft,
+        _ => IncidentType.PropertyDamage
+    };
+
+    // Same buckets the map's importer has always used.
+    private static TimeOfDay BucketOf(byte hour) => hour switch
+    {
+        < 6 => TimeOfDay.Overnight,
+        < 12 => TimeOfDay.Morning,
+        < 17 => TimeOfDay.Afternoon,
+        < 22 => TimeOfDay.Evening,
+        _ => TimeOfDay.Overnight
+    };
+
+    // The car categories are four of the full MPD feed's offense groups, so this is the
+    // same data (and the same offense counts) as the all-offense pages: the two can't
+    // disagree. Filtered once and held for half an hour; the feed syncs daily.
     private async Task<Dataset> LoadAsync(CancellationToken cancellationToken)
     {
         if (cache.TryGetValue(CacheKey, out Dataset? cached) && cached is not null)
@@ -151,46 +169,28 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
             return cached;
         }
 
-        var loaded = await db.Reports
-            .Where(r => r.Status == ReportStatus.Active
-                && r.SourceType == SourceType.OfficialImport
-                && r.ReportedDate >= new DateOnly(FirstYear, 1, 1))
-            .Select(r => new { r.ReportedDate, r.IncidentType, r.Neighborhood, r.Ward, r.TimeOfDay })
-            .ToListAsync(cancellationToken);
+        var all = await incidents.GetAsync(cancellationToken);
+        var carIndexes = CarGroups.Select(CrimeGroups.IndexOf).ToHashSet();
+        var typeByIndex = CarGroups.ToDictionary(CrimeGroups.IndexOf, TypeOf);
 
-        // Neighborhood names repeat across ~130k rows; interning keeps the cached copy small.
-        var rows = loaded
-            .Select(r => new Row(r.ReportedDate, r.IncidentType, r.Neighborhood is null ? null : string.Intern(r.Neighborhood), r.Ward, r.TimeOfDay))
+        var rows = all.Rows
+            .Where(r => carIndexes.Contains(r.Group))
+            .Select(r => new Row(r.Date, typeByIndex[r.Group], r.Neighborhood, r.Ward > 0 ? r.Ward : null, BucketOf(r.Hour), r.Count))
             .ToArray();
 
-        var bySlug = new Dictionary<string, string>();
-        foreach (var name in rows.Where(r => r.Neighborhood is not null).Select(r => r.Neighborhood!).Distinct())
-        {
-            bySlug.TryAdd(AreaSlug.For(name), name);
-        }
-
-        var dataset = new Dataset(rows, bySlug);
+        var dataset = new Dataset(rows, all.NeighborhoodBySlug, all.Through);
         cache.Set(CacheKey, dataset, CacheDuration);
         return dataset;
     }
 
-    private static DateOnly CentralToday() =>
-        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
-
     private static Func<DateOnly, bool> DatePredicate(DateOnly through) =>
         d => d.Month < through.Month || (d.Month == through.Month && d.Day <= through.Day);
 
-    private static TrendsData Compute(Row[] all, TrendFilter filter, DateOnly today)
+    private static TrendsData Compute(Row[] all, TrendFilter filter, DateOnly through)
     {
         // "Through" is the last date the feed actually has, not today: MPD
         // posts with a lag, and comparing a full prior period against a
         // current one that's missing its last few days would understate it.
-        var through = all.Length == 0 ? today : all.Max(r => r.Date);
-        if (through > today)
-        {
-            through = today;
-        }
-
         var currentYear = through.Year;
         var years = Enumerable.Range(FirstYear, currentYear - FirstYear + 1).ToArray();
         var samePeriodOf = DatePredicate(through);
@@ -230,12 +230,12 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
 
             if (monthly[yearIndex][row.Date.Month - 1] is { } existing)
             {
-                monthly[yearIndex][row.Date.Month - 1] = existing + 1;
+                monthly[yearIndex][row.Date.Month - 1] = existing + row.Count;
             }
 
             if (samePeriodOf(row.Date))
             {
-                samePeriod[yearIndex]++;
+                samePeriod[yearIndex] += row.Count;
             }
         }
 
@@ -267,7 +267,7 @@ public class TrendsService(GlassOnTheStreetContext db, IMemoryCache cache) : ITr
                     var yearIndex = row.Date.Year - FirstYear;
                     if (yearIndex >= 0 && yearIndex < counts.Length)
                     {
-                        counts[yearIndex]++;
+                        counts[yearIndex] += row.Count;
                     }
                 }
 

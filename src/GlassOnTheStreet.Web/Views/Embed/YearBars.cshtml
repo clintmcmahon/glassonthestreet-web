@@ -1,0 +1,35 @@
+@using System.Globalization
+@inject IConfiguration Configuration
+@model GlassOnTheStreet.Web.Controllers.EmbedYearBarsModel
+@{
+    Layout = null;
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var through = Model.Through.ToString("MMM d", CultureInfo.InvariantCulture);
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>@Model.Title</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        body { padding: 0.75rem 1rem 0.5rem; }
+        .embed-title { font-size: 1rem; font-weight: 700; margin: 0 0 0.15rem; }
+        .embed-sub { font-size: 0.8rem; color: var(--ink-soft); margin: 0 0 0.5rem; }
+        .embed-source { font-size: 0.75rem; color: var(--ink-soft); margin: 0.25rem 0 0; }
+        .embed-source a { color: var(--ink-soft); }
+    </style>
+</head>
+<body>
+    <h1 class="embed-title">@Model.Title</h1>
+    <p class="embed-sub">@Model.UnitLabel, Jan 1 to @through of each year</p>
+    <partial name="_YearBars" model="@((Model.Years, Model.Counts, $"{Model.Title}: {Model.UnitLabel}, Jan 1 to {through}, {Model.Years[0]} to {Model.Years[^1]}"))" />
+    <p class="embed-source">
+        Source: Minneapolis Police Department open data, through @Model.Through.ToString("MMM d, yyyy", CultureInfo.InvariantCulture).
+        Chart by <a href="@baseUrl@Model.SourcePath" target="_blank" rel="noopener">Glass on the Street</a>.
+    </p>
+</body>
+</html>

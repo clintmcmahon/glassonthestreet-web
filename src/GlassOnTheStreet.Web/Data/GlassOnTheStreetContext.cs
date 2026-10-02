@@ -13,6 +13,8 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
 
     public DbSet<SyncStatus> SyncStatuses => Set<SyncStatus>();
 
+    public DbSet<MpdIncident> MpdIncidents => Set<MpdIncident>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Report>(entity =>
@@ -30,6 +32,14 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
                 .WithMany(r => r.Flags)
                 .HasForeignKey(f => f.ReportId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MpdIncident>(entity =>
+        {
+            entity.Property(i => i.Lat).HasColumnType("decimal(9,6)");
+            entity.Property(i => i.Lng).HasColumnType("decimal(9,6)");
+            entity.HasIndex(i => i.ExternalKey).IsUnique();
+            entity.HasIndex(i => i.OccurredDate);
         });
 
         modelBuilder.Entity<OneTimeTask>(entity =>

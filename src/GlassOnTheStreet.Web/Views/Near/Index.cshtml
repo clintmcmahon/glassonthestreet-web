@@ -1,0 +1,61 @@
+@inject IConfiguration Configuration
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    ViewData["Title"] = "Crime Near Me in Minneapolis, by Address | Glass on the Street";
+    ViewData["Description"] = "Enter a Minneapolis address or use your location to see recent crime nearby: offenses by type within a quarter mile to a mile, from MPD data.";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Crime near me", "/near"))))
+}
+
+<div class="page page-narrow" id="near" style="max-width: 760px;">
+    <p class="kicker">Near me</p>
+    <h1 class="display" style="font-size: 2.2rem;">Crime near an address in Minneapolis</h1>
+    <p class="lede" style="font-size: 1.05rem;">
+        Type an address, or use your location, to see what the Minneapolis Police Department has recorded nearby.
+        MPD places every record at the midpoint of its block, so this counts blocks close to the spot, not the address itself.
+    </p>
+
+    <form id="near-form" class="near-form" autocomplete="off">
+        <label for="near-address">Address</label>
+        <div class="near-row">
+            <input type="text" id="near-address" name="address" placeholder="e.g. 4836 13th Ave S" maxlength="200" />
+            <button type="submit" class="btn">Look up</button>
+            <button type="button" id="near-locate" class="btn btn-outline">Use my location</button>
+        </div>
+        <div class="near-options">
+            <label class="trends-filter">
+                <span>Distance</span>
+                <select id="near-radius">
+                    <option value="0.25">A quarter mile</option>
+                    <option value="0.5" selected>Half a mile</option>
+                    <option value="1">One mile</option>
+                </select>
+            </label>
+            <label class="trends-filter">
+                <span>Period</span>
+                <select id="near-days">
+                    <option value="30">Last 30 days</option>
+                    <option value="90" selected>Last 90 days</option>
+                    <option value="365">Last 12 months</option>
+                </select>
+            </label>
+        </div>
+    </form>
+
+    <p id="near-error" class="near-error" role="alert" hidden></p>
+    <div id="near-results" aria-live="polite"></div>
+
+    <p class="field-hint" style="margin-top: 2rem;">
+        <strong>Privacy.</strong> The address or coordinates are sent to this site to run one calculation and are not stored or logged.
+        To turn an address into coordinates we send it to OpenStreetMap's geocoder (Nominatim). Nothing is saved in the page address.
+        Counts are reported crimes only and shots-fired calls are shown apart from crimes. See the
+        <a asp-controller="Methodology" asp-action="Index">methodology</a>.
+    </p>
+</div>
+
+@section Scripts {
+    <script src="~/js/format.js" asp-append-version="true"></script>
+    <script src="~/js/near.js" asp-append-version="true"></script>
+}
