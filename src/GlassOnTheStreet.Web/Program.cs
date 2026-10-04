@@ -19,6 +19,9 @@ if (builder.Environment.IsDevelopment())
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// The map ships every block as one JSON response (about 2 MB for the all-time view); compressed it is a fraction of that.
+builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
 builder.Services.AddMemoryCache();
 
 var connectionString = builder.Configuration.GetConnectionString("Default")
@@ -43,6 +46,7 @@ builder.Services.AddScoped<IncidentDataCache>();
 builder.Services.AddScoped<ICrimeStatsService, CrimeStatsService>();
 builder.Services.AddScoped<MonthlyReportService>();
 builder.Services.AddScoped<NearbyService>();
+builder.Services.AddScoped<MapDataService>();
 builder.Services.AddSingleton<OgImageService>();
 builder.Services.AddScoped<CsvExportService>();
 builder.Services.AddScoped<ISyncStatusService, SyncStatusService>();
@@ -115,6 +119,8 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+app.UseResponseCompression();
 
 // Apply pending EF Core migrations automatically on startup, so a deploy
 // that ships new columns/tables (e.g. Ward/Precinct) doesn't require a

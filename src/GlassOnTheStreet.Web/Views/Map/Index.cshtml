@@ -1,55 +1,62 @@
+@using System.Globalization
+@using System.Text.Json
+@using GlassOnTheStreet.Web.Services
 @inject IConfiguration Configuration
 @model GlassOnTheStreet.Web.Controllers.MapPageViewModel
 @{
     var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
-    ViewData["Title"] = "Minneapolis Car Break-In Map | Glass on the Street";
-    var stats = Model.Stats;
-    var changeText = stats.PercentChange is null
-        ? "—"
-        : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
-    var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
+    var s = Model.Summary;
     var gap = Model.ReportingGap;
-    ViewData["Description"] =
-        $"Interactive Minneapolis car break-in map: {stats.Count.Format()} reports in the last 30 days from residents and MPD. " +
-        "Filter by date, neighborhood and ward.";
 
-    var timeOfDayOrder = new[] { "Overnight", "Morning", "Afternoon", "Evening", "NotSure" };
-    var timeOfDayLabel = new Dictionary<string, string>
-    {
-        ["Overnight"] = "Overnight", ["Morning"] = "Morning", ["Afternoon"] = "Afternoon",
-        ["Evening"] = "Evening", ["NotSure"] = "Not sure"
-    };
-    var maxNeighborhood = Model.Breakdown.TopNeighborhoods.Count > 0 ? Model.Breakdown.TopNeighborhoods.Max(n => n.Count) : 1;
-    var timeOfDayByBucket = Model.Breakdown.TimeOfDay.ToDictionary(t => t.Bucket, t => t.Count);
-    var maxTimeOfDay = timeOfDayByBucket.Count > 0 ? timeOfDayByBucket.Values.Max() : 1;
-    var maxWard = Model.Breakdown.TopWards.Count > 0 ? Model.Breakdown.TopWards.Max(w => w.Count) : 1;
+    // Mapbox draws the map when an access token is configured; otherwise the open-source MapLibre
+    // map the site used before takes over, so a missing token never breaks the page.
+    var mapboxToken = Configuration["Mapbox:AccessToken"];
+    var useMapbox = !string.IsNullOrWhiteSpace(mapboxToken);
+    var mapboxStyle = Configuration["Mapbox:StyleUrl"] is { Length: > 0 } custom ? custom : "mapbox://styles/mapbox/light-v11";
+    var mapConfig = JsonSerializer.Serialize(new { engine = useMapbox ? "mapbox" : "maplibre", token = useMapbox ? mapboxToken : null, style = useMapbox ? mapboxStyle : null });
+
+    ViewData["Title"] = "Minneapolis Crime Map by Block | Glass on the Street";
+    ViewData["Description"] =
+        $"Interactive Minneapolis crime map: {s.Total.Format()} car-related offenses in the last 30 days. Clusters, hover details and every MPD offense type back to 2019.";
+    ViewData["OgImage"] = "/og/trends.png";
+
+    var changeText = s.ChangeVsPrior is null ? "—" : $"{(s.ChangeVsPrior > 0 ? "+" : "")}{s.ChangeVsPrior?.ToString("0.#", CultureInfo.InvariantCulture)}%";
+    var changeClass = s.ChangeVsPrior is > 0 ? "up" : s.ChangeVsPrior is < 0 ? "down" : "";
+    string Bar(int count, IReadOnlyList<MapCount> list) => (count * 100.0 / Math.Max(1, list.Max(c => c.Count))).ToString("0.##", CultureInfo.InvariantCulture);
 }
 
 @section Head {
-    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+    @if (useMapbox)
+    {
+        <link href="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css" rel="stylesheet" />
+    }
+    else
+    {
+        <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+    }
 }
 
 @section StructuredData {
     @Html.Raw(StructuredData.Tag(StructuredData.Dataset(baseUrl, "/map",
-        "Minneapolis car break-in reports map",
-        "Resident-submitted car break-in reports for Minneapolis, Minnesota, combined with Minneapolis Police Department theft-from-vehicle, vehicle-parts-theft, motor-vehicle-theft and property-damage records. Locations are snapped to the middle of the block for privacy.",
-        "Minneapolis, Minnesota", DateOnly.FromDateTime(DateTime.UtcNow), "/api/reports")))
+        "Minneapolis crime map by block",
+        "MPD-reported offenses in Minneapolis aggregated to the block, every offense type from 2019 to today, with resident-submitted car break-in reports. Locations are the midpoint of the block.",
+        "Minneapolis, Minnesota", s.Through, "/api/map/blocks")))
 }
 
 <div class="page" style="padding-bottom: 1.5rem;">
     <p class="kicker">The map</p>
-    <h1 style="font-size: 1.9rem;">Minneapolis car break-in map: where break-ins are being reported</h1>
+    <h1 style="font-size: 1.9rem;">Minneapolis crime map: car break-ins and every other offense</h1>
     <p class="lede" style="font-size: 1rem;">
-        Gray dots are MPD's own data — the city doesn't record whether that
-        was a smashed window or an unlocked door, so those get an honest
-        "unknown" instead of a guess. Red and black dots are residents who
-        told us which.
+        Each circle is a city block, shaded by how many offenses MPD recorded there in the period you pick. Nearby blocks group
+        into larger circles you can click to zoom. Hover any circle for the numbers. MPD doesn't record whether a car window
+        was smashed or a door was unlocked, so those details come only from the blue and black dots, which are residents
+        telling us which.
     </p>
 
     <div class="stat-line" id="stat-line">
         <div class="stat">
-            <div class="stat-value" id="stat-count">@stats.Count.Format()</div>
-            <div class="stat-label" id="stat-count-label">reports, last 30 days</div>
+            <div class="stat-value" id="stat-count">@s.Total.Format()</div>
+            <div class="stat-label" id="stat-count-label">car-related offenses, last 30 days</div>
         </div>
         <div class="stat">
             <div class="stat-value @changeClass" id="stat-change">@changeText</div>
@@ -66,97 +73,117 @@
 </div>
 
 <div class="breakout map-section">
-    <div class="map-toolbar">
-        <div class="date-presets" id="date-presets">
-            <button class="tab-toggle" data-days="7">7 days</button>
-            <button class="tab-toggle active" data-days="30">30 days</button>
-            <button class="tab-toggle" data-days="90">90 days</button>
-            <input type="date" id="from-date" aria-label="From date" style="width: auto; display: none;" />
-            <input type="date" id="to-date" aria-label="To date" style="width: auto; display: none;" />
+    <div class="map-toolbar" id="map-toolbar">
+        <label class="map-select">
+            <span>Offense type</span>
+            <select id="map-group">
+                <option value="car" selected>Car break-ins and car crime</option>
+                <option value="all">All crimes</option>
+                <optgroup label="Crimes">
+                    @foreach (var group in CrimeGroups.Crimes)
+                    {
+                        <option value="@group.Key">@group.Label</option>
+                    }
+                </optgroup>
+                <optgroup label="Not counted as crimes">
+                    @foreach (var metric in CrimeGroups.Metrics)
+                    {
+                        <option value="@metric.Key">@metric.Label</option>
+                    }
+                </optgroup>
+            </select>
+        </label>
+        <div class="date-presets" id="date-presets" role="group" aria-label="Period">
+            <button type="button" class="tab-toggle" data-range="7">7 days</button>
+            <button type="button" class="tab-toggle active" data-range="30">30 days</button>
+            <button type="button" class="tab-toggle" data-range="90">90 days</button>
+            <button type="button" class="tab-toggle" data-range="365">12 months</button>
+            <button type="button" class="tab-toggle" data-range="ytd">This year</button>
+            <button type="button" class="tab-toggle" data-range="custom">Custom</button>
+            <input type="date" id="from-date" aria-label="From date" min="2019-01-01" max="@s.Through.ToString("yyyy-MM-dd")" hidden />
+            <input type="date" id="to-date" aria-label="To date" min="2019-01-01" max="@s.Through.ToString("yyyy-MM-dd")" hidden />
         </div>
-        <div class="date-presets">
-            <button class="tab-toggle active" id="mode-pins">Pins</button>
-            <button class="tab-toggle" id="mode-heat">Heatmap</button>
+        <div class="date-presets" role="group" aria-label="Map layers">
+            <button type="button" class="tab-toggle active" id="mode-clusters">Clusters</button>
+            <button type="button" class="tab-toggle" id="mode-heat">Heatmap</button>
+            <label class="map-check"><input type="checkbox" id="layer-residents" checked /> Resident reports</label>
         </div>
     </div>
 
-    <div class="map-frame">
-        <div id="map"></div>
+    <div class="map-frame" id="map-frame">
+        <div id="map" role="application" aria-label="Map of offenses by block in Minneapolis"></div>
+        <div class="map-status" id="map-status" aria-live="polite"></div>
+        <div class="map-sheet" id="map-sheet" role="dialog" aria-label="Details" hidden></div>
+        <div class="map-legend-card" id="map-legend-card">
+            <div class="mlc-title">Offenses per block</div>
+            <div class="mlc-ramp"></div>
+            <div class="mlc-scale"><span>1</span><span id="mlc-max">many</span></div>
+            <div class="mlc-row"><span class="mlc-dot cluster"></span>Circles group nearby blocks. Click to zoom.</div>
+            <div class="mlc-row"><span class="mlc-dot window"></span>Resident: window smashed</div>
+            <div class="mlc-row"><span class="mlc-dot rifled"></span>Resident: rifled through</div>
+        </div>
+        <noscript><p class="map-noscript">The map needs JavaScript. The numbers below and on the <a asp-controller="Crime" asp-action="Index">crime statistics</a> page work without it.</p></noscript>
     </div>
 </div>
 
 <div class="page" style="padding-top: 1.25rem;">
-    <div class="map-legend">
-        <span><span class="legend-dot window"></span>Window smashed</span>
-        <span><span class="legend-dot rifled"></span>Rifled through (unlocked)</span>
-        <span><span class="legend-dot unknown"></span>Theft From Motor Vehicle (MPD record)</span>
-        <span><span class="legend-dot stolen"></span>Motor Vehicle Theft (MPD record)</span>
-        <span><span class="legend-dot parts"></span>Theft of Motor Vehicle Parts or Accessories (MPD record)</span>
-        <span><span class="legend-dot damage"></span>Destruction/Damage/Vandalism of Property (MPD record)</span>
-    </div>
-    @if (Model.MpdLastSyncedAt is { } lastSyncedAt)
-    {
-        <p class="field-hint" style="margin-top: 0.6rem;">MPD data last synced @lastSyncedAt.FormatSyncTimestamp().</p>
-    }
+    <p class="field-hint" id="map-note">
+        MPD open data through @s.Through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)@(Model.MpdLastSyncedAt is { } lastSyncedAt ? $", last synced {lastSyncedAt.FormatSyncTimestamp()}" : "").
+        Locations are the midpoint of each block, never an exact address. Counts are reported crimes only, and shots-fired calls are
+        kept apart from crimes. See the <a asp-controller="Methodology" asp-action="Index">methodology</a> or look up
+        <a asp-controller="Near" asp-action="Index">crime near an address</a>.
+    </p>
 
-    <div class="breakdown-grid">
+    <div class="breakdown-grid breakdown-grid-4">
         <div>
             <h2 class="breakdown-heading">Where</h2>
             <div id="breakdown-neighborhoods">
-                @if (Model.Breakdown.TopNeighborhoods.Count == 0)
+                @foreach (var n in s.Neighborhoods)
                 {
-                    <p class="field-hint">Not enough data with a known neighborhood yet.</p>
-                }
-                else
-                {
-                    @foreach (var n in Model.Breakdown.TopNeighborhoods)
-                    {
-                        <div class="breakdown-row">
-                            <span class="breakdown-label">@n.Name</span>
-                            <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((n.Count * 100.0 / maxNeighborhood).ToString("0.##"))%"></span></span>
-                            <span class="breakdown-count">@n.Count.Format()</span>
-                        </div>
-                    }
+                    <div class="breakdown-row">
+                        <span class="breakdown-label"><a href="@n.Url">@n.Name</a></span>
+                        <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@Bar(n.Count, s.Neighborhoods)%"></span></span>
+                        <span class="breakdown-count">@n.Count.Format()</span>
+                    </div>
                 }
             </div>
         </div>
         <div>
             <h2 class="breakdown-heading">When</h2>
             <div id="breakdown-time-of-day">
-                @if (timeOfDayByBucket.Count == 0)
+                @foreach (var t in s.TimeOfDay)
                 {
-                    <p class="field-hint">Not enough data with a known time of day yet.</p>
-                }
-                else
-                {
-                    @foreach (var bucket in timeOfDayOrder.Where(b => timeOfDayByBucket.ContainsKey(b)))
-                    {
-                        <div class="breakdown-row">
-                            <span class="breakdown-label">@timeOfDayLabel[bucket]</span>
-                            <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((timeOfDayByBucket[bucket] * 100.0 / maxTimeOfDay).ToString("0.##"))%"></span></span>
-                            <span class="breakdown-count">@timeOfDayByBucket[bucket].Format()</span>
-                        </div>
-                    }
+                    <div class="breakdown-row">
+                        <span class="breakdown-label">@t.Name</span>
+                        <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@Bar(t.Count, s.TimeOfDay)%"></span></span>
+                        <span class="breakdown-count">@t.Count.Format()</span>
+                    </div>
                 }
             </div>
         </div>
         <div>
             <h2 class="breakdown-heading">By ward</h2>
             <div id="breakdown-wards">
-                @if (Model.Breakdown.TopWards.Count == 0)
+                @foreach (var w in s.Wards)
                 {
-                    <p class="field-hint">Not enough data with a known ward yet.</p>
+                    <div class="breakdown-row">
+                        <span class="breakdown-label"><a href="@w.Url">@w.Name</a></span>
+                        <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@Bar(w.Count, s.Wards)%"></span></span>
+                        <span class="breakdown-count">@w.Count.Format()</span>
+                    </div>
                 }
-                else
+            </div>
+        </div>
+        <div>
+            <h2 class="breakdown-heading">By type</h2>
+            <div id="breakdown-types">
+                @foreach (var t in s.Types)
                 {
-                    @foreach (var w in Model.Breakdown.TopWards)
-                    {
-                        <div class="breakdown-row">
-                            <span class="breakdown-label">Ward @w.Ward</span>
-                            <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@((w.Count * 100.0 / maxWard).ToString("0.##"))%"></span></span>
-                            <span class="breakdown-count">@w.Count.Format()</span>
-                        </div>
-                    }
+                    <div class="breakdown-row">
+                        <span class="breakdown-label">@t.Name</span>
+                        <span class="breakdown-bar-track"><span class="breakdown-bar" style="width:@Bar(t.Count, s.Types)%"></span></span>
+                        <span class="breakdown-count">@t.Count.Format()</span>
+                    </div>
                 }
             </div>
         </div>
@@ -164,8 +191,16 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    @if (useMapbox)
+    {
+        <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
+    }
+    else
+    {
+        <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+        <script src="~/js/map-theme.js" asp-append-version="true"></script>
+    }
+    <script>window.GOTS_MAP = @Html.Raw(mapConfig);</script>
     <script src="~/js/format.js" asp-append-version="true"></script>
-    <script src="~/js/map-theme.js" asp-append-version="true"></script>
     <script src="~/js/map.js" asp-append-version="true"></script>
 }

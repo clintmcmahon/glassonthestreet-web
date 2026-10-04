@@ -7,15 +7,23 @@ namespace GlassOnTheStreet.Web.Services;
 
 /// <summary>One MPD offense row, trimmed to what the statistics need.</summary>
 /// <param name="Group">Index into <see cref="CrimeGroups.All"/>.</param>
+/// <param name="AddressIndex">Position in <see cref="IncidentDataset.AddressTable"/> (0 when unknown).</param>
 public readonly record struct IncidentRow(
-    int Id, DateOnly Date, byte Hour, byte Group, short Count, string? Neighborhood, byte Ward, float Lat, float Lng);
+    int Id, DateOnly Date, byte Hour, byte Group, short Count, string? Neighborhood, byte Ward, float Lat, float Lng,
+    int AddressIndex = 0);
 
 public sealed record IncidentDataset(
     IncidentRow[] Rows,
     DateOnly Through,
     IReadOnlyDictionary<string, string> NeighborhoodBySlug,
     IReadOnlyList<string> NeighborhoodNames,
-    IReadOnlyList<int> Wards);
+    IReadOnlyList<int> Wards,
+    IReadOnlyList<string>? AddressTable = null)
+{
+    /// <summary>MPD's block-range address for a row, e.g. "0048XX 13TH AVE S"; empty when unknown.</summary>
+    public string AddressAt(int index) =>
+        AddressTable is { } table && index > 0 && index < table.Count ? table[index] : "";
+}
 
 /// <summary>
 /// The whole MPD crime feed (about 400k small rows) held in memory so every
@@ -38,17 +46,30 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
 
         var loaded = await db.MpdIncidents
             .Where(i => i.OccurredDate >= new DateOnly(FirstYear, 1, 1))
-            .Select(i => new { i.Id, i.OccurredDate, i.OccurredHour, i.GroupKey, i.CrimeCount, i.Neighborhood, i.Ward, i.Lat, i.Lng })
+            .Select(i => new { i.Id, i.OccurredDate, i.OccurredHour, i.GroupKey, i.CrimeCount, i.Neighborhood, i.Ward, i.Lat, i.Lng, i.Address })
             .ToListAsync(cancellationToken);
+
+        // About 11k distinct block addresses across ~400k rows: keep each once, point rows at it.
+        var addressTable = new List<string> { "" };
+        var addressIndex = new Dictionary<string, int>();
 
         var rows = new IncidentRow[loaded.Count];
         for (var i = 0; i < loaded.Count; i++)
         {
             var r = loaded[i];
+            var address = 0;
+            if (!string.IsNullOrEmpty(r.Address) && !addressIndex.TryGetValue(r.Address, out address))
+            {
+                address = addressTable.Count;
+                addressTable.Add(r.Address);
+                addressIndex[r.Address] = address;
+            }
+
             rows[i] = new IncidentRow(
                 r.Id, r.OccurredDate, r.OccurredHour, (byte)CrimeGroups.IndexOf(r.GroupKey), r.CrimeCount,
                 r.Neighborhood is null ? null : string.Intern(r.Neighborhood), r.Ward ?? 0,
-                r.Lat is null ? float.NaN : (float)r.Lat.Value, r.Lng is null ? float.NaN : (float)r.Lng.Value);
+                r.Lat is null ? float.NaN : (float)r.Lat.Value, r.Lng is null ? float.NaN : (float)r.Lng.Value,
+                address);
         }
 
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
@@ -68,7 +89,7 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
 
         var wards = rows.Where(r => r.Ward > 0).Select(r => (int)r.Ward).Distinct().OrderBy(w => w).ToList();
 
-        var dataset = new IncidentDataset(rows, through, bySlug, names, wards);
+        var dataset = new IncidentDataset(rows, through, bySlug, names, wards, addressTable);
         cache.Set(CacheKey, dataset, CacheDuration);
         return dataset;
     }

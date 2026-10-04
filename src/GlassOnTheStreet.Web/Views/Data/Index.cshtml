@@ -68,8 +68,16 @@
                 <td>The car-related categories only (theft from vehicle, vehicle theft, parts theft, property damage). Same shape; <code>?category=theft-from-vehicle|parts-theft|vehicle-theft|property-damage</code>.</td>
             </tr>
             <tr>
+                <td><code>/api/map/blocks</code></td>
+                <td>The map's data: GeoJSON with one feature per block. <code>n</code> is offenses, <code>a</code> the block, <code>h</code> the neighborhood, <code>w</code> the ward and <code>t</code> the top offense types (<code>key:count|key:count</code>). Options: <code>?group=car|all|</code>a group key, <code>?range=7|30|90|365|ytd|all</code> or <code>?from=&amp;to=</code>.</td>
+            </tr>
+            <tr>
+                <td><code>/api/map/summary</code></td>
+                <td>Totals, change from the prior period, top neighborhoods and wards, time of day and offense types for the same filter.</td>
+            </tr>
+            <tr>
                 <td><code>/api/reports</code></td>
-                <td>Map data as GeoJSON, with <code>?from=&amp;to=</code>.</td>
+                <td>Resident reports and car-related records as GeoJSON, with <code>?from=&amp;to=</code>. <code>?source=resident</code> returns only residents' reports.</td>
             </tr>
         </tbody>
     </table>

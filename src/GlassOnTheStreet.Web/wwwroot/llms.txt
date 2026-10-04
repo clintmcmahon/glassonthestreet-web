@@ -12,7 +12,7 @@ This is not affiliated with the Minneapolis Police Department and nothing here i
 - [Neighborhoods and wards](/neighborhoods): index of all 87 neighborhoods and 13 wards. Each has a page, /neighborhoods/{slug} or /wards/{n}, with car break-in history, all-crime totals, rates and rank.
 - [Compare areas](/compare): up to four neighborhoods or wards side by side, as counts or per 1,000 residents.
 - [Crime near me](/near): offenses within a quarter mile to a mile of an address, by type. Interactive; nothing is stored.
-- [Map](/map): resident reports and MPD car-related records as pins, filterable by date.
+- [Map](/map): MPD offenses aggregated to the block and drawn as clusters with hover details (every offense type, filterable by type and period, with a heatmap mode), plus resident-submitted car break-in reports.
 - [Report a break-in](/report): the resident report form.
 - [Methodology and press](/methodology): sources, what is counted, how comparisons and rates are calculated, known limits, how to cite.
 - [Data downloads and API](/data): CSV files and the JSON API.
@@ -28,7 +28,8 @@ CSV (aggregated; incident-level rows are in the city's own feed):
 JSON:
 - /api/crime: all offenses. Optional ?category= (group key, e.g. agg-assault, homicide, theft-from-vehicle), ?neighborhood=Name, ?ward=N, ?sort=rate. Returns monthly counts per year, same-period counts, the group table, hour-by-weekday counts and area rankings.
 - /api/trends: the car-related categories (?category=theft-from-vehicle|parts-theft|vehicle-theft|property-damage)
-- /api/reports: map data as GeoJSON (?from=&to=)
+- /api/map/blocks: GeoJSON with one feature per block (n = offenses, a = block, h = neighborhood, w = ward, t = top offense types). ?group=car|all|<group key>, ?range=7|30|90|365|ytd|all or ?from=&to=. /api/map/summary: totals, change from the prior period, top neighborhoods and wards, time of day and offense types for the same filter.
+- /api/reports: resident reports and car-related records as GeoJSON (?from=&to=, ?source=resident for residents only)
 - /api/reports/stats, /api/reports/stats/breakdown, /api/reports/stats/reporting-gap
 
 Embeddable chart (iframe): /embed/year-bars?scope=crime|car&category=&neighborhood=&ward=

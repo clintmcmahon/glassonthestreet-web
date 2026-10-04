@@ -22,9 +22,15 @@ public class ReportsApiController(
 {
     [HttpGet]
     public async Task<IActionResult> GetReports(
-        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken cancellationToken)
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? source, CancellationToken cancellationToken)
     {
         var query = db.Reports.Where(r => r.Status == ReportStatus.Active).AsQueryable();
+
+        // ?source=resident returns only reports submitted by residents (the map draws MPD records from /api/map/blocks).
+        if (string.Equals(source, "resident", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(r => r.SourceType == SourceType.UserReport);
+        }
 
         if (from is not null)
         {
