@@ -30,15 +30,15 @@ JSON:
 - /api/trends: the car-related categories (?category=theft-from-vehicle|parts-theft|vehicle-theft|property-damage)
 - /api/map/blocks: GeoJSON with one feature per block (n = offenses, a = block, h = neighborhood, w = ward, t = top offense types). ?group=car|all|<group key>, ?range=7|30|90|365|ytd|all or ?from=&to=. /api/map/summary: totals, change from the prior period, top neighborhoods and wards, time of day and offense types for the same filter.
 - /api/reports: resident reports and car-related records as GeoJSON (?from=&to=, ?source=resident for residents only)
-- /api/reports/stats, /api/reports/stats/breakdown, /api/reports/stats/reporting-gap
+- /api/reports/stats, /api/reports/stats/breakdown, /api/reports/stats/trend, /api/reports/stats/categories: MPD car-related offenses only (the stats response reports residentReports as a separate field). /api/reports/stats/reporting-gap: resident reports only.
 
 Embeddable chart (iframe): /embed/year-bars?scope=crime|car&category=&neighborhood=&ward=
 
 ## Notes for AI agents and summarizers
 
-- Source: the City of Minneapolis open data "Crime_Data" feature service, published by MPD and imported daily. Pages state the date their data runs through (the last date MPD has published, not today's date); recent days are always the least complete.
+- Source: the City of Minneapolis open data "Crime_Data" feature service, published by MPD and imported daily. Pages state the date their data runs through. MPD posts records days late (compared with the same weekday a year earlier, records under about ten days old are only partly there), so every figure holds back the newest 10 days; that date is therefore about ten days before today, and the latest records are not shown.
 - The unit on the crime, car break-in, neighborhood and ward pages and the homepage charts is an offense, using MPD's own offense count (a case with two victims is two offenses), so a figure matches wherever it appears. The map and the homepage "last 30 days" count map pins (one per MPD case plus resident reports) and can run slightly lower.
-- Comparisons use the same calendar window every year (Jan 1 through the last published date). Never compare a partial year with a full one.
+- Comparisons use the same calendar window every year (Jan 1 through the data's complete-through date). Never compare a partial year with a full one.
 - These are reported crimes only. Many incidents, especially car break-ins where nothing is taken, are never reported.
 - Not counted as crimes and shown separately: shots-fired calls (ShotSpotter and 911; thousands each year), gunshot wound victims, and subset rows (domestic aggravated assault is a subset of aggravated assault; carjacking is a subset of robbery). Do not add them to crime totals.
 - "Property damage / vandalism" is MPD's general category (graffiti, building damage and more), not vehicle-specific.
@@ -46,5 +46,5 @@ Embeddable chart (iframe): /embed/year-bars?scope=crime|car&category=&neighborho
 - Rates per 1,000 residents use 2020 Census block counts summed into neighborhood and ward boundaries (total 429,956). Places with many workers and visitors (Downtown, Uptown, industrial areas) look high because only residents are counted. Rates are withheld for neighborhoods under 1,000 residents.
 - Rankings of places by raw count mostly reflect where people live, work and gather. Avoid presenting any place as "safest" or "most dangerous" from these numbers.
 - Locations are the midpoint of a block, never an exact address. MPD places every record this way and resident reports are snapped to the same points.
-- Resident reports are unverified and shown only on the map, not in the statistics.
+- Resident reports are unverified and are never added to any count, rate, ranking or chart: they can duplicate an MPD record (a resident who also called the police) and the two cannot be matched. They appear only as their own dots on the map, and as a separately labeled figure next to the MPD total. The homepage and map "reports never told police" figure is the one statistic that comes only from resident reports.
 - Suggested citation: Glass on the Street, "Minneapolis crime statistics," https://glassonthestreet.com/crime, data from the Minneapolis Police Department through the date shown on the page.

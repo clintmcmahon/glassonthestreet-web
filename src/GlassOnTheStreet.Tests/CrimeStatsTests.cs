@@ -4,7 +4,7 @@ using Xunit;
 namespace GlassOnTheStreet.Tests;
 
 /// <summary>Serves a hand-built dataset in place of the database.</summary>
-internal sealed class FakeIncidentCache(IncidentRow[] rows, DateOnly through) : IncidentDataCache(null!, null!)
+internal sealed class FakeIncidentCache(IncidentRow[] rows, DateOnly through, string[]? addresses = null) : IncidentDataCache(null!, null!)
 {
     public override Task<IncidentDataset> GetAsync(CancellationToken cancellationToken = default)
     {
@@ -13,7 +13,8 @@ internal sealed class FakeIncidentCache(IncidentRow[] rows, DateOnly through) : 
             rows, through,
             names.ToDictionary(n => AreaSlug.For(n), n => n),
             names,
-            rows.Where(r => r.Ward > 0).Select(r => (int)r.Ward).Distinct().OrderBy(w => w).ToList()));
+            rows.Where(r => r.Ward > 0).Select(r => (int)r.Ward).Distinct().OrderBy(w => w).ToList(),
+            addresses));
     }
 }
 

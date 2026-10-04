@@ -1,4 +1,5 @@
 @using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
 @model GlassOnTheStreet.Web.Controllers.HomePageViewModel
 @{
     ViewData["Title"] = "Minneapolis Car Break-Ins Map and Trends | Glass on the Street";
@@ -10,11 +11,11 @@
         : $"{(stats.PercentChange > 0 ? "+" : "")}{stats.PercentChange}%";
     var changeClass = stats.PercentChange is > 0 ? "up" : stats.PercentChange is < 0 ? "down" : "";
     ViewData["Description"] =
-        $"{stats.Count.Format()} Minneapolis car break-in and theft reports in the last 30 days. " +
-        "Map, trends and neighborhood data from residents and MPD, 2019 to today.";
+        $"{stats.Count.Format()} Minneapolis car break-in, auto theft and vandalism offenses in the last 30 days. " +
+        "Map, trends and neighborhood data from MPD, 2019 to today.";
 
     // Year to date vs the same window of earlier years (Jan 1 through the
-    // last date MPD has published), the same numbers /trends leads with.
+    // last date MPD's records are mostly complete), the same numbers /trends leads with.
     var ytd = Model.Trends;
     var ytdNow = ytd.SamePeriod[^1];
     var ytdPrior = ytd.SamePeriod[^2];
@@ -24,9 +25,16 @@
     string PctClass(int now, int then) => then == 0 ? "" : now > then ? "up" : now < then ? "down" : "";
     var ytdThrough = ytd.Through.ToString("MMM d", System.Globalization.CultureInfo.InvariantCulture);
 
+    // The preview uses Mapbox like /map does when a token is configured. Mapbox:HomePreview = false keeps
+    // this page on the free open-source map, since every page view that reaches the map is a billed map load.
+    var mapboxToken = Configuration["Mapbox:AccessToken"];
+    var useMapbox = !string.IsNullOrWhiteSpace(mapboxToken) && !string.Equals(Configuration["Mapbox:HomePreview"], "false", StringComparison.OrdinalIgnoreCase);
+    var mapboxStyle = Configuration["Mapbox:StyleUrl"] is { Length: > 0 } customStyle ? customStyle : "mapbox://styles/mapbox/light-v11";
+    var mapConfig = System.Text.Json.JsonSerializer.Serialize(new { engine = useMapbox ? "mapbox" : "maplibre", token = useMapbox ? mapboxToken : null, style = useMapbox ? mapboxStyle : null });
+
     var maxTrend = Model.Trend.Count > 0 ? Math.Max(1, Model.Trend.Max(t => t.Count)) : 1;
 
-    var categoryOrder = new[] { "WindowSmashed", "Rifled", "Unknown", "PartsTheft", "VehicleStolen", "PropertyDamage" };
+    var categoryOrder = new[] { "Unknown", "PartsTheft", "VehicleStolen", "PropertyDamage", "WindowSmashed", "Rifled" };
     var categoryLabel = new Dictionary<string, string>
     {
         ["WindowSmashed"] = "Window smashed",
@@ -88,7 +96,14 @@
 }
 
 @section Head {
-    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+    @if (useMapbox)
+    {
+        <link href="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css" rel="stylesheet" />
+    }
+    else
+    {
+        <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+    }
 }
 
 <div class="page">
@@ -105,7 +120,7 @@
     <div class="stat-line">
         <div class="stat">
             <div class="stat-value">@stats.Count.Format()</div>
-            <div class="stat-label">reports, last 30 days</div>
+            <div class="stat-label">car-related offenses, last 30 days</div>
         </div>
         <div class="stat">
             <div class="stat-value @changeClass">@changeText</div>
@@ -135,7 +150,11 @@
         </div>
     </div>
     <p class="field-hint stat-line-note">
-        MPD data through @ytdThrough, the last date it has published. 2019 is the first year of MPD's
+        Every count on this page is MPD data. Resident reports@(Model.ResidentReportsLast30Days > 0 ? $" ({Model.ResidentReportsLast30Days.Format()} in the last 30 days)" : "") are shown on the map and are never added to these
+        numbers, because a resident who also called the police would otherwise be counted twice.
+    </p>
+    <p class="field-hint stat-line-note">
+        MPD data through @ytdThrough. MPD posts the most recent days late, so the newest 10 days are held back until they fill in. 2019 is the first year of MPD's
         current records feed and runs low early in the year, so read that comparison with care.
         <a asp-controller="Trends" asp-action="Index">See the full trends &rarr;</a>
     </p>
@@ -153,7 +172,7 @@
         <div id="home-map"></div>
     </div>
     <div class="map-preview-caption">
-        <span>Every dot is a real report from the last 7 days. Click the map to explore it.</span>
+        <span>Each circle is a block with car-related MPD offenses in the week ending @ytdThrough. Click the map to explore it.</span>
         <a asp-controller="Map" asp-action="Index">Open the full map &rarr;</a>
     </div>
     @if (Model.MpdLastSyncedAt is { } lastSyncedAt)
@@ -163,14 +182,14 @@
 
     <div class="graphs-grid">
         <div>
-            <h2 class="graph-heading">Reports by month</h2>
+            <h2 class="graph-heading">Car-related offenses by month</h2>
             @if (Model.Trend.Count == 0)
             {
                 <p class="field-hint">Not enough data yet.</p>
             }
             else
             {
-                <div class="trend-chart" role="img" aria-label="Reports per month for the last six months">
+                <div class="trend-chart" role="img" aria-label="Car-related offenses per month for the last six months">
                     @foreach (var m in Model.Trend)
                     {
                         <div class="trend-bar-col">
@@ -185,7 +204,7 @@
             }
         </div>
         <div>
-            <h2 class="graph-heading">What's on the map this year</h2>
+            <h2 class="graph-heading">So far this year</h2>
             @if (categoryByKey.Count == 0)
             {
                 <p class="field-hint">Not enough data yet.</p>
@@ -195,6 +214,11 @@
                 <div class="category-list">
                     @foreach (var key in categoryOrder.Where(k => categoryByKey.ContainsKey(k)))
                     {
+                        // A labeled break before the resident rows: they are a separate source, not part of the MPD counts above.
+                        @if (key == "WindowSmashed" || (key == "Rifled" && !categoryByKey.ContainsKey("WindowSmashed")))
+                        {
+                            <div class="category-divider">Resident reports, counted separately from MPD</div>
+                        }
                         <div class="breakdown-row">
                             <span class="breakdown-label">@categoryLabel[key]</span>
                             <span class="breakdown-bar-track"><span class="breakdown-bar @categoryCssClass[key]" style="width:@((categoryByKey[key] * 100.0 / maxCategory).ToString("0.##"))%"></span></span>
@@ -407,9 +431,17 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+    @if (useMapbox)
+    {
+        <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
+    }
+    else
+    {
+        <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+        <script src="~/js/map-theme.js" asp-append-version="true"></script>
+    }
+    <script>window.GOTS_MAP = @Html.Raw(mapConfig);</script>
     <script src="~/js/format.js" asp-append-version="true"></script>
-    <script src="~/js/map-theme.js" asp-append-version="true"></script>
     <script src="~/js/home-map.js" asp-append-version="true"></script>
     <script src="~/js/city-chart-tooltip.js" asp-append-version="true"></script>
 }

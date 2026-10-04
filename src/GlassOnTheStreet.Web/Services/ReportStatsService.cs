@@ -5,77 +5,70 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GlassOnTheStreet.Web.Services;
 
-public class ReportStatsService(GlassOnTheStreetContext db, IncidentDataCache incidents) : IReportStatsService
+/// <summary>
+/// Headline figures. Every count here is MPD data (the car-related offense groups, from the same
+/// dataset as the crime pages). Resident reports are unverified and can describe an incident MPD
+/// also has (a resident who also called the police), and the two can't be matched, since MPD
+/// records carry no shared ID and sit at block midpoints. So they are never added together:
+/// residents' reports are only ever counted by the *Resident* methods, as a separate figure.
+/// </summary>
+public class ReportStatsService(GlassOnTheStreetContext db, IncidentDataCache incidents, MapDataService mapData) : IReportStatsService
 {
+    // Last 30 days of data (counted back from the last date MPD has published) unless a range is given.
+    private async Task<MapSummary> CarSummaryAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken)
+    {
+        var dataset = await incidents.GetAsync(cancellationToken);
+        var end = to ?? dataset.Through;
+        var start = from ?? end.AddDays(-29);
+        var (clampedStart, clampedEnd) = MapDataService.ResolveRange(null, start, end, dataset.Through);
+        return await mapData.GetSummaryAsync(new MapFilter(MapDataService.CarGroup, clampedStart, clampedEnd), cancellationToken);
+    }
+
     public async Task<ReportStats> GetStatsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
     {
-        var rangeTo = to ?? DateOnly.FromDateTime(DateTime.UtcNow);
-        var rangeFrom = from ?? rangeTo.AddDays(-30);
-        var rangeDays = rangeTo.DayNumber - rangeFrom.DayNumber + 1;
-
-        var priorTo = rangeFrom.AddDays(-1);
-        var priorFrom = priorTo.AddDays(-(rangeDays - 1));
-
-        var activeReports = db.Reports.Where(r => r.Status == ReportStatus.Active);
-
-        var currentCount = await activeReports
-            .CountAsync(r => r.ReportedDate >= rangeFrom && r.ReportedDate <= rangeTo, cancellationToken);
-        var priorCount = await activeReports
-            .CountAsync(r => r.ReportedDate >= priorFrom && r.ReportedDate <= priorTo, cancellationToken);
-
-        double? percentChange = priorCount == 0
-            ? null
-            : Math.Round((currentCount - priorCount) / (double)priorCount * 100, 1);
-
-        return new ReportStats(currentCount, priorCount, percentChange);
+        var summary = await CarSummaryAsync(from, to, cancellationToken);
+        return new ReportStats(summary.Total, summary.PriorTotal, summary.ChangeVsPrior);
     }
 
     public async Task<ReportBreakdown> GetBreakdownAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
     {
-        var query = db.Reports.Where(r => r.Status == ReportStatus.Active);
+        var summary = await CarSummaryAsync(from, to, cancellationToken);
+        return new ReportBreakdown(
+            summary.Neighborhoods.Take(5).Select(n => new NeighborhoodCount(n.Name, n.Count)).ToList(),
+            summary.TimeOfDay.Select(t => new TimeOfDayCount(t.Name, t.Count)).ToList(),
+            summary.Wards.Take(5).Select(w => new WardCount(int.Parse(w.Name.Replace("Ward ", "")), w.Count)).ToList());
+    }
 
-        if (from is not null)
+    public async Task<int> GetResidentReportCountAsync(DateOnly from, DateOnly? to, CancellationToken cancellationToken = default)
+    {
+        var query = db.Reports.Where(r => r.Status == ReportStatus.Active && r.SourceType == SourceType.UserReport && r.ReportedDate >= from);
+        if (to is { } end)
         {
-            query = query.Where(r => r.ReportedDate >= from);
+            query = query.Where(r => r.ReportedDate <= end);
         }
 
-        if (to is not null)
+        return await query.CountAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<CategoryCount>> GetResidentCategoryCountsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
+    {
+        var query = db.Reports.Where(r => r.Status == ReportStatus.Active && r.SourceType == SourceType.UserReport);
+        if (from is { } start)
         {
-            query = query.Where(r => r.ReportedDate <= to);
+            query = query.Where(r => r.ReportedDate >= start);
         }
 
-        // Projecting straight into the record's positional constructor
-        // doesn't translate to SQL -- project to an anonymous type (which
-        // does) and map to the record client-side after materializing.
-        var topNeighborhoods = (await query
-            .Where(r => r.Neighborhood != null)
-            .GroupBy(r => r.Neighborhood)
-            .Select(g => new { name = g.Key!, count = g.Count() })
-            .OrderByDescending(g => g.count)
-            .Take(5)
-            .ToListAsync(cancellationToken))
-            .Select(g => new NeighborhoodCount(g.name, g.count))
-            .ToList();
+        if (to is { } end)
+        {
+            query = query.Where(r => r.ReportedDate <= end);
+        }
 
-        var timeOfDayCounts = (await query
-            .Where(r => r.TimeOfDay != null)
-            .GroupBy(r => r.TimeOfDay)
-            .Select(g => new { bucket = g.Key!.Value, count = g.Count() })
-            .ToListAsync(cancellationToken))
-            .Select(g => new TimeOfDayCount(g.bucket.ToString(), g.count))
+        return (await query
+                .GroupBy(r => r.IncidentType)
+                .Select(g => new { type = g.Key, count = g.Count() })
+                .ToListAsync(cancellationToken))
+            .Select(c => new CategoryCount(c.type.ToString(), c.count))
             .ToList();
-
-        var topWards = (await query
-            .Where(r => r.Ward != null)
-            .GroupBy(r => r.Ward)
-            .Select(g => new { ward = g.Key!.Value, count = g.Count() })
-            .OrderByDescending(g => g.count)
-            .Take(5)
-            .ToListAsync(cancellationToken))
-            .Select(g => new WardCount(g.ward, g.count))
-            .ToList();
-
-        return new ReportBreakdown(topNeighborhoods, timeOfDayCounts, topWards);
     }
 
     public async Task<PoliceReportingGap> GetPoliceReportingGapAsync(CancellationToken cancellationToken = default)
@@ -97,68 +90,62 @@ public class ReportStatsService(GlassOnTheStreetContext db, IncidentDataCache in
         return new PoliceReportingGap(respondedCount, percentUnreported);
     }
 
+    private static readonly string[] CarGroupKeys = ["theft-from-vehicle", "vehicle-theft", "parts-theft", "vandalism"];
+
     public async Task<IReadOnlyList<MonthlyCount>> GetMonthlyTrendAsync(int months, CancellationToken cancellationToken = default)
     {
-        // Complete months only. A month that started yesterday would plot as
-        // a near-zero bar and read as a collapse, so the current month is
-        // left out (the "last 30 days" stat covers the recent stretch).
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var thisMonth = new DateOnly(today.Year, today.Month, 1);
-        var rangeStart = thisMonth.AddMonths(-months);
+        // Complete months only, ending with the last month the data has finished. A month that
+        // started yesterday would plot as a near-zero bar and read as a collapse.
+        var dataset = await incidents.GetAsync(cancellationToken);
+        var through = dataset.Through;
+        var lastMonth = through.AddDays(1).Day == 1
+            ? new DateOnly(through.Year, through.Month, 1)
+            : new DateOnly(through.Year, through.Month, 1).AddMonths(-1);
+        var firstMonth = lastMonth.AddMonths(-(months - 1));
+        var endExclusive = lastMonth.AddMonths(1);
 
-        // Pulled as bare dates and bucketed in memory rather than a SQL
-        // GroupBy on Year/Month -- keeps this independent of whether the
-        // provider translates DateOnly.Year/.Month, and the row count for a
-        // "last N months" window is small enough that this costs nothing.
-        var dates = await db.Reports
-            .Where(r => r.Status == ReportStatus.Active && r.ReportedDate >= rangeStart && r.ReportedDate < thisMonth)
-            .Select(r => r.ReportedDate)
-            .ToListAsync(cancellationToken);
-
-        var buckets = new List<(int Year, int Month, int Count)>();
-        for (var i = 0; i < months; i++)
+        var carGroups = CarGroupKeys.Select(CrimeGroups.IndexOf).ToHashSet();
+        var totals = new int[months];
+        foreach (var row in dataset.Rows)
         {
-            var month = rangeStart.AddMonths(i);
-            buckets.Add((month.Year, month.Month, 0));
-        }
-
-        foreach (var date in dates)
-        {
-            var index = ((date.Year - rangeStart.Year) * 12) + date.Month - rangeStart.Month;
-            if (index >= 0 && index < buckets.Count)
+            if (row.Date < firstMonth || row.Date >= endExclusive || !carGroups.Contains(row.Group))
             {
-                var b = buckets[index];
-                buckets[index] = (b.Year, b.Month, b.Count + 1);
+                continue;
             }
+
+            totals[((row.Date.Year - firstMonth.Year) * 12) + row.Date.Month - firstMonth.Month] += row.Count;
         }
 
-        return buckets
-            .Select(b => new MonthlyCount(new DateOnly(b.Year, b.Month, 1).ToString("MMM yyyy"), b.Count))
+        return Enumerable.Range(0, months)
+            .Select(i => new MonthlyCount(firstMonth.AddMonths(i).ToString("MMM yyyy"), totals[i]))
             .ToList();
     }
 
+    // The four car-related MPD groups under the names the homepage list has always used.
     public async Task<IReadOnlyList<CategoryCount>> GetCategoryCountsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
     {
-        var query = db.Reports.Where(r => r.Status == ReportStatus.Active);
+        var dataset = await incidents.GetAsync(cancellationToken);
+        var start = from ?? new DateOnly(IncidentDataCache.FirstYear, 1, 1);
+        var end = to ?? dataset.Through;
 
-        if (from is not null)
+        var typeByGroup = new Dictionary<int, string>
         {
-            query = query.Where(r => r.ReportedDate >= from);
+            [CrimeGroups.IndexOf("theft-from-vehicle")] = nameof(IncidentType.Unknown),
+            [CrimeGroups.IndexOf("vehicle-theft")] = nameof(IncidentType.VehicleStolen),
+            [CrimeGroups.IndexOf("parts-theft")] = nameof(IncidentType.PartsTheft),
+            [CrimeGroups.IndexOf("vandalism")] = nameof(IncidentType.PropertyDamage)
+        };
+        var counts = typeByGroup.Keys.ToDictionary(k => k, _ => 0);
+
+        foreach (var row in dataset.Rows)
+        {
+            if (row.Date >= start && row.Date <= end && counts.ContainsKey(row.Group))
+            {
+                counts[row.Group] += row.Count;
+            }
         }
 
-        if (to is not null)
-        {
-            query = query.Where(r => r.ReportedDate <= to);
-        }
-
-        var counts = (await query
-            .GroupBy(r => r.IncidentType)
-            .Select(g => new { type = g.Key, count = g.Count() })
-            .ToListAsync(cancellationToken))
-            .Select(c => new CategoryCount(c.type.ToString(), c.count))
-            .ToList();
-
-        return counts;
+        return counts.Where(c => c.Value > 0).Select(c => new CategoryCount(typeByGroup[c.Key], c.Value)).ToList();
     }
 
     public async Task<IReadOnlyList<YearlyCount>> GetYearlyCountsAsync(

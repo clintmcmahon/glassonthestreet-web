@@ -105,3 +105,39 @@ public class OgImageTests
         Assert.True(png.Length > 1_000);
     }
 }
+
+/// <summary>
+/// MPD posts the newest records late (about three quarters are there at a week, half at three days),
+/// so the data is cut off ten days before the latest record. Otherwise the last stretch looks like a
+/// drop that never happened.
+/// </summary>
+public class CompleteThroughTests
+{
+    [Fact]
+    public void HoldsBackTheNewestTenDaysBeforeTheLatestRecord()
+    {
+        var through = IncidentDataCache.CompleteThrough(new DateOnly(2026, 10, 2), new DateOnly(2026, 10, 4));
+
+        Assert.Equal(new DateOnly(2026, 9, 22), through);
+    }
+
+    [Fact]
+    public void NeverRunsAheadOfTodayEvenIfAStrayRecordIsDatedLater()
+    {
+        var through = IncidentDataCache.CompleteThrough(new DateOnly(2026, 12, 31), new DateOnly(2026, 10, 4));
+
+        Assert.Equal(new DateOnly(2026, 9, 24), through);
+    }
+
+    [Fact]
+    public void AMonthIsOnlyReportedOnceItsDataIsComplete()
+    {
+        // The latest record is Oct 2, so data runs through Sep 22: September is not finished yet, August is.
+        var through = IncidentDataCache.CompleteThrough(new DateOnly(2026, 10, 2), new DateOnly(2026, 10, 4));
+        var rows = new[] { new IncidentRow(1, new DateOnly(2026, 8, 10), 12, (byte)CrimeGroups.IndexOf("burglary"), 1, "Alpha", 1, 44.95f, -93.25f) };
+        var service = new MonthlyReportService(new FakeIncidentCache(rows, through));
+
+        Assert.NotNull(service.GetAsync(2026, 8).GetAwaiter().GetResult());
+        Assert.Null(service.GetAsync(2026, 9).GetAwaiter().GetResult());
+    }
+}

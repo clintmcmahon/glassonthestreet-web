@@ -40,6 +40,12 @@ public record YearlyCount(int Year, int Count, int? ProjectedCount = null, DateO
 /// </summary>
 public interface IReportStatsService
 {
+    // Every count below except the *Resident* methods is MPD data only. Resident reports are
+    // never added to an MPD figure (see ReportStatsService).
+    Task<int> GetResidentReportCountAsync(DateOnly from, DateOnly? to, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CategoryCount>> GetResidentCategoryCountsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
+
     Task<ReportStats> GetStatsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
 
     Task<ReportBreakdown> GetBreakdownAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);

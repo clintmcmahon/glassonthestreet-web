@@ -95,8 +95,12 @@ public class ReportsApiController(
     public async Task<IActionResult> GetStats(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken cancellationToken)
     {
+        // count and priorCount are MPD car-related offenses only. Resident reports are reported
+        // apart (residentReports) and are never part of count, since they can duplicate an MPD record.
         var stats = await statsService.GetStatsAsync(from, to, cancellationToken);
-        return Ok(new { count = stats.Count, priorCount = stats.PriorCount, percentChange = stats.PercentChange });
+        var residentFrom = from ?? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-29);
+        var residentReports = await statsService.GetResidentReportCountAsync(residentFrom, to, cancellationToken);
+        return Ok(new { count = stats.Count, priorCount = stats.PriorCount, percentChange = stats.PercentChange, residentReports });
     }
 
     [HttpGet("stats/breakdown")]

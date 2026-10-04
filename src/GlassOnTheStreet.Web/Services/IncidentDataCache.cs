@@ -18,7 +18,8 @@ public sealed record IncidentDataset(
     IReadOnlyDictionary<string, string> NeighborhoodBySlug,
     IReadOnlyList<string> NeighborhoodNames,
     IReadOnlyList<int> Wards,
-    IReadOnlyList<string>? AddressTable = null)
+    IReadOnlyList<string>? AddressTable = null,
+    DateOnly? LatestRecord = null)
 {
     /// <summary>MPD's block-range address for a row, e.g. "0048XX 13TH AVE S"; empty when unknown.</summary>
     public string AddressAt(int index) =>
@@ -33,6 +34,18 @@ public sealed record IncidentDataset(
 public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
 {
     public const int FirstYear = 2019;
+
+    /// <summary>
+    /// MPD posts records days after the fact: compared with the same weekday a year earlier, records
+    /// under about ten days old are only partly there (roughly three quarters at a week, half at three
+    /// days). Including them makes the latest period look like a drop. So the newest days are held back:
+    /// the dataset, and every figure built on it, runs through the latest record minus this many days.
+    /// </summary>
+    public const int LagDays = 10;
+
+    /// <summary>The last date whose records are essentially complete.</summary>
+    public static DateOnly CompleteThrough(DateOnly latestRecord, DateOnly today) =>
+        (latestRecord > today ? today : latestRecord).AddDays(-LagDays);
 
     private const string CacheKey = "incident-dataset";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
@@ -73,11 +86,11 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
         }
 
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
-        var through = rows.Length == 0 ? today : rows.Max(r => r.Date);
-        if (through > today)
-        {
-            through = today;
-        }
+        var latest = rows.Length == 0 ? today : rows.Max(r => r.Date);
+        var through = CompleteThrough(latest, today);
+
+        // The newest days are still being posted; keep them out of every statistic (they stay in the database).
+        rows = rows.Where(r => r.Date <= through).ToArray();
 
         var names = rows.Where(r => r.Neighborhood is not null).Select(r => r.Neighborhood!).Distinct()
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
@@ -89,7 +102,7 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
 
         var wards = rows.Where(r => r.Ward > 0).Select(r => (int)r.Ward).Distinct().OrderBy(w => w).ToList();
 
-        var dataset = new IncidentDataset(rows, through, bySlug, names, wards, addressTable);
+        var dataset = new IncidentDataset(rows, through, bySlug, names, wards, addressTable, latest);
         cache.Set(CacheKey, dataset, CacheDuration);
         return dataset;
     }

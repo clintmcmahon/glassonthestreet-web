@@ -21,7 +21,11 @@ public class HomeController(IReportStatsService statsService, ISyncStatusService
         // all-time -- with 117K+ rows going back to 2020, an all-time
         // breakdown doesn't tell you what's happening now.
         var yearStart = new DateOnly(DateTime.UtcNow.Year, 1, 1);
-        var categories = await statsService.GetCategoryCountsAsync(yearStart, to: null, cancellationToken);
+        // MPD categories and resident reports come from different places and are listed as separate
+        // rows, never added into one total: a resident who also called the police is in both.
+        var mpdCategories = await statsService.GetCategoryCountsAsync(yearStart, to: null, cancellationToken);
+        var residentCategories = await statsService.GetResidentCategoryCountsAsync(yearStart, to: null, cancellationToken);
+        var categories = mpdCategories.Concat(residentCategories).ToList();
 
         // Yearly trend for the homepage's "how these categories have
         // trended since 2019" charts -- our own imported MPD data, not a
@@ -36,10 +40,11 @@ public class HomeController(IReportStatsService statsService, ISyncStatusService
         // Year-to-date comparison and the top areas, from the same cached
         // MPD dataset that powers /trends.
         var trends = await trendsService.GetTrendsAsync(new TrendFilter(null, null, null), cancellationToken);
+        var residentReports = await statsService.GetResidentReportCountAsync(trends.Through.AddDays(-29), to: null, cancellationToken);
 
         return View(new HomePageViewModel(
             stats, reportingGap, trend, categories,
-            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend, lastSyncedAt, trends));
+            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend, lastSyncedAt, trends, residentReports));
     }
 
     [HttpGet("privacy")]
@@ -64,4 +69,5 @@ public record HomePageViewModel(
     IReadOnlyList<YearlyCount> PropertyDamageTrend,
     IReadOnlyList<YearlyCount> VehicleTheftTrend,
     DateTime? MpdLastSyncedAt,
-    TrendsData Trends);
+    TrendsData Trends,
+    int ResidentReportsLast30Days);

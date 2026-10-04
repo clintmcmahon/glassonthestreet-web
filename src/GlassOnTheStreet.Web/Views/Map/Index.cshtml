@@ -129,8 +129,8 @@
 <div class="page" style="padding-top: 1.25rem;">
     <p class="field-hint" id="map-note">
         MPD open data through @s.Through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)@(Model.MpdLastSyncedAt is { } lastSyncedAt ? $", last synced {lastSyncedAt.FormatSyncTimestamp()}" : "").
-        Locations are the midpoint of each block, never an exact address. Counts are reported crimes only, and shots-fired calls are
-        kept apart from crimes. See the <a asp-controller="Methodology" asp-action="Index">methodology</a> or look up
+        Locations are the midpoint of each block, never an exact address. Counts are MPD offenses only, reported crimes only, and
+        shots-fired calls are kept apart from crimes. Resident reports are the blue and black dots and are never added to the counts. See the <a asp-controller="Methodology" asp-action="Index">methodology</a> or look up
         <a asp-controller="Near" asp-action="Index">crime near an address</a>.
     </p>
 

@@ -28,8 +28,13 @@
     <p>
         The data is the City of Minneapolis open data "Crime_Data" feed, published by MPD and imported here every day.
         Each daily import looks back 30 days to catch records MPD posts late. The numbers on the site run
-        <strong>through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</strong>, the last date the feed has, not
-        today's date. MPD posts with a lag of a few days, so the most recent days are always the least complete.
+        <strong>through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</strong>, which is about ten days before today on purpose.
+    </p>
+    <p>
+        MPD posts records days after the fact. Compared with the same weekday a year earlier, records under about ten days old are
+        only partly there: roughly three quarters at a week, about half at three days, a fifth at two. Counting them would make
+        the latest period look like a drop that never happened, so the newest ten days are held back and filled in
+        as MPD posts them. That is why the latest records you may have read about in the news aren't here yet.
     </p>
 
     <h2 class="method-h">What is counted</h2>
@@ -62,9 +67,19 @@
         }
     </dl>
 
+    <h2 class="method-h">Resident reports are never added to MPD counts</h2>
+    <p>
+        Residents can report a break-in on this site. Those reports are unverified, and some describe an incident MPD also has,
+        because the resident called the police too. The two can't be matched: MPD's records carry no ID we can see and sit at
+        block midpoints, and a resident's date and place are approximate. So <strong>every number, rate, ranking and chart here
+        counts MPD data only</strong>. Resident reports appear as their own dots on <a asp-controller="Map" asp-action="Index">the map</a>
+        and as a separately labeled figure beside the MPD total, never inside it. The share of residents who never told police
+        (a figure the homepage quotes) is the one statistic that comes only from resident reports, and it says so.
+    </p>
+
     <h2 class="method-h">How comparisons are made</h2>
     <ul>
-        <li><strong>Same period.</strong> The current year is compared with earlier years over the same calendar window, January 1 through the last published date. A partial year is never set against a full one.</li>
+        <li><strong>Same period.</strong> The current year is compared with earlier years over the same calendar window, January 1 through the complete-through date above. A partial year is never set against a full one.</li>
         <li><strong>Months.</strong> The month still in progress is drawn as an open marker with no line into it, because a slope toward an unfinished month reads as a drop.</li>
         <li><strong>Projection.</strong> The homepage's projected full-year figure divides the year-to-date count by the share of the year that had already happened by this date in earlier years (pooled across them). It is an estimate and is labeled as one.</li>
         <li><strong>Wards.</strong> MPD assigns the current (2022) ward boundaries to every record, including older ones. We checked a sample across years and the assignment is consistent, so ward trends compare like with like.</li>

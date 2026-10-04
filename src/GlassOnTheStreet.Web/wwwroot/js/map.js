@@ -553,17 +553,32 @@
     renderRows(document.getElementById("breakdown-types"), s.types, false);
   }
 
+  var baseStatus = "";
+
   function setStatus(text) {
+    baseStatus = text;
     document.getElementById("map-status").textContent = text;
   }
 
+  // Resident reports sit beside the MPD total, never inside it: a resident who also called the
+  // police would be in both, and the two can't be matched.
+  function showResidentCount(count) {
+    var extra = count > 0
+      ? " \u00b7 plus " + fmt(count) + " resident report" + (count === 1 ? "" : "s") + ", counted separately"
+      : "";
+    document.getElementById("map-status").textContent = baseStatus + extra;
+  }
+
   function loadResidents() {
-    if (!state.residents) return Promise.resolve();
+    if (!state.residents) { showResidentCount(0); return Promise.resolve(); }
     var p = new URLSearchParams({ source: "resident", from: meta.from });
     if (state.range === "custom") p.set("to", meta.to);
     return fetch("/api/reports?" + p.toString())
       .then(function (r) { return r.ok ? r.json() : EMPTY; })
-      .then(function (geojson) { map.getSource("residents").setData(spreadOverlappingPoints(geojson)); })
+      .then(function (geojson) {
+        map.getSource("residents").setData(spreadOverlappingPoints(geojson));
+        showResidentCount(geojson.features.length);
+      })
       .catch(function () { /* the block layer is the main event */ });
   }
 
@@ -636,7 +651,7 @@
     document.getElementById("layer-residents").addEventListener("change", function (e) {
       state.residents = e.target.checked;
       map.setLayoutProperty("residents", "visibility", state.residents ? "visible" : "none");
-      if (state.residents && meta) loadResidents();
+      if (meta) loadResidents();
       syncUrl();
     });
   }
