@@ -5,7 +5,7 @@ using GlassOnTheStreet.Web.Services;
 
 namespace GlassOnTheStreet.Web.Controllers;
 
-public class HomeController(IReportStatsService statsService, ISyncStatusService syncStatusService, ITrendsService trendsService) : Controller
+public class HomeController(IReportStatsService statsService, ISyncStatusService syncStatusService, ITrendsService trendsService, ICrimeStatsService crimeStats) : Controller
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -42,9 +42,12 @@ public class HomeController(IReportStatsService statsService, ISyncStatusService
         var trends = await trendsService.GetTrendsAsync(new TrendFilter(null, null, null), cancellationToken);
         var residentReports = await statsService.GetResidentReportCountAsync(trends.Through.AddDays(-29), to: null, cancellationToken);
 
+        // All offense types, the same numbers /crime leads with.
+        var crime = await crimeStats.GetCrimeAsync(new CrimeFilter(null, null, null), cancellationToken: cancellationToken);
+
         return View(new HomePageViewModel(
             stats, reportingGap, trend, categories,
-            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend, lastSyncedAt, trends, residentReports));
+            theftFromVehicleTrend, propertyDamageTrend, vehicleTheftTrend, lastSyncedAt, trends, residentReports, crime));
     }
 
     [HttpGet("privacy")]
@@ -70,4 +73,5 @@ public record HomePageViewModel(
     IReadOnlyList<YearlyCount> VehicleTheftTrend,
     DateTime? MpdLastSyncedAt,
     TrendsData Trends,
-    int ResidentReportsLast30Days);
+    int ResidentReportsLast30Days,
+    CrimeData Crime);
