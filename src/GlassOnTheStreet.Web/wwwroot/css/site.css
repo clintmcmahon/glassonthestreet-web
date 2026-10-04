@@ -2307,3 +2307,8 @@ code {
   letter-spacing: 0.08em;
   color: var(--ink-soft);
 }
+
+.scope-note { max-width: 720px; margin: 1.25rem 0 1.5rem; padding: 0.75rem 1rem; border-left: 3px solid var(--accent, #b3261e); background: rgba(127, 127, 127, 0.08); font-size: 0.95rem; line-height: 1.5; }
+.stat-group-heading { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin: 1.5rem 0 0.25rem; opacity: 0.75; }
+.definitions { max-width: 720px; padding-left: 1.2rem; line-height: 1.55; }
+.definitions li { margin-bottom: 0.6rem; }

@@ -117,41 +117,50 @@
         the police and city hall.
     </p>
 
+    <p class="scope-note">
+        <strong>What this page counts:</strong> car-related crime in Minneapolis, using police data (MPD, the Minneapolis Police Department).
+        "Car-related" means four MPD offense types: theft from a motor vehicle, motor vehicle theft, theft of vehicle parts, and property damage/vandalism.
+        It does not mean all crime. Every number below says whether it comes from MPD or from resident reports.
+        <a href="#what-these-numbers-mean">Full definitions</a>
+    </p>
+
+    <h2 class="stat-group-heading">Car-related crime, last 30 days (MPD data)</h2>
     <div class="stat-line">
         <div class="stat">
             <div class="stat-value">@stats.Count.Format()</div>
-            <div class="stat-label">car-related offenses, last 30 days</div>
+            <div class="stat-label">car-related offenses recorded by MPD in the last 30 days (through @ytdThrough)</div>
         </div>
         <div class="stat">
             <div class="stat-value @changeClass">@changeText</div>
-            <div class="stat-label">vs. the 30 days before that</div>
+            <div class="stat-label">change in MPD car-related offenses vs. the 30 days before that</div>
         </div>
         @if (gap.PercentUnreported is not null)
         {
             <div class="stat">
                 <div class="stat-value up">@(gap.PercentUnreported)%</div>
-                <div class="stat-label">of reporters never told police</div>
+                <div class="stat-label">of residents who reported a car break-in on this site (@gap.RespondedCount.Format() answered) said they never told police. This one figure comes from resident reports, not MPD.</div>
             </div>
         }
     </div>
 
+    <h2 class="stat-group-heading">Car-related crime, so far in @ytd.CurrentYear (MPD data)</h2>
     <div class="stat-line stat-line-year">
         <div class="stat">
             <div class="stat-value">@ytdNow.Format()</div>
-            <div class="stat-label">reports so far in @ytd.CurrentYear, Jan 1 to @ytdThrough</div>
+            <div class="stat-label">car-related offenses recorded by MPD, Jan 1 to @ytdThrough @ytd.CurrentYear</div>
         </div>
         <div class="stat">
             <div class="stat-value @PctClass(ytdNow, ytdPrior)">@Pct(ytdNow, ytdPrior)</div>
-            <div class="stat-label">vs. the same period of @(ytd.CurrentYear - 1)</div>
+            <div class="stat-label">change in MPD car-related offenses vs. Jan 1 to @ytdThrough @(ytd.CurrentYear - 1)</div>
         </div>
         <div class="stat">
             <div class="stat-value @PctClass(ytdNow, ytdBase)">@Pct(ytdNow, ytdBase)</div>
-            <div class="stat-label">vs. @ytd.Years[0], the last year before COVID</div>
+            <div class="stat-label">change in MPD car-related offenses vs. Jan 1 to @ytdThrough @ytd.Years[0], the last year before COVID</div>
         </div>
     </div>
     <p class="field-hint stat-line-note">
-        Every count on this page is MPD data. Resident reports@(Model.ResidentReportsLast30Days > 0 ? $" ({Model.ResidentReportsLast30Days.Format()} in the last 30 days)" : "") are shown on the map and are never added to these
-        numbers, because a resident who also called the police would otherwise be counted twice.
+        Every count of offenses on this page is MPD data. Resident reports@(Model.ResidentReportsLast30Days > 0 ? $" ({Model.ResidentReportsLast30Days.Format()} in the last 30 days)" : "") are shown as separate dots on the map and are never added to these
+        numbers, because a resident who also called the police would otherwise be counted twice. Resident reports are unverified.
     </p>
     <p class="field-hint stat-line-note">
         MPD data through @ytdThrough. MPD posts the most recent days late, so the newest 10 days are held back until they fill in. 2019 is the first year of MPD's
@@ -172,7 +181,7 @@
         <div id="home-map"></div>
     </div>
     <div class="map-preview-caption">
-        <span>Each circle is a block with car-related MPD offenses in the week ending @ytdThrough. Click the map to explore it.</span>
+        <span>Each circle is one block with car-related offenses recorded by MPD in the week ending @ytdThrough. Resident reports appear as separate dots. Click the map to explore it, including all-crime views.</span>
         <a asp-controller="Map" asp-action="Index">Open the full map &rarr;</a>
     </div>
     @if (Model.MpdLastSyncedAt is { } lastSyncedAt)
@@ -182,7 +191,8 @@
 
     <div class="graphs-grid">
         <div>
-            <h2 class="graph-heading">Car-related offenses by month</h2>
+            <h2 class="graph-heading">Car-related offenses by month (MPD data)</h2>
+            <p class="field-hint">Theft from vehicles, vehicle theft, parts theft and property damage/vandalism combined. Complete months only.</p>
             @if (Model.Trend.Count == 0)
             {
                 <p class="field-hint">Not enough data yet.</p>
@@ -204,7 +214,8 @@
             }
         </div>
         <div>
-            <h2 class="graph-heading">So far this year</h2>
+            <h2 class="graph-heading">So far in @ytd.CurrentYear, by car-related offense type</h2>
+            <p class="field-hint">MPD offenses, Jan 1 to @ytdThrough, then resident reports below the line.</p>
             @if (categoryByKey.Count == 0)
             {
                 <p class="field-hint">Not enough data yet.</p>
@@ -217,7 +228,7 @@
                         // A labeled break before the resident rows: they are a separate source, not part of the MPD counts above.
                         @if (key == "WindowSmashed" || (key == "Rifled" && !categoryByKey.ContainsKey("WindowSmashed")))
                         {
-                            <div class="category-divider">Resident reports, counted separately from MPD</div>
+                            <div class="category-divider">Resident reports (unverified, not police data, not included in the MPD numbers above)</div>
                         }
                         <div class="breakdown-row">
                             <span class="breakdown-label">@categoryLabel[key]</span>
@@ -232,7 +243,7 @@
 
     <div class="graphs-grid graphs-grid-even">
         <div>
-            <h2 class="graph-heading">Neighborhoods with the most reports in @ytd.CurrentYear</h2>
+            <h2 class="graph-heading">Neighborhoods with the most car-related offenses in @ytd.CurrentYear (MPD data)</h2>
             <ol class="home-areas">
                 @foreach (var (area, i) in ytd.Neighborhoods.Take(5).Select((a, i) => (a, i)))
                 {
@@ -247,7 +258,7 @@
             <a class="home-areas-more" asp-controller="Areas" asp-action="Index">All neighborhoods and wards &rarr;</a>
         </div>
         <div>
-            <h2 class="graph-heading">Wards with the most reports in @ytd.CurrentYear</h2>
+            <h2 class="graph-heading">Wards with the most car-related offenses in @ytd.CurrentYear (MPD data)</h2>
             <ol class="home-areas">
                 @foreach (var (area, i) in ytd.Wards.Take(5).Select((a, i) => (a, i)))
                 {
@@ -259,31 +270,32 @@
                     </li>
                 }
             </ol>
-            <p class="field-hint">Reports Jan 1 to @ytdThrough, with the change from the same period of @(ytd.CurrentYear - 1).</p>
+            <p class="field-hint">Car-related offenses recorded by MPD, Jan 1 to @ytdThrough, with the change from the same dates in @(ytd.CurrentYear - 1). Raw counts mostly reflect where people live, work and park, so this is not a ranking of safety.</p>
         </div>
     </div>
 
     <h2 class="graph-heading" style="margin-top: 3rem;">Explore the data</h2>
+    <p class="field-hint">Cards marked "All crimes" cover every offense type MPD records, not only car-related ones.</p>
     <div class="explore-grid">
         <a class="explore-card" asp-controller="Crime" asp-action="Index">
-            <strong>Crime statistics</strong>
-            <span>Every offense MPD records, 2019 to today, by type, neighborhood and hour of day.</span>
+            <strong>Crime statistics (all crimes)</strong>
+            <span>Every offense type MPD records, 2019 to today, by type, neighborhood and hour of day.</span>
         </a>
         <a class="explore-card" asp-controller="Near" asp-action="Index">
-            <strong>Crime near you</strong>
-            <span>Enter an address to see what's been recorded within a quarter mile to a mile.</span>
+            <strong>Crime near you (all crimes)</strong>
+            <span>Enter an address to see every offense type MPD recorded within a quarter mile to a mile.</span>
         </a>
         <a class="explore-card" asp-controller="Monthly" asp-action="Index">
-            <strong>Monthly reports</strong>
-            <span>A sourced summary of every finished month, with a permanent link and an RSS feed.</span>
+            <strong>Monthly reports (all crimes)</strong>
+            <span>A sourced summary of every finished month, covering every offense type, with a permanent link and an RSS feed.</span>
         </a>
         <a class="explore-card" asp-controller="Compare" asp-action="Index">
-            <strong>Compare areas</strong>
+            <strong>Compare areas (all crimes or car-related)</strong>
             <span>Put neighborhoods or wards side by side, as counts or per 1,000 residents.</span>
         </a>
         <a class="explore-card" asp-controller="Trends" asp-action="Index">
-            <strong>Car break-in trends</strong>
-            <span>Theft from vehicles, vehicle theft and parts theft, year over year.</span>
+            <strong>Car-related trends (MPD data)</strong>
+            <span>Theft from vehicles, vehicle theft, parts theft and property damage, year over year.</span>
         </a>
         <a class="explore-card" asp-controller="Data" asp-action="Index">
             <strong>Downloads and methodology</strong>
@@ -295,10 +307,10 @@
 
 <div class="breakout city-comparison-section">
     <div class="city-comparison-inner">
-        <h2 class="graph-heading" style="margin-bottom: 0.25rem;">How these have trended since 2019</h2>
+        <h2 class="graph-heading" style="margin-bottom: 0.25rem;">Car-related offenses by year since 2019 (MPD data)</h2>
         <p class="field-hint" style="max-width: 640px; margin-bottom: 1.5rem;">
-            Minneapolis Police Department's own numbers, imported and counted by this site, year
-            by year. Not resident reports -- these are MPD's official records for each category.
+            One chart for each of three car-related MPD offense types, counted per year. These are police records only.
+            Resident reports are not included. The line for the current year is a projection, explained below.
         </p>
 
         <div class="city-charts-grid">
@@ -397,7 +409,18 @@
 </div>
 
 <div class="page">
-    <h2 style="margin-top: 1rem; font-size: 1.4rem;">Why this exists</h2>
+    <h2 id="what-these-numbers-mean" style="margin-top: 1rem; font-size: 1.4rem;">What these numbers mean</h2>
+    <ul class="definitions">
+        <li><strong>MPD data.</strong> Records the Minneapolis Police Department publishes on the city's open data portal. This site imports them daily. Only crimes reported to police are in it.</li>
+        <li><strong>Resident reports.</strong> Car break-ins that people submit on this site. They are unverified, and some may also be in MPD's data (someone who also called the police). The two can't be matched, so resident reports are never added to any MPD count, percentage or chart.</li>
+        <li><strong>Car-related.</strong> Four MPD offense types combined: theft from motor vehicle (a break-in or items taken from a car), motor vehicle theft (the whole car), theft of motor vehicle parts or accessories (catalytic converters, wheels), and destruction/damage/vandalism of property. That last type covers all property, such as graffiti and broken windows on buildings, and is not limited to cars.</li>
+        <li><strong>All crimes.</strong> Every offense type MPD records, from homicide to shoplifting. The homepage shows no all-crime totals. The "All crimes" pages linked above do, and they say so at the top.</li>
+        <li><strong>Offense.</strong> One count of one crime type. A case with two victims is two offenses. Pages that count this way agree with each other.</li>
+        <li><strong>Why the newest 10 days are missing.</strong> MPD posts records days late. Counting them early would make the latest days look quiet, so every figure stops about ten days before today (currently @ytdThrough).</li>
+        <li><strong>Percent changes.</strong> Always the same calendar dates in each year, never a partial year against a full one.</li>
+    </ul>
+
+    <h2 style="margin-top: 2.5rem; font-size: 1.4rem;">Why this exists</h2>
     <p>
         Police don't track this the way we need them to. Their data has a
         category for a car getting broken into, "Theft From Motor
