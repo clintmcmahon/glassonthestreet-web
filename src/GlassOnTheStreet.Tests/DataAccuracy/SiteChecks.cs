@@ -401,4 +401,20 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
             Assert.InRange(c[0].GetDouble(), -93.40, -93.15);
         }
     }
+
+    /// <summary>The homepage's map and chart tooltips are drawn by scripts; a page without them shows an empty box.</summary>
+    public async Task Home_LoadsTheScriptsThatDrawItsMapAndChartTooltips()
+    {
+        var doc = await PageAsync("/");
+        var scripts = doc.QuerySelectorAll("script").Select(s => s.GetAttribute("src") ?? s.TextContent).ToList();
+
+        Assert.NotNull(doc.QuerySelector("#home-map"));
+        Assert.Contains(scripts, s => s.Contains("home-map.js"));
+        Assert.Contains(scripts, s => s.Contains("city-chart-tooltip.js"));
+        Assert.Contains(scripts, s => s.Contains("format.js"));
+        Assert.Contains(scripts, s => s.Contains("window.GOTS_MAP"));
+        // One of the two map engines, matching the configured one.
+        Assert.Contains(scripts, s => s.Contains("mapbox-gl.js") || s.Contains("maplibre-gl.js"));
+        Assert.True(doc.QuerySelectorAll(".city-chart").Count() == 3, "The three yearly charts are missing.");
+    }
 }

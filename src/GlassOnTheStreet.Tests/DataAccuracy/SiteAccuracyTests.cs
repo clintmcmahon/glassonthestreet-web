@@ -23,6 +23,9 @@ public class SiteAccuracyTests(World world) : IDisposable
     public Task Home_CarThirtyDayFiguresMatchTheOracle() => checks.Home_CarThirtyDayFiguresMatchTheOracle();
 
     [Fact]
+    public Task Home_LoadsTheScriptsThatDrawItsMapAndChartTooltips() => checks.Home_LoadsTheScriptsThatDrawItsMapAndChartTooltips();
+
+    [Fact]
     public Task Home_YearToDateFiguresMatchTheOracleForAllCrimesAndForCarCrime() => checks.Home_YearToDateFiguresMatchTheOracleForAllCrimesAndForCarCrime();
 
     [Fact]

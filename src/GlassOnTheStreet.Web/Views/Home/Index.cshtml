@@ -516,3 +516,19 @@
         meant to complement official channels, not replace them.
     </p>
 </div>
+
+@section Scripts {
+    @if (useMapbox)
+    {
+        <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
+    }
+    else
+    {
+        <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
+        <script src="~/js/map-theme.js" asp-append-version="true"></script>
+    }
+    <script>window.GOTS_MAP = @Html.Raw(mapConfig);</script>
+    <script src="~/js/format.js" asp-append-version="true"></script>
+    <script src="~/js/home-map.js" asp-append-version="true"></script>
+    <script src="~/js/city-chart-tooltip.js" asp-append-version="true"></script>
+}

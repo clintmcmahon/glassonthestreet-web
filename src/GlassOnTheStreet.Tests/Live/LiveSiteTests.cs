@@ -23,6 +23,8 @@ public class LiveSiteTests : IDisposable
 
     [LiveFact(needsSite: true)] public Task Home_CarThirtyDay() => Checks.Home_CarThirtyDayFiguresMatchTheOracle();
 
+    [LiveFact(needsSite: true)] public Task Home_Scripts() => Checks.Home_LoadsTheScriptsThatDrawItsMapAndChartTooltips();
+
     [LiveFact(needsSite: true)] public Task Home_YearToDate() => Checks.Home_YearToDateFiguresMatchTheOracleForAllCrimesAndForCarCrime();
 
     [LiveFact(needsSite: true)] public Task Home_CarIsSubset() => Checks.Home_CarCrimeIsASubsetOfAllCrimeOnThePage();
