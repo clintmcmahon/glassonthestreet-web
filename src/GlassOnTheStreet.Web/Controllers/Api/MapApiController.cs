@@ -69,7 +69,8 @@ public class MapApiController(MapDataService mapData, IncidentDataCache dataCach
             neighborhoods = Counts(s.Neighborhoods),
             wards = Counts(s.Wards),
             timeOfDay = Counts(s.TimeOfDay),
-            types = Counts(s.Types)
+            types = Counts(s.Types),
+            wardCounts = Counts(s.WardCounts ?? [])
         });
     }
 }

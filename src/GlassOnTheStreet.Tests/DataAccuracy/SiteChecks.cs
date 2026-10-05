@@ -267,6 +267,22 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
             Assert.Equal(counts[^2], N(Text(cells[2])));
         }
 
+        // A ward page names its council member and links to the city's pages for them.
+        if (hood is null)
+        {
+            var wards = (await JsonAsync("/api/wards")).GetProperty("features").EnumerateArray().Select(f => f.GetProperty("properties")).ToList();
+            var member = wards.Single(w => w.GetProperty("ward").GetInt32() == ward);
+            var card = Text(doc.QuerySelector(".council-card"));
+            Assert.Contains(member.GetProperty("name").GetString()!, card);
+            Assert.Contains(member.GetProperty("phone").GetString()!, card);
+            Assert.Contains(member.GetProperty("title").GetString()!, card);
+            Assert.Contains(member.GetProperty("contactUrl").GetString()!, doc.QuerySelectorAll(".council-card a").Select(a => a.GetAttribute("href")));
+        }
+        else
+        {
+            Assert.Null(doc.QuerySelector(".council-card"));
+        }
+
         // The car-only "by year" table.
         var period = doc.QuerySelectorAll("table.area-table").First(t => Text(t.QuerySelector("th")) == "Year").QuerySelectorAll("tbody tr").ToList();
         Assert.Equal(O.SamePeriod(Oracle.And(Oracle.IsCar, scope)), period.Select(r => N(Text(r.QuerySelectorAll("td")[1]))));
@@ -371,6 +387,11 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
         Assert.Equal(all, meta.GetProperty("total").GetInt32() + meta.GetProperty("unlocated").GetInt32());
         Assert.Equal(located, blocks.GetProperty("features").EnumerateArray().Sum(f => f.GetProperty("properties").GetProperty("n").GetInt32()));
         Assert.Equal(O.Through.ToString("yyyy-MM-dd"), meta.GetProperty("to").GetString());
+
+        // Per-ward counts for the ward overlay: every ward with offenses, matching the oracle.
+        var expectedWards = inRange.Where(r => r.Ward is > 0).GroupBy(r => r.Ward!.Value).OrderBy(g => g.Key).Select(g => ($"Ward {g.Key}", g.Sum(r => r.Count))).ToList();
+        var apiWards = summary.GetProperty("wardCounts").EnumerateArray().Select(w => (w.GetProperty("name").GetString()!, w.GetProperty("count").GetInt32())).ToList();
+        Assert.Equal(expectedWards, apiWards);
 
         // Every pin sits in Minneapolis. A pin at 0,0 would be a record MPD could not place, drawn anyway.
         foreach (var feature in blocks.GetProperty("features").EnumerateArray())

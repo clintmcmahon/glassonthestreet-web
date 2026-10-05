@@ -183,4 +183,27 @@ public class LiveDatabaseTests
             .Select(d => $"{d.Year}: {d.Feed} distinct car cases in the full feed, {d.Pins} in the Reports table").ToList();
         Assert.True(diffs.Count == 0, $"The two importers disagree on car cases:\n  {Sample(diffs)}");
     }
+
+    [LiveFact]
+    public void MpdsWardNumbersAgreeWithTheOfficialBoundariesAtAStableRateInEveryYear()
+    {
+        // MPD gives each record a ward from its address, but publishes the record at its block's midpoint, and ward lines
+        // run down streets. A midpoint on a boundary street can sit on either side, so about 5% of records fall in the
+        // neighboring ward's polygon. That rate is the same in every year (measured 4.0% to 5.4%). A jump at the 2022
+        // redistricting would mean MPD stamped older records with the old ward map, which would make ward comparisons
+        // across years mix two geographies; so the check is that the rate stays low and has no step.
+        var wards = new WardService().All;
+        var cache = new Dictionary<(decimal?, decimal?), int>();
+        int WardAt(decimal? lat, decimal? lng) => cache.TryGetValue((lat, lng), out var w) ? w : cache[(lat, lng)] =
+            wards.FirstOrDefault(x => WardServiceTests.Contains(x.Geometry, (double)lng!.Value, (double)lat!.Value))?.Ward ?? 0;
+
+        var rows = LiveWorld.Incidents.Where(r => r.Ward is > 0 && r.Lat is not null && r.Lat != 0 && r.OccurredDate.Year >= 2019).ToList();
+        var byYear = rows.GroupBy(r => r.OccurredDate.Year).OrderBy(g => g.Key)
+            .Select(g => (Year: g.Key, Rate: g.Count(r => WardAt(r.Lat, r.Lng) is var w && w != 0 && w != r.Ward) / (double)g.Count())).ToList();
+
+        Assert.All(byYear, y => Assert.True(y.Rate < 0.08, $"{y.Year}: {y.Rate:P1} of records sit in a different ward than MPD recorded."));
+        var before = byYear.Where(y => y.Year <= 2021).Average(y => y.Rate);
+        var after = byYear.Where(y => y.Year >= 2022).Average(y => y.Rate);
+        Assert.True(Math.Abs(before - after) < 0.02, $"The mismatch rate steps from {before:P1} (2019 to 2021) to {after:P1} (2022 on): MPD's wards may follow different boundaries before and after redistricting.");
+    }
 }

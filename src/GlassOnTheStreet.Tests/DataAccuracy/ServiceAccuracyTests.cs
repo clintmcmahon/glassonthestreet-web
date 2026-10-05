@@ -304,6 +304,9 @@ public class ServiceAccuracyTests(World world) : IDisposable
             buckets[Bucket(r.CentralHour)] += r.Count;
         }
 
+        // Every ward's count, for the map's ward overlay (all of them, not just the top six).
+        Assert.Equal(wardCounts.OrderBy(w => w.Key).Select(w => ($"Ward {w.Key}", w.Value)), summary.WardCounts!.Select(w => (w.Name, w.Count)));
+
         Assert.Equal(buckets, summary.TimeOfDay.Select(t => t.Count));
         Assert.Equal(summary.Total, summary.TimeOfDay.Sum(t => t.Count));
 

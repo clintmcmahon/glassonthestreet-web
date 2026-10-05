@@ -19,6 +19,8 @@
   <ItemGroup>
     <!-- Resident population by neighborhood and ward (tools/build_population.py). -->
     <Content Update="Data\population-2020.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Ward boundaries and council members (tools/build_wards.py). -->
+    <Content Update="Data\wards-2022.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Manrope Medium and Bold (SIL Open Font License, see OFL.txt) for the share images drawn by OgImageService. -->
     <Content Include="Data\fonts\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

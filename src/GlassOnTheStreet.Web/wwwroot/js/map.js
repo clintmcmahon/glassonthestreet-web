@@ -24,7 +24,7 @@
   var EMPTY = { type: "FeatureCollection", features: [] };
   var CLUSTER_DETAIL_LIMIT = 2000;
 
-  var state = { group: "car", range: "30", from: "", to: "", mode: "clusters", residents: true };
+  var state = { group: "car", range: "30", from: "", to: "", mode: "clusters", residents: true, wards: false };
   var meta = null;       // meta block of the latest /api/map/blocks response
   var requestId = 0;
   var hoverPopup = null;
@@ -72,6 +72,7 @@
     if (p.get("from") && p.get("to")) { state.from = p.get("from"); state.to = p.get("to"); state.range = "custom"; }
     if (p.get("mode") === "heat") state.mode = "heat";
     if (p.get("residents") === "0") state.residents = false;
+    if (p.get("wards") === "1") state.wards = true;
   }
 
   function syncUrl() {
@@ -81,6 +82,7 @@
     else if (state.range !== "30") p.set("range", state.range);
     if (state.mode === "heat") p.set("mode", "heat");
     if (!state.residents) p.set("residents", "0");
+    if (state.wards) p.set("wards", "1");
     var qs = p.toString();
     history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
   }
@@ -100,6 +102,7 @@
     document.getElementById("mode-clusters").classList.toggle("active", state.mode === "clusters");
     document.getElementById("mode-heat").classList.toggle("active", state.mode === "heat");
     document.getElementById("layer-residents").checked = state.residents;
+    document.getElementById("layer-wards").checked = state.wards;
   }
 
   function query() {
@@ -447,6 +450,146 @@
     if (withFlag) wireFlagButton(stickyPopup.getElement());
   }
 
+  // ---------- ward overlay ----------
+  // The 13 council wards with each ward's council member, from /api/wards (the city's own boundaries and
+  // member pages). Hover for the member's name, click for how to reach them. Offense counts follow the
+  // map's current filter, from the summary's per-ward counts.
+
+  var wardsLoading = null;
+  var wardProps = {};
+  var wardsMeta = null;
+  var wardCounts = {};
+  var summaryLoaded = false;
+  var wardHoverPopup = null;
+  var wardHoverNumber = null;
+  var WARD_LAYERS = ["wards-fill", "wards-hover", "wards-line", "wards-hover-line", "ward-labels"];
+
+  function loadWards() {
+    if (!wardsLoading) {
+      wardsLoading = fetch("/api/wards")
+        .then(function (r) { if (!r.ok) throw new Error("wards " + r.status); return r.json(); })
+        .then(function (geojson) {
+          wardsMeta = geojson.meta;
+          geojson.features.forEach(function (f) { wardProps[f.properties.ward] = f.properties; });
+          addWardLayers(geojson);
+          wireWards(); // handlers need the layers to exist
+        })
+        .catch(function () { wardsLoading = null; setStatus(baseStatus + " The ward boundaries couldn't load."); });
+    }
+    return wardsLoading;
+  }
+
+  function addWardLayers(geojson) {
+    map.addSource("wards", { type: "geojson", data: geojson });
+    map.addSource("ward-labels", {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: geojson.features.map(function (f) {
+          return { type: "Feature", properties: { ward: f.properties.ward }, geometry: { type: "Point", coordinates: [f.properties.labelLng, f.properties.labelLat] } };
+        })
+      }
+    });
+
+    // Under the offense layers, so blocks and clusters stay on top and keep their own hover and click.
+    var before = map.getLayer("blocks-heat") ? "blocks-heat" : undefined;
+    var BLUE = "#2a78d6";
+    var DEEP = "#1d4f91";
+    var none = ["==", ["get", "ward"], -1];
+
+    // Nearly transparent but present, so the whole ward is hoverable and clickable.
+    map.addLayer({ id: "wards-fill", type: "fill", source: "wards", paint: { "fill-color": BLUE, "fill-opacity": 0.02 } }, before);
+    map.addLayer({ id: "wards-hover", type: "fill", source: "wards", filter: none, paint: { "fill-color": BLUE, "fill-opacity": 0.16 } }, before);
+    map.addLayer({ id: "wards-line", type: "line", source: "wards", paint: { "line-color": DEEP, "line-width": 1.6, "line-opacity": 0.85 }, layout: { "line-join": "round" } }, before);
+    map.addLayer({ id: "wards-hover-line", type: "line", source: "wards", filter: none, paint: { "line-color": DEEP, "line-width": 3.2 } }, before);
+    map.addLayer({
+      id: "ward-labels",
+      type: "symbol",
+      source: "ward-labels",
+      layout: { "text-field": ["concat", "Ward ", ["to-string", ["get", "ward"]]], "text-font": textFont(), "text-size": 13, "text-allow-overlap": false },
+      paint: { "text-color": DEEP, "text-halo-color": "#ffffff", "text-halo-width": 1.8 }
+    }, before);
+  }
+
+  function setWardsVisible(on) {
+    WARD_LAYERS.forEach(function (id) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    });
+    if (!on) hideWardHover();
+  }
+
+  function pointFeaturesAt(point) {
+    return map.queryRenderedFeatures(point, { layers: ["clusters", "blocks-points", "residents"] });
+  }
+
+  function hideWardHover() {
+    wardHoverNumber = null;
+    if (wardHoverPopup) { wardHoverPopup.remove(); wardHoverPopup = null; }
+    if (map.getLayer("wards-hover")) {
+      var none = ["==", ["get", "ward"], -1];
+      map.setFilter("wards-hover", none);
+      map.setFilter("wards-hover-line", none);
+    }
+  }
+
+  function wardCountLine(n) {
+    if (!summaryLoaded) return "";
+    return '<div class="mp-big">' + fmt(wardCounts[n] || 0) + " <span>" + esc(scopeNoun()) + "</span></div>" +
+      '<div class="mp-foot">' + esc(periodText()) + ", MPD data</div>";
+  }
+
+  function wardCard(n, full) {
+    var p = wardProps[n];
+    if (!p) return "";
+    var html = '<div class="mp-title">Ward ' + esc(n) + "</div>" +
+      '<div class="mp-sub">' + esc(p.title) + " " + esc(p.name) + "</div>" +
+      wardCountLine(n);
+    if (!full) return html + '<div class="mp-foot">Click for contact details</div>';
+
+    var tel = "tel:+1" + String(p.phone).replace(/\D/g, "");
+    return html +
+      '<div class="mp-links mp-contact">' +
+      'Office <a href="' + esc(tel) + '">' + esc(p.phone) + "</a><br>" +
+      '<a href="' + esc(p.contactUrl) + '" target="_blank" rel="noopener">Contact form</a> &middot; ' +
+      '<a href="' + esc(p.pageUrl) + '" target="_blank" rel="noopener">City page</a><br>' +
+      '<a href="' + esc(p.statsUrl) + '">Crime statistics for Ward ' + esc(n) + "</a></div>" +
+      '<div class="mp-foot">City of Minneapolis' + (wardsMeta ? ", checked " + esc(shortDate(wardsMeta.retrievedOn, true)) : "") + ". Council members change after elections.</div>";
+  }
+
+  function wireWards() {
+    map.on("mousemove", "wards-fill", function (e) {
+      if (pointFeaturesAt(e.point).length) { hideWardHover(); return; }
+      if (!e.features || !e.features.length) return;
+      var n = Number(e.features[0].properties.ward);
+      map.getCanvas().style.cursor = "pointer";
+      if (n !== wardHoverNumber) {
+        hideWardHover();
+        wardHoverNumber = n;
+        var same = ["==", ["get", "ward"], n];
+        map.setFilter("wards-hover", same);
+        map.setFilter("wards-hover-line", same);
+        wardHoverPopup = new GL.Popup({ closeButton: false, closeOnClick: false, closeOnMove: false, offset: 14, maxWidth: popupWidth(280), className: "map-hover" })
+          .setLngLat(e.lngLat)
+          .setHTML(wardCard(n, false))
+          .addTo(map);
+      } else if (wardHoverPopup) {
+        wardHoverPopup.setLngLat(e.lngLat);
+      }
+    });
+
+    map.on("mouseleave", "wards-fill", function () {
+      map.getCanvas().style.cursor = "";
+      hideWardHover();
+    });
+
+    map.on("click", "wards-fill", function (e) {
+      if (pointFeaturesAt(e.point).length || !e.features || !e.features.length) return;
+      var n = Number(e.features[0].properties.ward);
+      hideWardHover();
+      openSticky([e.lngLat.lng, e.lngLat.lat], wardCard(n, true), false);
+    });
+  }
+
   function wireInteractions() {
     ["clusters", "blocks-points", "residents"].forEach(function (layer) {
       map.on("mousemove", layer, function (e) {
@@ -551,6 +694,10 @@
     renderRows(document.getElementById("breakdown-time-of-day"), s.timeOfDay, false);
     renderRows(document.getElementById("breakdown-wards"), s.wards, true);
     renderRows(document.getElementById("breakdown-types"), s.types, false);
+
+    wardCounts = {};
+    (s.wardCounts || []).forEach(function (w) { wardCounts[Number(String(w.name).replace("Ward ", ""))] = w.count; });
+    summaryLoaded = true;
   }
 
   var baseStatus = "";
@@ -649,6 +796,13 @@
     document.getElementById("mode-clusters").addEventListener("click", function () { setMode("clusters"); });
     document.getElementById("mode-heat").addEventListener("click", function () { setMode("heat"); });
 
+    document.getElementById("layer-wards").addEventListener("change", function (e) {
+      state.wards = e.target.checked;
+      if (state.wards) loadWards().then(function () { if (state.wards) setWardsVisible(true); });
+      else setWardsVisible(false);
+      syncUrl();
+    });
+
     document.getElementById("layer-residents").addEventListener("change", function (e) {
       state.residents = e.target.checked;
       map.setLayoutProperty("residents", "visibility", state.residents ? "visible" : "none");
@@ -666,6 +820,7 @@
     addLayers();
     wireInteractions();
     setMode(state.mode);
+    if (state.wards) loadWards().then(function () { if (state.wards) setWardsVisible(true); });
     map.setLayoutProperty("residents", "visibility", state.residents ? "visible" : "none");
     refresh();
   });

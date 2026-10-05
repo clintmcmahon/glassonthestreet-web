@@ -140,6 +140,29 @@ public class SiteAccuracyTests(World world) : IDisposable
         checks.MapApi_PinsPlusUnlocatedEqualTheSummaryAndTheOracle(query, group, days);
 
     [Fact]
+    public async Task WardsApi_ServesAllThirteenWardsWithTheirBoundariesAndCouncilMembers()
+    {
+        var json = await JsonAsync("/api/wards");
+        var features = json.GetProperty("features").EnumerateArray().ToList();
+        var service = new WardService();
+
+        Assert.Equal(13, features.Count);
+        Assert.Equal(service.RetrievedOn, json.GetProperty("meta").GetProperty("retrievedOn").GetString());
+        foreach (var f in features)
+        {
+            var p = f.GetProperty("properties");
+            var ward = service.Find(p.GetProperty("ward").GetInt32())!;
+            Assert.Equal(ward.Name, p.GetProperty("name").GetString());
+            Assert.Equal(ward.Title, p.GetProperty("title").GetString());
+            Assert.Equal(ward.Phone, p.GetProperty("phone").GetString());
+            Assert.Equal(ward.StatsUrl, p.GetProperty("statsUrl").GetString());
+            Assert.Contains(f.GetProperty("geometry").GetProperty("type").GetString(), new[] { "Polygon", "MultiPolygon" });
+            // The label point the map draws "Ward N" at sits inside that ward.
+            Assert.True(WardServiceTests.Contains(f.GetProperty("geometry"), p.GetProperty("labelLng").GetDouble(), p.GetProperty("labelLat").GetDouble()));
+        }
+    }
+
+    [Fact]
     public async Task ReportsStatsApi_KeepsResidentReportsOutOfTheMpdCount()
     {
         var json = await JsonAsync("/api/reports/stats");

@@ -1,6 +1,7 @@
 @using System.Globalization
 @using GlassOnTheStreet.Web.Services
 @inject IConfiguration Configuration
+@inject GlassOnTheStreet.Web.Services.IWardService WardService
 @model GlassOnTheStreet.Web.Services.AreaPageData
 @{
     var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
@@ -97,6 +98,20 @@
             <a class="btn-outline" href="/wards/@ward">Ward @ward</a>
         }
     </div>
+
+    @if (isWard && Model.Ward is { } councilWard && WardService.Find(councilWard) is { } council)
+    {
+        <aside class="council-card" aria-label="Council member for @Model.Name">
+            <div class="council-card-title">@council.Title @council.Name</div>
+            <div class="council-card-body">
+                represents @Model.Name on the Minneapolis City Council.
+                Office <a href="tel:+1@(council.Phone.Replace("-", ""))">@council.Phone</a>
+                &middot; <a href="@council.ContactUrl" rel="noopener">Contact form</a>
+                &middot; <a href="@council.PageUrl" rel="noopener">City page</a>
+            </div>
+            <div class="council-card-source">City of Minneapolis, checked @DateOnly.Parse(WardService.RetrievedOn).ToString("MMM d, yyyy", CultureInfo.InvariantCulture). Council members change after elections.</div>
+        </aside>
+    }
 
     @if (crime is not null)
     {

@@ -25,7 +25,8 @@ public record MapSummary(
     IReadOnlyList<MapCount> Neighborhoods,
     IReadOnlyList<MapCount> Wards,
     IReadOnlyList<MapCount> TimeOfDay,
-    IReadOnlyList<MapCount> Types);
+    IReadOnlyList<MapCount> Types,
+    IReadOnlyList<MapCount>? WardCounts = null);
 
 /// <summary>
 /// Everything the map needs from the full MPD feed. MPD places every record at the midpoint of its
@@ -203,7 +204,9 @@ public class MapDataService(IncidentDataCache dataCache)
                 .Select(w => new MapCount($"Ward {w.Key}", w.Value, $"/wards/{w.Key}")).ToList(),
             new[] { "Overnight", "Morning", "Afternoon", "Evening" }.Select((name, i) => new MapCount(name, buckets[i], null)).ToList(),
             Enumerable.Range(0, types.Length).Where(i => types[i] > 0).OrderByDescending(i => types[i]).Take(8)
-                .Select(i => new MapCount(CrimeGroups.All[i].Label, types[i], null)).ToList());
+                .Select(i => new MapCount(CrimeGroups.All[i].Label, types[i], null)).ToList(),
+            // Every ward, not just the top few: the map's ward overlay shows each ward's count for the current filter.
+            wards.OrderBy(w => w.Key).Select(w => new MapCount($"Ward {w.Key}", w.Value, $"/wards/{w.Key}")).ToList());
     }
 
     private sealed class Accumulator(float lat, float lng, string? neighborhood, int ward, int addressIndex, int groupCount)

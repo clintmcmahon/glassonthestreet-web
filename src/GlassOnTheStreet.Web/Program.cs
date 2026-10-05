@@ -42,6 +42,7 @@ builder.Services.AddScoped<ICaptchaService, TurnstileCaptchaService>();
 builder.Services.AddScoped<IReportStatsService, ReportStatsService>();
 builder.Services.AddScoped<ITrendsService, TrendsService>();
 builder.Services.AddSingleton<IPopulationService, PopulationService>();
+builder.Services.AddSingleton<IWardService, WardService>();
 builder.Services.AddScoped<IncidentDataCache>();
 builder.Services.AddScoped<ICrimeStatsService, CrimeStatsService>();
 builder.Services.AddScoped<MonthlyReportService>();

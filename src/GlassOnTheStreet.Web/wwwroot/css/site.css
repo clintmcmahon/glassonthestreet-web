@@ -2320,3 +2320,7 @@ code {
 .beta-banner { background: #fff4d6; color: #5c4400; border-bottom: 1px solid #e8d08a; padding: 0.5rem 1rem; text-align: center; font-size: 0.9rem; line-height: 1.4; }
 .beta-banner a { color: inherit; text-decoration: underline; }
 @media (prefers-color-scheme: dark) { .beta-banner { background: #3a2f10; color: #f3dfa2; border-bottom-color: #5c4a1a; } }
+
+.council-card { max-width: 760px; margin: 1.25rem 0; padding: 0.85rem 1rem; border-left: 3px solid #2a78d6; background: rgba(127, 127, 127, 0.08); line-height: 1.5; }
+.council-card-title { font-weight: 700; }
+.council-card-source { margin-top: 0.35rem; font-size: 0.8rem; opacity: 0.7; }
