@@ -5,7 +5,7 @@
     var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
     var through = (DateOnly)ViewData["Through"]!;
     var population = (IPopulationService)ViewData["Population"]!;
-    var contact = ViewData["ContactEmail"] as string;
+    var contact = "hello@glassonthestreet.com";
     var today = DateTime.UtcNow.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
 
     ViewData["Title"] = "Methodology, Sources and How to Cite | Glass on the Street";

@@ -2316,3 +2316,7 @@ code {
 .home-part { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid rgba(127, 127, 127, 0.3); }
 .part-heading { font-size: 1.6rem; margin: 0 0 0.75rem; }
 .part-heading span { display: block; font-size: 0.9rem; font-weight: 400; opacity: 0.7; margin-top: 0.15rem; }
+
+.beta-banner { background: #fff4d6; color: #5c4400; border-bottom: 1px solid #e8d08a; padding: 0.5rem 1rem; text-align: center; font-size: 0.9rem; line-height: 1.4; }
+.beta-banner a { color: inherit; text-decoration: underline; }
+@media (prefers-color-scheme: dark) { .beta-banner { background: #3a2f10; color: #f3dfa2; border-bottom-color: #5c4a1a; } }
