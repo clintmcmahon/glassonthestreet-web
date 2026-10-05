@@ -47,6 +47,9 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
     public static DateOnly CompleteThrough(DateOnly latestRecord, DateOnly today) =>
         (latestRecord > today ? today : latestRecord).AddDays(-LagDays);
 
+    /// <summary>Rows MPD couldn't place arrive as 0,0 (older imports stored that as is). They count in every total but have no point.</summary>
+    public static bool IsUnplaced(decimal? lat, decimal? lng) => lat is null || lng is null || (lat == 0 && lng == 0);
+
     private const string CacheKey = "incident-dataset";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
@@ -81,7 +84,7 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
             rows[i] = new IncidentRow(
                 r.Id, r.OccurredDate, r.OccurredHour, (byte)CrimeGroups.IndexOf(r.GroupKey), r.CrimeCount,
                 r.Neighborhood is null ? null : string.Intern(r.Neighborhood), r.Ward ?? 0,
-                r.Lat is null ? float.NaN : (float)r.Lat.Value, r.Lng is null ? float.NaN : (float)r.Lng.Value,
+                IsUnplaced(r.Lat, r.Lng) ? float.NaN : (float)r.Lat!.Value, IsUnplaced(r.Lat, r.Lng) ? float.NaN : (float)r.Lng!.Value,
                 address);
         }
 

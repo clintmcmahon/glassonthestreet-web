@@ -603,7 +603,8 @@
       map.getSource("blocks").setData(geojson);
       map.getSource("blocks-raw").setData(geojson);
       renderSummary(results[1]);
-      setStatus(fmt(meta.total) + " offenses on " + fmt(meta.blocks) + " blocks, " + rangeLabel(meta.from, meta.to));
+      setStatus(fmt(meta.total) + " offenses on " + fmt(meta.blocks) + " blocks, " + rangeLabel(meta.from, meta.to) +
+        (meta.unlocated > 0 ? ". " + fmt(meta.unlocated) + " more have no location in MPD's data, so they are counted but not drawn." : ""));
       return loadResidents();
     }).catch(function () {
       if (id === requestId) setStatus("The map data couldn't load. Try refreshing the page.");

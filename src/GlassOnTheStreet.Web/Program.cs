@@ -82,7 +82,11 @@ builder.Services.AddHttpClient<IMpdIncidentImportService, MpdIncidentImportServi
     client.Timeout = TimeSpan.FromMinutes(3);
 });
 
-builder.Services.AddHostedService<OfficialDataSyncBackgroundService>();
+// Tests host the app against an in-memory database and must not call the city's feed.
+if (!builder.Configuration.GetValue<bool>("DisableBackgroundSync"))
+{
+    builder.Services.AddHostedService<OfficialDataSyncBackgroundService>();
+}
 
 // Anonymous submissions get rate limited per IP so one person can't flood
 // the map with reports.
@@ -129,7 +133,14 @@ app.UseResponseCompression();
 using (var migrationScope = app.Services.CreateScope())
 {
     var db = migrationScope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
-    db.Database.Migrate();
+    if (db.Database.IsRelational())
+    {
+        db.Database.Migrate();
+    }
+    else
+    {
+        db.Database.EnsureCreated();
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -154,3 +165,6 @@ app.MapControllerRoute(
     .WithStaticAssets();
 
 app.Run();
+
+// Lets the test project host the app (WebApplicationFactory<Program>).
+public partial class Program;

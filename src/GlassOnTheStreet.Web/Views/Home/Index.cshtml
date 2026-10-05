@@ -139,16 +139,16 @@
     </p>
     <div class="stat-line stat-line-year">
         <div class="stat">
-            <div class="stat-value">@crimeNow.Format()</div>
+            <div class="stat-value" data-metric="all-ytd">@crimeNow.Format()</div>
             <div class="stat-label">offenses of all types recorded by MPD, Jan 1 to @ytdThrough @crime.CurrentYear</div>
         </div>
         <div class="stat">
-            <div class="stat-value @PctClass(crimeNow, crimePrior)">@Pct(crimeNow, crimePrior)</div>
-            <div class="stat-label">change in all offenses vs. Jan 1 to @ytdThrough @(crime.CurrentYear - 1)</div>
+            <div class="stat-value @PctClass(crimeNow, crimePrior)" data-metric="all-ytd-vs-prior">@Pct(crimeNow, crimePrior)</div>
+            <div class="stat-label">change in MPD offenses of all types vs. Jan 1 to @ytdThrough @(crime.CurrentYear - 1)</div>
         </div>
         <div class="stat">
-            <div class="stat-value @PctClass(crimeNow, crimeBase)">@Pct(crimeNow, crimeBase)</div>
-            <div class="stat-label">change in all offenses vs. Jan 1 to @ytdThrough @crime.Years[0], the last year before COVID</div>
+            <div class="stat-value @PctClass(crimeNow, crimeBase)" data-metric="all-ytd-vs-base">@Pct(crimeNow, crimeBase)</div>
+            <div class="stat-label">change in MPD offenses of all types vs. Jan 1 to @ytdThrough @crime.Years[0], the last year before COVID</div>
         </div>
     </div>
     <h3 class="graph-heading" style="margin-top: 1.5rem;">Most common offense types in @crime.CurrentYear (MPD data)</h3>
@@ -156,7 +156,7 @@
     <div class="category-list">
         @foreach (var g in crimeGroups)
         {
-            <div class="breakdown-row">
+            <div class="breakdown-row" data-metric="all-group:@g.Key">
                 <span class="breakdown-label">@g.Label <span class="home-area-change @(g.ChangeVsPrior is > 0 ? "up" : g.ChangeVsPrior is < 0 ? "down" : "")">@Chg(g.ChangeVsPrior)</span></span>
                 <span class="breakdown-bar-track"><span class="breakdown-bar cat-unknown" style="width:@((g.Counts[^1] * 100.0 / maxGroup).ToString("0.##"))%"></span></span>
                 <span class="breakdown-count">@g.Counts[^1].Format()</span>
@@ -184,17 +184,17 @@
     <h2 class="stat-group-heading">Car-related crime, last 30 days (MPD data)</h2>
     <div class="stat-line">
         <div class="stat">
-            <div class="stat-value">@stats.Count.Format()</div>
+            <div class="stat-value" data-metric="car-30d">@stats.Count.Format()</div>
             <div class="stat-label">car-related offenses recorded by MPD in the last 30 days (through @ytdThrough)</div>
         </div>
         <div class="stat">
-            <div class="stat-value @changeClass">@changeText</div>
+            <div class="stat-value @changeClass" data-metric="car-30d-change">@changeText</div>
             <div class="stat-label">change in MPD car-related offenses vs. the 30 days before that</div>
         </div>
         @if (gap.PercentUnreported is not null)
         {
             <div class="stat">
-                <div class="stat-value up">@(gap.PercentUnreported)%</div>
+                <div class="stat-value up" data-metric="never-told-police">@(gap.PercentUnreported)%</div>
                 <div class="stat-label">of residents who reported a car break-in on this site (@gap.RespondedCount.Format() answered) said they never told police. This one figure comes from resident reports, not MPD.</div>
             </div>
         }
@@ -203,15 +203,15 @@
     <h2 class="stat-group-heading">Car-related crime, so far in @ytd.CurrentYear (MPD data)</h2>
     <div class="stat-line stat-line-year">
         <div class="stat">
-            <div class="stat-value">@ytdNow.Format()</div>
+            <div class="stat-value" data-metric="car-ytd">@ytdNow.Format()</div>
             <div class="stat-label">car-related offenses recorded by MPD, Jan 1 to @ytdThrough @ytd.CurrentYear</div>
         </div>
         <div class="stat">
-            <div class="stat-value @PctClass(ytdNow, ytdPrior)">@Pct(ytdNow, ytdPrior)</div>
+            <div class="stat-value @PctClass(ytdNow, ytdPrior)" data-metric="car-ytd-vs-prior">@Pct(ytdNow, ytdPrior)</div>
             <div class="stat-label">change in MPD car-related offenses vs. Jan 1 to @ytdThrough @(ytd.CurrentYear - 1)</div>
         </div>
         <div class="stat">
-            <div class="stat-value @PctClass(ytdNow, ytdBase)">@Pct(ytdNow, ytdBase)</div>
+            <div class="stat-value @PctClass(ytdNow, ytdBase)" data-metric="car-ytd-vs-base">@Pct(ytdNow, ytdBase)</div>
             <div class="stat-label">change in MPD car-related offenses vs. Jan 1 to @ytdThrough @ytd.Years[0], the last year before COVID</div>
         </div>
     </div>
@@ -259,7 +259,7 @@
                 <div class="trend-chart" role="img" aria-label="Car-related offenses per month for the last six months">
                     @foreach (var m in Model.Trend)
                     {
-                        <div class="trend-bar-col">
+                        <div class="trend-bar-col" data-metric="car-month:@m.MonthLabel">
                             <div class="trend-bar-track">
                                 <div class="trend-bar" style="height:@((m.Count * 100.0 / maxTrend).ToString("0.##"))%"></div>
                             </div>
@@ -271,7 +271,7 @@
             }
         </div>
         <div>
-            <h2 class="graph-heading">So far in @ytd.CurrentYear, by car-related offense type</h2>
+            <h2 class="graph-heading">So far in @ytd.CurrentYear, by car-related offense type (MPD data)</h2>
             <p class="field-hint">MPD offenses, Jan 1 to @ytdThrough, then resident reports below the line.</p>
             @if (categoryByKey.Count == 0)
             {
@@ -287,7 +287,7 @@
                         {
                             <div class="category-divider">Resident reports (unverified, not police data, not included in the MPD numbers above)</div>
                         }
-                        <div class="breakdown-row">
+                        <div class="breakdown-row" data-metric="car-category:@key">
                             <span class="breakdown-label">@categoryLabel[key]</span>
                             <span class="breakdown-bar-track"><span class="breakdown-bar @categoryCssClass[key]" style="width:@((categoryByKey[key] * 100.0 / maxCategory).ToString("0.##"))%"></span></span>
                             <span class="breakdown-count">@categoryByKey[key].Format()</span>
@@ -304,7 +304,7 @@
             <ol class="home-areas">
                 @foreach (var (area, i) in ytd.Neighborhoods.Take(5).Select((a, i) => (a, i)))
                 {
-                    <li>
+                    <li data-metric="car-area:@area.Name">
                         <span class="home-area-rank">@(i + 1)</span>
                         <a href="@area.Url">@area.Name</a>
                         <strong>@area.Counts[^1].Format()</strong>
@@ -319,7 +319,7 @@
             <ol class="home-areas">
                 @foreach (var (area, i) in ytd.Wards.Take(5).Select((a, i) => (a, i)))
                 {
-                    <li>
+                    <li data-metric="car-area:@area.Name">
                         <span class="home-area-rank">@(i + 1)</span>
                         <a href="@area.Url">@area.Name</a>
                         <strong>@area.Counts[^1].Format()</strong>

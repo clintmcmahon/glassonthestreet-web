@@ -10,7 +10,7 @@ public record MapBlock(double Lat, double Lng, string Address, string? Neighborh
 
 public record MapBlocksResult(
     DateOnly From, DateOnly To, DateOnly Through, string GroupLabel, int Total, IReadOnlyList<MapBlock> Blocks,
-    IReadOnlyDictionary<string, string> GroupLabels);
+    IReadOnlyDictionary<string, string> GroupLabels, int Unlocated = 0);
 
 public record MapCount(string Name, int Count, string? Url);
 
@@ -107,11 +107,19 @@ public class MapDataService(IncidentDataCache dataCache)
         var groupCount = CrimeGroups.All.Count;
         var blocks = new Dictionary<long, Accumulator>();
         var total = 0;
+        var unlocated = 0;
 
         foreach (var row in dataset.Rows)
         {
-            if (row.Date < filter.From || row.Date > filter.To || !matches[row.Group] || float.IsNaN(row.Lat) || float.IsNaN(row.Lng))
+            if (row.Date < filter.From || row.Date > filter.To || !matches[row.Group])
             {
+                continue;
+            }
+
+            // MPD gave these no location. They are in the summary's totals but can't be drawn.
+            if (float.IsNaN(row.Lat) || float.IsNaN(row.Lng))
+            {
+                unlocated += row.Count;
                 continue;
             }
 
@@ -134,7 +142,7 @@ public class MapDataService(IncidentDataCache dataCache)
 
         return new MapBlocksResult(
             filter.From, filter.To, dataset.Through, label, total, result,
-            CrimeGroups.All.ToDictionary(g => g.Key, g => g.Label));
+            CrimeGroups.All.ToDictionary(g => g.Key, g => g.Label), unlocated);
     }
 
     public async Task<MapSummary> GetSummaryAsync(MapFilter filter, CancellationToken cancellationToken = default)

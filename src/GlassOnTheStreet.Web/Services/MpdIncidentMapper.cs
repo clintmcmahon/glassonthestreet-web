@@ -28,7 +28,8 @@ public static class MpdIncidentMapper
         var nibrsCode = Text(attrs, "NIBRS_Code") ?? "";
 
         decimal? lat = null, lng = null;
-        if (Double(attrs, "wgsXAnon") is { } x && Double(attrs, "wgsYAnon") is { } y)
+        // MPD sends 0,0 for a record it could not place. That means "no location", not a point off the coast of Africa.
+        if (Double(attrs, "wgsXAnon") is { } x && Double(attrs, "wgsYAnon") is { } y && !(x == 0 && y == 0))
         {
             // Despite the "wgs" name these are Web Mercator (EPSG:3857) meters.
             lng = Math.Round((decimal)(x / MercatorRadius * 180.0), 6);
@@ -52,7 +53,7 @@ public static class MpdIncidentMapper
             Precinct = Byte(attrs, "Precinct"),
             Lat = lat,
             Lng = lng,
-            Address = Text(attrs, "Address") is { } addr ? Truncate(addr, 100) : null
+            Address = Text(attrs, "Address") is { } addr && !addr.Equals("No Address", StringComparison.OrdinalIgnoreCase) ? Truncate(addr, 100) : null
         };
     }
 

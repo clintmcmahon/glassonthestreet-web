@@ -27,7 +27,10 @@
     <h2 class="method-h">Source and freshness</h2>
     <p>
         The data is the City of Minneapolis open data "Crime_Data" feed, published by MPD and imported here every day.
-        Each daily import looks back 30 days to catch records MPD posts late. The numbers on the site run
+        Each daily import looks back 30 days, and every day the site also checks each of the last 24 months against the city's own totals
+        (overall, and by offense type, neighborhood and ward). A month that differs is corrected to match: records MPD posted late are added,
+        revised ones updated, and ones the city withdrew removed. A case the feed lists twice for the same offense counts twice, as it does in
+        the city's totals. The numbers on the site run
         <strong>through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</strong>, which is about ten days before today on purpose.
     </p>
     <p>

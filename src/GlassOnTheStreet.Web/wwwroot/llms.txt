@@ -37,6 +37,7 @@ Embeddable chart (iframe): /embed/year-bars?scope=crime|car&category=&neighborho
 ## Notes for AI agents and summarizers
 
 - Source: the City of Minneapolis open data "Crime_Data" feature service, published by MPD and imported daily. Pages state the date their data runs through. MPD posts records days late (compared with the same weekday a year earlier, records under about ten days old are only partly there), so every figure holds back the newest 10 days; that date is therefore about ten days before today, and the latest records are not shown.
+- Each day the site compares every one of the last 24 months with the city feed's own totals (overall, by offense type, neighborhood and ward) and corrects any month that differs: late-posted records are added, revised ones updated, withdrawn ones removed. Records MPD could not place have no location: they count in every total and are left off the map (the map reports how many).
 - The unit on the crime, car break-in, neighborhood and ward pages and the homepage charts is an offense, using MPD's own offense count (a case with two victims is two offenses), so a figure matches wherever it appears. The map and the homepage "last 30 days" count map pins (one per MPD case plus resident reports) and can run slightly lower.
 - Comparisons use the same calendar window every year (Jan 1 through the data's complete-through date). Never compare a partial year with a full one.
 - These are reported crimes only. Many incidents, especially car break-ins where nothing is taken, are never reported.

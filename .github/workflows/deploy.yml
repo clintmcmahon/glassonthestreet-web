@@ -23,6 +23,11 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      # The accuracy suite: importer fidelity, every number against an independent calculation, rendered HTML
+      # and API against the same. Offline, about 30 seconds. A failure stops the deploy.
+      - name: Test
+        run: dotnet test ./src/GlassOnTheStreet.Tests/GlassOnTheStreet.Tests.csproj -c Release --verbosity minimal
+
       - name: Publish
         run: dotnet publish ./src/GlassOnTheStreet.Web/GlassOnTheStreet.Web.csproj -c Release -o ./publish
 

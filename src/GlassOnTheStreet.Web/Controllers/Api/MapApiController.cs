@@ -34,6 +34,7 @@ public class MapApiController(MapDataService mapData, IncidentDataCache dataCach
                 group = result.GroupLabel,
                 total = result.Total,
                 blocks = result.Blocks.Count,
+                unlocated = result.Unlocated,
                 max = result.Blocks.Count == 0 ? 0 : result.Blocks[0].Count,
                 groupLabels = result.GroupLabels
             },

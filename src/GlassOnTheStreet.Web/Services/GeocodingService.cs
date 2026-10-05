@@ -7,7 +7,7 @@ public class GeocodingService(HttpClient httpClient) : IGeocodingService
 {
     // Nominatim's usage policy requires a descriptive User-Agent identifying
     // the application -- set on the named HttpClient in Program.cs.
-    private const string ViewBox = "-93.40,45.05,-93.15,44.85";
+    private const string ViewBox = "-93.40,45.07,-93.15,44.85";
 
     public async Task<GeocodeResult?> GeocodeAsync(string query, CancellationToken cancellationToken = default)
     {

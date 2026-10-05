@@ -18,8 +18,13 @@ public record ExpectedTask(string Key, string Description, IReadOnlyList<string>
 /// and the next start skips every year already marked done. Imports are
 /// additive and deduplicated (nothing is deleted), so a rerun is always safe.
 ///
-///   CarImport-{year}       the four car-related categories shown on the map (Reports)
+///   CarImport-v2-{year}    the four car-related categories shown on the map (Reports). v2: rerun after
+///                          the service-area box was widened past 45.05 (far north Minneapolis was being rejected)
 ///   IncidentImport-{year}  the full MPD feed, every offense (MpdIncidents)
+///   IncidentReconcile-*    once, every month since 2019 compared with the city's own statistics and made to match.
+///                          Needed because MPD posts records weeks or months late and withdraws or revises others,
+///                          which a one-time additive import never sees. The daily sync repeats this for the last
+///                          24 months.
 ///
 /// The history pass runs on every tick, not only at startup, so a year that
 /// failed (the city feed was down) is retried the next day.
@@ -50,7 +55,14 @@ public class OfficialDataSyncBackgroundService(
 
     public const string ResnapUserReportsTaskKey = "ResnapUserReports2026-09-30";
 
-    public static string CarImportKey(int year) => $"CarImport-{year}";
+    public const string ClearUnplacedLocationsTaskKey = "ClearUnplacedLocations2026-10-05";
+
+    public const string ReconcileHistoryTaskKey = "IncidentReconcile-2026-10-05";
+
+    // How far back the daily sync re-checks month totals against the feed.
+    private const int ReconcileMonths = 24;
+
+    public static string CarImportKey(int year) => $"CarImport-v2-{year}";
 
     public static string IncidentImportKey(int year) => $"IncidentImport-{year}";
 
@@ -64,6 +76,8 @@ public class OfficialDataSyncBackgroundService(
         }
 
         tasks.Add(new ExpectedTask(ResnapUserReportsTaskKey, "Re-anchor resident reports to block midpoints", []));
+        tasks.Add(new ExpectedTask(ClearUnplacedLocationsTaskKey, "Clear 0,0 locations MPD sent for records it could not place", []));
+        tasks.Add(new ExpectedTask(ReconcileHistoryTaskKey, "Match every month since 2019 to the city's feed (late-posted, revised and withdrawn rows)", []));
 
         for (var year = FirstYear; year <= currentYear; year++)
         {
@@ -134,6 +148,12 @@ public class OfficialDataSyncBackgroundService(
             "Scheduled MPD sync (all offenses): fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
             incidentResult.Fetched, incidentResult.Imported, incidentResult.SkippedDuplicate, incidentResult.SkippedInvalid);
 
+        var thisMonth = new DateOnly(today.Year, today.Month, 1);
+        var reconcile = await incidents.ReconcileMonthsAsync(thisMonth.AddMonths(-(ReconcileMonths - 1)), thisMonth, cancellationToken);
+        logger.LogInformation(
+            "Scheduled MPD reconcile: {Checked} months checked, {Changed} differed (added {Inserted}, updated {Updated}, removed {Deleted}, kept {Skipped})",
+            reconcile.MonthsChecked, reconcile.MonthsChanged, reconcile.Inserted, reconcile.Updated, reconcile.Deleted, reconcile.DeletesSkipped);
+
         var syncStatusService = scope.ServiceProvider.GetRequiredService<ISyncStatusService>();
         await syncStatusService.RecordSyncAsync(cancellationToken);
     }
@@ -165,6 +185,63 @@ public class OfficialDataSyncBackgroundService(
                 await scope.ServiceProvider.GetRequiredService<IMpdIncidentImportService>().ImportRangeAsync(from, to, cancellationToken),
                 cancellationToken);
         }
+
+        using var cleanupScope = scopeFactory.CreateScope();
+        await ClearUnplacedLocationsOnceAsync(cleanupScope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>(), cancellationToken);
+
+        using var reconcileScope = scopeFactory.CreateScope();
+        await ReconcileHistoryOnceAsync(reconcileScope.ServiceProvider, today, cancellationToken);
+    }
+
+    /// <summary>Once: every month since the first year, compared with the feed and made to match. Marked done only when the whole pass finished.</summary>
+    public async Task ReconcileHistoryOnceAsync(IServiceProvider services, DateOnly today, CancellationToken cancellationToken)
+    {
+        var db = services.GetRequiredService<GlassOnTheStreetContext>();
+        if (await db.OneTimeTasks.AnyAsync(t => t.Key == ReconcileHistoryTaskKey, cancellationToken))
+        {
+            return;
+        }
+
+        var result = await services.GetRequiredService<IMpdIncidentImportService>()
+            .ReconcileMonthsAsync(new DateOnly(FirstYear, 1, 1), new DateOnly(today.Year, today.Month, 1), cancellationToken);
+        logger.LogWarning(
+            "History reconcile: {Checked} months checked, {Changed} differed (added {Inserted}, updated {Updated}, removed {Deleted}, kept {Skipped})",
+            result.MonthsChecked, result.MonthsChanged, result.Inserted, result.Updated, result.Deleted, result.DeletesSkipped);
+
+        // A skipped delete means a month still disagrees with the feed: leave the task open so it is looked at again.
+        if (result.DeletesSkipped == 0)
+        {
+            db.OneTimeTasks.Add(new OneTimeTask { Key = ReconcileHistoryTaskKey });
+            await db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Earlier imports stored the 0,0 MPD sends for a record it couldn't place as a real point (and "No Address" as an
+    /// address). Turns those into "no location", once. Returns how many rows changed.
+    /// </summary>
+    public async Task<int> ClearUnplacedLocationsOnceAsync(GlassOnTheStreetContext db, CancellationToken cancellationToken)
+    {
+        if (await db.OneTimeTasks.AnyAsync(t => t.Key == ClearUnplacedLocationsTaskKey, cancellationToken))
+        {
+            return 0;
+        }
+
+        var rows = await db.MpdIncidents.Where(i => i.Lat == 0 && i.Lng == 0).ToListAsync(cancellationToken);
+        foreach (var row in rows)
+        {
+            row.Lat = null;
+            row.Lng = null;
+            if (string.Equals(row.Address, "No Address", StringComparison.OrdinalIgnoreCase))
+            {
+                row.Address = null;
+            }
+        }
+
+        db.OneTimeTasks.Add(new OneTimeTask { Key = ClearUnplacedLocationsTaskKey });
+        await db.SaveChangesAsync(cancellationToken);
+        logger.LogWarning("Cleared the 0,0 location on {Count} MPD rows MPD could not place", rows.Count);
+        return rows.Count;
     }
 
     private async Task RunChunkAsync(

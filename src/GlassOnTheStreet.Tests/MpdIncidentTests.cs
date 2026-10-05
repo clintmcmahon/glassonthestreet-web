@@ -103,4 +103,21 @@ public class MpdIncidentMapperTests
         Assert.Null(MpdIncidentMapper.FromAttributes(Attrs("""{"Case_Number":"26-3","Occurred_Date":1790613720000}""")));
         Assert.Null(MpdIncidentMapper.FromAttributes(Attrs("""{"Case_Number":"26-3","Offense":"Simple Assault"}""")));
     }
+
+    [Fact]
+    public void FromAttributes_TreatsZeroZeroAndNoAddressAsNoLocation()
+    {
+        var incident = MpdIncidentMapper.FromAttributes(Attrs("""
+            {"Case_Number":"26-4","Occurred_Date":1790613720000,"Offense":"Drug/Narcotic Violations","Offense_Category":"Drug/Narcotic Offenses",
+             "NIBRS_Code":"35A","Address":"No Address","wgsXAnon":0,"wgsYAnon":0,"Crime_Count":1}
+            """));
+
+        Assert.NotNull(incident);
+        Assert.Null(incident!.Lat);
+        Assert.Null(incident.Lng);
+        Assert.Null(incident.Address);
+        // The record itself is kept and counted: only its location is unknown.
+        Assert.Equal("drugs", incident.GroupKey);
+        Assert.Equal(1, incident.CrimeCount);
+    }
 }
