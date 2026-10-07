@@ -91,6 +91,9 @@ public class SiteAccuracyTests(World world) : IDisposable
     [Fact]
     public Task CrimePage_WardMapHasBoundariesForEveryWardTheDataHas() => checks.CrimePage_WardMapHasBoundariesForEveryWardTheDataHas();
 
+    [Fact]
+    public Task CarRelatedCallout_LinksToADefinitionOfTheFourGroups() => checks.CarRelatedCallout_LinksToADefinitionOfTheFourGroups();
+
     private async Task<IDocument> PageAsync(string url)
     {
         var response = await client.GetAsync(url);

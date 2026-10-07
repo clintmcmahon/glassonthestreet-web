@@ -106,6 +106,28 @@
         within the chosen radius, so it describes blocks, not addresses.
     </p>
 
+    <h2 class="method-h" id="car-related">What is a car-related offense?</h2>
+    <p>
+        "Car-related" on the homepage and the trends pages means four of MPD's offense types, added together. MPD's own words for each:
+    </p>
+    <ul>
+        @foreach (var key in new[] { "theft-from-vehicle", "vehicle-theft", "parts-theft", "vandalism" })
+        {
+            var group = CrimeGroups.Find(key)!;
+            <li><strong>@group.Label.</strong> @group.Definition</li>
+        }
+    </ul>
+    <p>
+        Two things to know. Property damage/vandalism is the one type that isn't specific to cars: MPD has no field that separates a
+        smashed car window from a broken garage window or graffiti, so it covers all property. And MPD doesn't record how someone got
+        into a car, which is why this site also collects resident reports.
+    </p>
+    <p>
+        Left out: burglary of a building, robbery (carjacking is counted there), and every other offense type. They are in the
+        <a asp-controller="Crime" asp-action="Index">all-crime numbers</a>, and car-related offenses are already inside those totals, so don't add the two.
+        Resident reports of smashed windows and rifled-through cars are shown as separate dots and rows, never added to an MPD count.
+    </p>
+
     <h2 class="method-h">Weekly bulletins</h2>
     <p>
         The <a asp-controller="Weekly" asp-action="Index">weekly bulletins</a> cover Monday to Sunday and appear once the whole

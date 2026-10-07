@@ -2526,3 +2526,40 @@ code {
   border-top: none;
   padding-top: 0;
 }
+
+/* ---------- callout linking to the definition of "car-related" ---------- */
+
+.callout-link {
+  display: block;
+  max-width: 720px;
+  margin: 1.25rem 0 1.5rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.callout-link strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-family: "Manrope", sans-serif;
+  font-size: 1.02rem;
+  color: var(--accent);
+}
+
+.callout-link span:not([aria-hidden]) {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.callout-link:hover {
+  border-color: var(--accent);
+}
+
+.callout-link:hover strong {
+  text-decoration: underline;
+}

@@ -396,6 +396,26 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
             f => Assert.Contains(f.GetProperty("geometry").GetProperty("type").GetString(), new[] { "Polygon", "MultiPolygon" }));
     }
 
+    /// <summary>The "car-related" callout points at a methodology section that names exactly the groups the numbers use.</summary>
+    public async Task CarRelatedCallout_LinksToADefinitionOfTheFourGroups()
+    {
+        foreach (var path in new[] { "/", "/trends" })
+        {
+            var link = (await PageAsync(path)).QuerySelector("a.callout-link");
+            Assert.NotNull(link);
+            Assert.Equal("/methodology#car-related", link!.GetAttribute("href"));
+            Assert.Contains("What is a car-related offense?", Text(link));
+        }
+
+        var section = (await PageAsync("/methodology")).QuerySelector("#car-related");
+        Assert.NotNull(section);
+        var text = Text(section!.ParentElement);
+        foreach (var key in new[] { "theft-from-vehicle", "vehicle-theft", "parts-theft", "vandalism" })
+        {
+            Assert.Contains(CrimeGroups.Find(key)!.Label, text);
+        }
+    }
+
     public async Task MapApi_PinsPlusUnlocatedEqualTheSummaryAndTheOracle(string query, string group, int days)
     {
         var blocks = await JsonAsync("/api/map/blocks" + query);

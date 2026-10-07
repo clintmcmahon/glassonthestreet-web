@@ -34,6 +34,8 @@
         and property damage, @firstYear to today. 2019 is the last full year before COVID.
     </p>
 
+    <partial name="_CarCallout" />
+
     <p id="trends-headline" class="trends-headline">
         Through @Model.Through.ToString("MMM d, yyyy", CultureInfo.InvariantCulture), MPD has recorded
         <strong>@current.Format()</strong> reports in these categories since Jan 1@(Change(current, prior, priorYear) is { Length: > 0 } c1 ? $": {c1}" : "")@(Change(current, baseline, firstYear) is { Length: > 0 } c2 ? $", and {c2}" : "").
