@@ -43,21 +43,8 @@
                     <tr><td><strong>Total</strong></td><td><strong>@status.MpdTotal.Format()</strong></td><td><strong>@status.IncidentTotal.Format()</strong></td></tr>
                 </tbody>
             </table>
-            <table class="admin-table">
-                <thead><tr><th>One-time startup task</th><th>Status</th></tr></thead>
-                <tbody>
-                    @foreach (var task in status.Tasks)
-                    {
-                        <tr>
-                            <td>@task.Description<br /><span class="field-hint">@task.Key</span></td>
-                            <td>@(task.CoveredBy is not null ? "Done (covered by an earlier import)" : task.CompletedAt is { } done ? $"Done {done.FormatSyncTimestamp()}" : "Not run yet")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
         </div>
         <p class="field-hint">
-            A task that stays "Not run yet" after a deploy is waiting on the next startup or on a running import.
             Imports are loaded one year at a time and are safe to interrupt: a restart (including a deploy) repeats only the year that was running.
         </p>
     </details>

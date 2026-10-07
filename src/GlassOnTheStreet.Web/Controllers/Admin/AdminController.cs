@@ -9,9 +9,6 @@ namespace GlassOnTheStreet.Web.Controllers.Admin;
 
 public record YearCount(int Year, int Count);
 
-/// <param name="CoveredBy">Key of an earlier task whose completion already covers this one, if that is how it is done.</param>
-public record OneTimeTaskStatus(string Key, string Description, DateTime? CompletedAt, string? CoveredBy);
-
 /// <summary>What is actually in the database, so a long import can be checked without opening it.</summary>
 public record DataStatus(
     IReadOnlyList<YearCount> MpdRowsByYear,
@@ -19,8 +16,7 @@ public record DataStatus(
     DateOnly? Earliest,
     DateOnly? Latest,
     IReadOnlyList<YearCount> IncidentRowsByYear,
-    int IncidentTotal,
-    IReadOnlyList<OneTimeTaskStatus> Tasks);
+    int IncidentTotal);
 
 public record AdminIndexViewModel(
     List<Report> Pending,
@@ -108,27 +104,11 @@ public class AdminController(
             .Select(g => new YearCount(g.Key, g.Sum(d => d.Count)))
             .ToList();
 
-        var completed = await db.OneTimeTasks.ToDictionaryAsync(t => t.Key, t => t.CompletedAt, cancellationToken);
-        var currentYear = DateTime.UtcNow.Year;
-        var tasks = OfficialDataSyncBackgroundService.ExpectedTasks(currentYear)
-            .Select(t =>
-            {
-                if (completed.TryGetValue(t.Key, out var at))
-                {
-                    return new OneTimeTaskStatus(t.Key, t.Description, at, null);
-                }
-
-                var covering = t.CoveredBy.FirstOrDefault(completed.ContainsKey);
-                return new OneTimeTaskStatus(t.Key, t.Description, covering is null ? null : completed[covering], covering);
-            })
-            .ToList();
-
         return new DataStatus(
             byYear, dates.Count,
             dates.Count == 0 ? null : dates.Min(),
             dates.Count == 0 ? null : dates.Max(),
-            incidentsByYear, incidentsByYear.Sum(y => y.Count),
-            tasks);    }
+            incidentsByYear, incidentsByYear.Sum(y => y.Count));    }
 
     [HttpPost("{id:int}/approve")]
     [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
