@@ -171,7 +171,7 @@
     if (partialMonth >= 0 && !isHidden(years[cur])) {
       var partialItem = htmlEl("span", "trends-legend-static", null, legend);
       htmlEl("span", "trends-legend-hollow", null, partialItem);
-      htmlEl("span", null, MONTHS[partialMonth] + " " + years[cur] + " so far (month not over)", partialItem);
+      htmlEl("span", null, MONTHS[partialMonth] + " " + years[cur] + " through " + monthDayLabel(data.through) + " (the newest days are still being posted)", partialItem);
     }
 
     var W = Math.max(canvas.clientWidth, 320), H = W < 520 ? 280 : 340;
@@ -550,6 +550,171 @@
     }
   }
 
+  // ---------- offense mix: ranked bars with change and a line per year ----------
+
+  function renderMix() {
+    var box = document.getElementById("chart-mix");
+    if (!box || !data.groups) return;
+    var canvas = canvasOf("chart-mix");
+    canvas.textContent = "";
+    var years = data.years, cur = years.length - 1;
+    var list = data.groups.filter(function (g) { return g.isCrime && g.counts[cur] > 0; })
+      .sort(function (a, b) { return b.counts[cur] - a.counts[cur]; });
+    if (!list.length) {
+      htmlEl("p", "trends-empty", "No " + UNIT + " in this period.", canvas);
+      return;
+    }
+    var max = list[0].counts[cur] || 1;
+    var ol = htmlEl("ol", "trends-areas", null, canvas);
+    list.forEach(function (g, i) {
+      var li = htmlEl("li", "trends-area", null, ol);
+      htmlEl("span", "trends-area-rank", String(i + 1), li);
+      var nameCell = htmlEl("span", "trends-area-namecell", null, li);
+      var name = htmlEl("button", "trends-area-name", g.label, nameCell);
+      name.type = "button";
+      name.title = g.definition;
+      name.addEventListener("click", function () {
+        categorySelect.value = g.key;
+        state.category = g.key;
+        load();
+        section("trends").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      var barWrap = htmlEl("span", "trends-area-bar", null, li);
+      var fill = htmlEl("span", "trends-area-bar-fill", null, barWrap);
+      fill.style.width = (g.counts[cur] / max * 100) + "%";
+      htmlEl("strong", "trends-area-count", fmt(g.counts[cur]), li);
+      var change = htmlEl("span", "trends-area-change", null, li);
+      change.textContent = g.changeVsPrior === null ? "n/a" : arrowFor(g.changeVsPrior) + " " + Math.abs(Math.round(g.changeVsPrior)) + "%";
+      change.title = "vs " + years[cur - 1] + ", same period";
+      var spark = htmlEl("span", "trends-area-spark", null, li);
+      spark.appendChild(sparkline(g.counts, "var(--accent)"));
+      spark.title = years[0] + " to " + years[cur] + ", same period each year";
+    });
+  }
+
+  // ---------- ward map: a choropleth of the 13 council wards ----------
+
+  var wardGeo = null;
+  var wardGeoRequested = false;
+  var mapMetric = "";
+
+  function ringsOf(geometry) {
+    return geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+  }
+
+  function renderMap() {
+    var box = document.getElementById("chart-map");
+    if (!box || !data.wards) return;
+    var canvas = canvasOf("chart-map");
+
+    if (!wardGeo) {
+      if (!wardGeoRequested) {
+        wardGeoRequested = true;
+        fetch("/api/wards")
+          .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+          .then(function (json) { wardGeo = json.features; if (data) renderMap(); })
+          .catch(function () { canvas.textContent = ""; htmlEl("p", "trends-empty", "The ward map couldn't load.", canvas); });
+      }
+      return;
+    }
+
+    canvas.textContent = "";
+    var years = data.years, cur = years.length - 1;
+    var byWard = {};
+    data.wards.forEach(function (w) { byWard[Number(w.name.replace("Ward ", ""))] = w; });
+    var hasRate = data.wards.some(function (w) { return w.ratePerThousand !== undefined && w.ratePerThousand !== null; });
+    if (!hasRate) mapMetric = "count";
+    else if (!mapMetric) mapMetric = "rate";
+
+    box.querySelectorAll("[data-map-metric]").forEach(function (b) {
+      var active = b.dataset.mapMetric === mapMetric;
+      b.hidden = !hasRate;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+
+    function valueOf(w) {
+      if (!w) return 0;
+      return mapMetric === "rate" ? (w.ratePerThousand || 0) : w.counts[cur];
+    }
+    function label(v) { return mapMetric === "rate" ? v.toLocaleString("en-US", { maximumFractionDigits: 1 }) : fmt(v); }
+
+    var values = wardGeo.map(function (f) { return valueOf(byWard[f.properties.ward]); });
+    var lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
+    var span = hi - lo || 1;
+
+    // Equirectangular, scaled by cos(latitude) so the wards keep their shape.
+    var minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    wardGeo.forEach(function (f) {
+      ringsOf(f.geometry).forEach(function (poly) {
+        poly[0].forEach(function (pt) {
+          minLng = Math.min(minLng, pt[0]); maxLng = Math.max(maxLng, pt[0]);
+          minLat = Math.min(minLat, pt[1]); maxLat = Math.max(maxLat, pt[1]);
+        });
+      });
+    });
+    var k = Math.cos((minLat + maxLat) / 2 * Math.PI / 180);
+    var worldW = (maxLng - minLng) * k, worldH = maxLat - minLat;
+    var W = Math.min(Math.max(canvas.clientWidth, 300), 560), pad = 6;
+    var scale = (W - pad * 2) / worldW;
+    var H = Math.round(worldH * scale + pad * 2);
+    function px(lng) { return pad + (lng - minLng) * k * scale; }
+    function py(lat) { return pad + (maxLat - lat) * scale; }
+
+    var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg ward-map", role: "group",
+      "aria-label": "Map of Minneapolis council wards shaded by " + (mapMetric === "rate" ? "offenses per 1,000 residents" : "offenses") + ", Jan 1 to " + monthDayLabel(data.through) }, canvas);
+    var tip = tooltipFor(canvas);
+
+    wardGeo.forEach(function (f) {
+      var n = f.properties.ward, w = byWard[n], v = valueOf(w);
+      var t = (v - lo) / span;
+      var g = svgEl("g", { class: "ward-shape", tabindex: "0", role: "img",
+        "aria-label": "Ward " + n + ": " + label(v) + (mapMetric === "rate" ? " per 1,000 residents" : " offenses") }, svg);
+      var d = ringsOf(f.geometry).map(function (poly) {
+        return poly.map(function (ring) {
+          return "M" + ring.map(function (pt) { return px(pt[0]).toFixed(1) + "," + py(pt[1]).toFixed(1); }).join("L") + "Z";
+        }).join("");
+      }).join("");
+      svgEl("path", { d: d, fill: rampColor(t), class: "ward-path", "fill-rule": "evenodd" }, g);
+      var text = svgEl("text", { x: px(f.properties.labelLng), y: py(f.properties.labelLat) + 4, "text-anchor": "middle",
+        class: "ward-label" + (t > 0.55 ? " is-light" : "") }, g);
+      text.textContent = String(n);
+
+      function show() {
+        tip.textContent = "";
+        htmlEl("div", "trends-tip-title", "Ward " + n + (f.properties.name ? " (" + f.properties.name + ")" : ""), tip);
+        if (w) {
+          var row = htmlEl("div", "trends-tip-row", null, tip);
+          htmlEl("strong", null, fmt(w.counts[cur]), row);
+          htmlEl("span", "trends-tip-label", UNIT + " so far in " + years[cur], row);
+          if (w.ratePerThousand !== undefined && w.ratePerThousand !== null) {
+            var r2 = htmlEl("div", "trends-tip-row", null, tip);
+            htmlEl("strong", null, w.ratePerThousand.toLocaleString("en-US"), r2);
+            htmlEl("span", "trends-tip-label", "per 1,000 residents", r2);
+          }
+          if (w.changeVsPrior !== null && w.changeVsPrior !== undefined) {
+            htmlEl("div", "trends-tip-label", formatChange(w.changeVsPrior) + " from " + years[cur - 1], tip);
+          }
+        }
+        var box2 = g.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+        placeTooltip(canvas, tip, box2.left - c.left + box2.width / 2, box2.top - c.top + box2.height / 2);
+        g.classList.add("is-active");
+      }
+      function hide() { hideTooltip(canvas); g.classList.remove("is-active"); }
+      g.addEventListener("pointerenter", show);
+      g.addEventListener("pointerleave", hide);
+      g.addEventListener("focus", show);
+      g.addEventListener("blur", hide);
+      g.addEventListener("click", function () { setArea("ward:" + n); });
+    });
+
+    var legend = htmlEl("div", "ward-legend", null, canvas);
+    htmlEl("span", null, label(lo), legend);
+    var ramp = htmlEl("span", "ward-legend-ramp", null, legend);
+    ramp.style.background = "linear-gradient(to right," + [0, 0.33, 0.66, 1].map(function (t) { return rampColor(t); }).join(",") + ")";
+    htmlEl("span", null, label(hi) + (mapMetric === "rate" ? " per 1,000 residents" : " offenses"), legend);
+  }
+
   // ---------- hour by weekday ----------
 
   function renderHour() {
@@ -802,6 +967,8 @@
     renderHeat();
     renderAreas();
     renderHour();
+    renderMix();
+    renderMap();
     renderGroups();
     renderTables();
     updateHeadline();
@@ -851,6 +1018,13 @@
         t.setAttribute("aria-selected", active ? "true" : "false");
       });
       if (data) { renderAreas(); renderTables(); }
+    });
+  });
+
+  root.querySelectorAll("[data-map-metric]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      mapMetric = button.dataset.mapMetric;
+      if (data) renderMap();
     });
   });
 

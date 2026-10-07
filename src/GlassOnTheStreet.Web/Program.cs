@@ -46,6 +46,7 @@ builder.Services.AddSingleton<IWardService, WardService>();
 builder.Services.AddScoped<IncidentDataCache>();
 builder.Services.AddScoped<ICrimeStatsService, CrimeStatsService>();
 builder.Services.AddScoped<MonthlyReportService>();
+builder.Services.AddScoped<WeeklyReportService>();
 builder.Services.AddScoped<NearbyService>();
 builder.Services.AddScoped<MapDataService>();
 builder.Services.AddSingleton<OgImageService>();

@@ -106,6 +106,19 @@
         within the chosen radius, so it describes blocks, not addresses.
     </p>
 
+    <h2 class="method-h">Weekly bulletins</h2>
+    <p>
+        The <a asp-controller="Weekly" asp-action="Index">weekly bulletins</a> cover Monday to Sunday and appear once the whole
+        week is inside the data window above. Each week is compared with two baselines: the average of the four weeks before it,
+        and the same week 52 weeks earlier, so weekdays line up. An offense type is marked "above range" when its count is more
+        than two standard deviations over its mean for the prior eight weeks and is at least @WeeklyReportService.MinSpikeCount
+        offenses. With counts this small, about one type in twenty will cross that line by chance in any week, so a mark means
+        look closer, not that something changed. The block table lists block ranges with @WeeklyReportService.RepeatBlockThreshold or
+        more thefts from vehicles, vehicle thefts or parts thefts in the week. It uses the block ranges MPD publishes and nothing
+        finer, and one event with several victims can fill it. The bulletins describe places, times and offense types only.
+        They never name or profile people.
+    </p>
+
     <h2 class="method-h">Known limits</h2>
     <ul>
         <li>These are reported crimes. Many incidents, especially car break-ins where nothing is taken, are never reported.</li>
@@ -143,7 +156,7 @@
 
     <h2 class="method-h">Corrections</h2>
     <p>
-        No corrections have been needed so far. If a number here is wrong, it will be fixed and listed on this page with the date
-        and what changed.
+        Problems found in the data, and what changed, are logged with dates on the
+        <a asp-controller="DataQuality" asp-action="Index">data quality page</a>. If a number here is wrong, it will be fixed and listed there.
     </p>
 </div>

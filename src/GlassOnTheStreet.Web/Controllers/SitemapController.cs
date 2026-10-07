@@ -10,7 +10,7 @@ namespace GlassOnTheStreet.Web.Controllers;
 /// -- changes essentially continuously) reflects the actual current time
 /// instead of going stale the moment someone forgets to hand-edit a file.
 /// </summary>
-public class SitemapController(IConfiguration configuration, ITrendsService trendsService, MonthlyReportService monthlyReports) : Controller
+public class SitemapController(IConfiguration configuration, ITrendsService trendsService, MonthlyReportService monthlyReports, WeeklyReportService weeklyReports) : Controller
 {
     private record SitemapEntry(string Path, string ChangeFreq, DateTime? LastModUtc);
 
@@ -22,6 +22,7 @@ public class SitemapController(IConfiguration configuration, ITrendsService tren
 
         var areas = await trendsService.GetAreaIndexAsync(cancellationToken);
         var months = await monthlyReports.ListAsync(cancellationToken);
+        var weeks = await weeklyReports.ListAsync(cancellationToken: cancellationToken);
 
         var entries = new List<SitemapEntry>
         {
@@ -34,8 +35,10 @@ public class SitemapController(IConfiguration configuration, ITrendsService tren
             new SitemapEntry("/crime", "daily", now),
             new SitemapEntry("/near", "monthly", null),
             new SitemapEntry("/compare", "monthly", null),
+            new SitemapEntry("/weekly", "weekly", now),
             new SitemapEntry("/monthly", "monthly", now),
             new SitemapEntry("/methodology", "monthly", null),
+            new SitemapEntry("/data-quality", "weekly", now),
             new SitemapEntry("/data", "weekly", now)
         };
 
@@ -43,6 +46,11 @@ public class SitemapController(IConfiguration configuration, ITrendsService tren
         foreach (var month in months)
         {
             entries.Add(new SitemapEntry($"/monthly/{month.Year}-{month.Month:D2}", "monthly", null));
+        }
+
+        foreach (var week in weeks)
+        {
+            entries.Add(new SitemapEntry($"/weekly/{week.Start:yyyy-MM-dd}", "monthly", null));
         }
 
         // Every ward and neighborhood page with enough data to be worth indexing

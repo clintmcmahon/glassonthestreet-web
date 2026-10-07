@@ -1,0 +1,86 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Controllers
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model DataQualityStats
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var inv = CultureInfo.InvariantCulture;
+    var unplacedShare = Model.Records == 0 ? 0 : Model.Unplaced / (double)Model.Records * 100;
+
+    ViewData["Title"] = "Data Quality Log | Glass on the Street";
+    ViewData["Description"] = "Known gaps in the Minneapolis crime feed, how this site handles them, and a dated log of every data problem found and fixed.";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Data quality", "/data-quality"))))
+}
+
+<div class="page page-narrow" style="max-width: 760px;">
+    <p class="kicker">Data quality</p>
+    <h1 class="display" style="font-size: 2.2rem;">What's wrong with the data, and what we did about it</h1>
+    <p class="lede" style="font-size: 1.05rem;">
+        Every number on this site comes from the Minneapolis Police Department's open data feed. A feed has gaps. This page
+        states the ones we know about, with live figures, and logs each problem we found, when, and what changed.
+    </p>
+
+    <h2 class="method-h">Right now</h2>
+    <table class="area-table data-table">
+        <tbody>
+            <tr><td>Newest record in the feed</td><td>@Model.LatestRecord.ToString("MMMM d, yyyy", inv)</td></tr>
+            <tr><td>Figures on this site run through</td><td>@Model.Through.ToString("MMMM d, yyyy", inv)</td></tr>
+            <tr><td>Days held back for late posting</td><td>@Model.LagDays</td></tr>
+            <tr><td>Records loaded (2019 to date)</td><td>@Model.Records.Format()</td></tr>
+            <tr><td>Records MPD could not place on the map</td><td>@Model.Unplaced.Format() (@unplacedShare.ToString("0.0", inv)%)</td></tr>
+            <tr><td>Last check of the city's feed</td><td>@(Model.LastSyncedUtc is { } synced ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(synced, DateTimeKind.Utc), GlassOnTheStreet.Web.Infrastructure.CentralTime.Zone).ToString("MMMM d, yyyy h:mm tt", inv) + " Central" : "not yet recorded")</td></tr>
+        </tbody>
+    </table>
+
+    <h2 class="method-h">Standing limits</h2>
+    <ul>
+        <li><strong>Late posting.</strong> MPD adds records days after the fact. Compared with the same weekday a year earlier, records under about ten days old are only partly there (roughly three quarters at a week, half at three days). Counting them makes the latest period look like a drop, so every figure here stops @Model.LagDays days short of the newest record.</li>
+        <li><strong>Unplaced records.</strong> Some records arrive with no usable location. They count in every total and appear on no map or "near me" result. The map reports how many it left off.</li>
+        <li><strong>Revisions.</strong> MPD can reclassify, add or withdraw records after publishing. Each sync reconciles the stored data with the feed, so a past week or month can change slightly. Weekly and monthly pages say when a period is still provisional.</li>
+        <li><strong>Reported crime only.</strong> Incidents nobody reported are not in the feed.</li>
+    </ul>
+
+    <h2 class="method-h">Log</h2>
+    <p class="field-hint">Newest first. Dates are when the fix shipped.</p>
+    <table class="area-table data-table">
+        <thead><tr><th>Date</th><th>Problem</th><th>Fix</th></tr></thead>
+        <tbody>
+            <tr>
+                <td>Oct 5, 2026</td>
+                <td>Rows MPD could not place arrived as a point at 0,0. A north-edge geofence boundary also misjudged some locations.</td>
+                <td>Unplaced rows are stored as having no location, still counted in totals and left off maps. The geofence edge was corrected. An accuracy test suite now checks the stored data against the city's feed and every page against an independent calculation. Records posted late, revised or withdrawn by MPD are now reconciled on each sync.</td>
+            </tr>
+            <tr>
+                <td>Oct 4, 2026</td>
+                <td>The latest days looked like a sharp drop because MPD had not finished posting them. The homepage showed down 38.6% for the last 30 days.</td>
+                <td>Figures now stop @Model.LagDays days before the newest record. Resident reports, which can describe incidents MPD also has, are no longer added to MPD counts.</td>
+            </tr>
+            <tr>
+                <td>Oct 2, 2026</td>
+                <td>Production was missing 2019 and part of 2020. The importer stopped quietly when the city's feed returned an error page, reported success, and marked the job done.</td>
+                <td>A failed page is retried and, if it still fails, fails the whole import. History loads one year at a time, deduplicated, with a marker per year.</td>
+            </tr>
+            <tr>
+                <td>Sep 27, 2026</td>
+                <td>Category handling for property damage and vandalism changed several times, leaving old rows classified inconsistently.</td>
+                <td>All MPD history was re-imported under one set of rules. Property damage is its own category, because MPD's data does not say whether the damage was to a vehicle.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>
+        Found something wrong?
+        @if (ViewData["ContactEmail"] is string contact && !string.IsNullOrWhiteSpace(contact))
+        {
+            <text>Write to <a href="mailto:@contact">@contact</a>.</text>
+        }
+        else
+        {
+            <text>Use the contact link in the footer.</text>
+        }
+        Corrections go in this log with the date and what changed.
+    </p>
+</div>

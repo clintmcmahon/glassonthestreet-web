@@ -74,43 +74,30 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
         Assert.Equal(change is null ? "—" : $"{(change > 0 ? "+" : "")}{change}%", shown);
     }
 
-    public async Task Home_YearToDateFiguresMatchTheOracleForAllCrimesAndForCarCrime()
+    public async Task Home_YearToDateFiguresMatchTheOracleForCarCrime()
     {
         var doc = await PageAsync("/");
-        var all = O.SamePeriod(Oracle.IsCrime);
         var car = O.SamePeriod(Oracle.IsCar);
 
-        Assert.Equal(all[^1], N(Metric(doc, "all-ytd")));
-        Assert.Equal(Pct(all[^1], all[^2]), Metric(doc, "all-ytd-vs-prior"));
-        Assert.Equal(Pct(all[^1], all[0]), Metric(doc, "all-ytd-vs-base"));
         Assert.Equal(car[^1], N(Metric(doc, "car-ytd")));
         Assert.Equal(Pct(car[^1], car[^2]), Metric(doc, "car-ytd-vs-prior"));
         Assert.Equal(Pct(car[^1], car[0]), Metric(doc, "car-ytd-vs-base"));
     }
 
-    public async Task Home_CarCrimeIsASubsetOfAllCrimeOnThePage()
+    /// <summary>The homepage is about car break-ins; every all-crime figure lives on /crime.</summary>
+    public async Task Home_IsCarCrimeOnlyAndLinksToTheAllCrimeHub()
     {
         var doc = await PageAsync("/");
 
-        Assert.True(N(Metric(doc, "car-ytd")) < N(Metric(doc, "all-ytd")));
-        // The 30-day car count can never exceed a full year-to-date car count.
-        Assert.True(N(Metric(doc, "car-30d")) <= N(Metric(doc, "car-ytd")) + N(Metric(doc, "car-ytd")));
-    }
+        Assert.Empty(doc.QuerySelectorAll("[data-metric^='all-']"));
+        Assert.DoesNotContain("Part 2", Text(doc.Body));
+        Assert.NotNull(doc.QuerySelector("main a[href='/crime']"));
 
-    public async Task Home_AllCrimeTypeListShowsTheEightLargestGroupsWithTheirRealCounts()
-    {
-        var doc = await PageAsync("/");
-        var shown = doc.QuerySelectorAll("[data-metric^='all-group:']")
-            .Select(e => (Key: e.GetAttribute("data-metric")![10..], Count: N(Text(e.QuerySelector(".breakdown-count")))))
-            .ToList();
-        var expected = CrimeGroupKeys()
-            .Select(k => (Key: k, Count: O.SamePeriod(Oracle.Group(k))[^1]))
-            .OrderByDescending(x => x.Count).Take(8).ToList();
-
-        Assert.Equal(8, shown.Count);
-        Assert.Equal(expected.Select(x => x.Count), shown.Select(x => x.Count));
-        Assert.All(shown, s => Assert.Equal(O.SamePeriod(Oracle.Group(s.Key))[^1], s.Count));
-        Assert.DoesNotContain(shown, s => !O.Visible.First(r => r.ExpectedGroup == s.Key).ExpectedIsCrime);
+        var hub = await PageAsync("/crime");
+        foreach (var link in new[] { "/", "/weekly", "/monthly", "/near", "/neighborhoods" })
+        {
+            Assert.NotNull(hub.QuerySelector($"main a[href='{link}']"));
+        }
     }
 
     public async Task Home_MonthlyBarsMatchTheOracle()
@@ -368,6 +355,45 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
         var total = O.Sum(Oracle.IsCrime, month, month.AddMonths(1).AddDays(-1));
 
         Assert.Contains(total.ToString("N0", CultureInfo.InvariantCulture), text);
+    }
+
+    public async Task WeeklyBulletin_QuotesTheOraclesTotalForTheLatestCompleteWeek()
+    {
+        var start = WeeklyReportService.MondayOf(O.Through);
+        if (start.AddDays(6) > O.Through)
+        {
+            start = start.AddDays(-7);
+        }
+
+        var doc = await PageAsync($"/weekly/{start:yyyy-MM-dd}");
+        var total = O.Sum(Oracle.IsCrime, start, start.AddDays(6));
+        Assert.Contains(total.ToString("N0", CultureInfo.InvariantCulture), Text(doc.Body));
+
+        Assert.Contains(start.ToString("yyyy-MM-dd"), Text((await PageAsync("/weekly")).Body) + (await client.GetStringAsync("/weekly.xml")));
+    }
+
+    public async Task DataQualityPage_QuotesTheOraclesRecordAndUnplacedCounts()
+    {
+        var text = Text((await PageAsync("/data-quality")).Body);
+
+        Assert.Contains(O.Visible.Count.ToString("N0", CultureInfo.InvariantCulture), text);
+        Assert.Contains(O.Visible.Count(r => !r.Located).ToString("N0", CultureInfo.InvariantCulture), text);
+        Assert.Contains(O.Through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture), text);
+    }
+
+    /// <summary>The ward choropleth draws from /api/wards and from the same ward counts the table lists.</summary>
+    public async Task CrimePage_WardMapHasBoundariesForEveryWardTheDataHas()
+    {
+        var doc = await PageAsync("/crime");
+        Assert.NotNull(doc.QuerySelector("#chart-map [data-map-metric='rate']"));
+        Assert.NotNull((await PageAsync("/trends")).QuerySelector("#chart-map [data-canvas]"));
+
+        var geo = await JsonAsync("/api/wards");
+        var drawn = geo.GetProperty("features").EnumerateArray().Select(f => f.GetProperty("properties").GetProperty("ward").GetInt32()).ToHashSet();
+        var withData = O.Visible.Where(r => r.Ward is > 0).Select(r => r.Ward!.Value).Distinct();
+        Assert.All(withData, w => Assert.Contains(w, drawn));
+        Assert.All(geo.GetProperty("features").EnumerateArray(),
+            f => Assert.Contains(f.GetProperty("geometry").GetProperty("type").GetString(), new[] { "Polygon", "MultiPolygon" }));
     }
 
     public async Task MapApi_PinsPlusUnlocatedEqualTheSummaryAndTheOracle(string query, string group, int days)

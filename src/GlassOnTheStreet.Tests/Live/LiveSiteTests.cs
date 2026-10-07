@@ -25,11 +25,9 @@ public class LiveSiteTests : IDisposable
 
     [LiveFact(needsSite: true)] public Task Home_Scripts() => Checks.Home_LoadsTheScriptsThatDrawItsMapAndChartTooltips();
 
-    [LiveFact(needsSite: true)] public Task Home_YearToDate() => Checks.Home_YearToDateFiguresMatchTheOracleForAllCrimesAndForCarCrime();
+    [LiveFact(needsSite: true)] public Task Home_YearToDate() => Checks.Home_YearToDateFiguresMatchTheOracleForCarCrime();
 
-    [LiveFact(needsSite: true)] public Task Home_CarIsSubset() => Checks.Home_CarCrimeIsASubsetOfAllCrimeOnThePage();
 
-    [LiveFact(needsSite: true)] public Task Home_AllCrimeTypes() => Checks.Home_AllCrimeTypeListShowsTheEightLargestGroupsWithTheirRealCounts();
 
     [LiveFact(needsSite: true)] public Task Home_MonthlyBars() => Checks.Home_MonthlyBarsMatchTheOracle();
 

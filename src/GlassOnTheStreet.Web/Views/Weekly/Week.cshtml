@@ -1,0 +1,186 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model GlassOnTheStreet.Web.Services.WeeklyReport
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    var slug = Model.Start.ToString("yyyy-MM-dd");
+    var path = $"/weekly/{slug}";
+    var inv = CultureInfo.InvariantCulture;
+    string Move(double? pct) => pct is null ? "n/a" : Math.Round(pct.Value) == 0 ? "flat" : $"{(pct >= 0 ? "+" : "-")}{Math.Abs(Math.Round(pct.Value)).ToString("0", inv)}%";
+    string Avg(double v) => v.ToString("0.#", inv);
+    double? Pct(double now, double then) => then == 0 ? null : Math.Round((now - then) / then * 100, 1);
+    var maxDay = Math.Max(1, Model.ByDay.Max(b => b.Count));
+    var maxTime = Math.Max(1, Model.ByTimeOfDay.Max(b => b.Count));
+    var today = DateTime.UtcNow.ToString("MMMM d, yyyy", inv);
+
+    ViewData["Title"] = $"Minneapolis Crime, Week of {Model.Label} | Glass on the Street";
+    ViewData["Description"] = Model.Narrative[0].Length <= 155 ? Model.Narrative[0] : Model.Narrative[0][..152] + "...";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Weekly bulletins", "/weekly"), (Model.Label, path))))
+}
+
+<div class="page">
+    <nav class="area-crumbs" aria-label="Breadcrumb">
+        <a asp-controller="Home" asp-action="Index">Home</a> /
+        <a asp-controller="Weekly" asp-action="Index">Weekly bulletins</a> /
+        <span>@Model.Label</span>
+    </nav>
+
+    <p class="kicker">Weekly bulletin</p>
+    <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Minneapolis crime, week of @Model.Label</h1>
+
+    <div class="stat-line">
+        <div class="stat">
+            <div class="stat-value">@Model.Total.Format()</div>
+            <div class="stat-label">offenses recorded</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value @(Pct(Model.Total, Model.Baseline) is > 0 ? "up" : "down")">@Move(Pct(Model.Total, Model.Baseline))</div>
+            <div class="stat-label">vs. the 4-week average (@Avg(Math.Round(Model.Baseline)))</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value @(Pct(Model.Total, Model.LastYearTotal) is > 0 ? "up" : "down")">@Move(Pct(Model.Total, Model.LastYearTotal))</div>
+            <div class="stat-label">vs. the same week last year (@Model.LastYearTotal.Format())</div>
+        </div>
+    </div>
+
+    @if (Model.IsProvisional)
+    {
+        <p class="field-hint">
+            Provisional: MPD posts some records late, so this week's counts can still rise slightly.
+            Data runs through @Model.Through.ToString("MMMM d, yyyy", inv).
+        </p>
+    }
+
+    <div class="monthly-narrative">
+        @foreach (var line in Model.Narrative)
+        {
+            <p>@line</p>
+        }
+    </div>
+
+    <section class="trends-card" aria-labelledby="trend-title">
+        <h2 id="trend-title" class="trends-card-title">The last 13 weeks</h2>
+        <p class="trends-card-sub">All offenses per week, labeled by the Monday each week starts. This week is highlighted.</p>
+        <partial name="_BarSeries" model="@((Model.TrendLabels, Model.Trend, Model.Trend.Length - 1, $"Offenses per week for the 13 weeks ending with the week of {Model.Label}"))" />
+    </section>
+
+    <section class="trends-card" aria-labelledby="types-title">
+        <h2 id="types-title" class="trends-card-title">By offense type</h2>
+        <p class="trends-card-sub">A flag marks a type more than two standard deviations above its prior eight weeks, with at least @WeeklyReportService.MinSpikeCount offenses. Small counts swing a lot, so a flag is a prompt to look, not a finding.</p>
+        <p class="field-hint">Bar: this week. Black tick: the 4-week average. Orange or green: 10% or more above or below it.</p>
+        <partial name="_BaselineBars" model="@((Model.Groups.Where(g => g.Count > 0 || g.Baseline >= 1).OrderByDescending(g => g.Count).Select(g => (g.Label, (string?)null, g.Count, g.Baseline, g.IsSpike)), "Offenses by type this week against the 4-week average"))" />
+        <details class="trends-table">
+        <summary>View as table</summary>
+        <table class="area-table groups-table">
+            <thead>
+                <tr><th>Type</th><th>This week</th><th>4-week average</th><th>Change</th><th>Same week last year</th><th>Change</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Model.Groups)
+                {
+                    <tr>
+                        <td>@g.Label@(g.IsSpike ? " (above range)" : "")</td>
+                        <td>@g.Count.Format()</td>
+                        <td>@Avg(g.Baseline)</td>
+                        <td>@Move(g.ChangeVsBaseline)</td>
+                        <td>@g.LastYear.Format()</td>
+                        <td>@Move(g.ChangeVsLastYear)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </details>
+    </section>
+
+    <section class="trends-card" aria-labelledby="wards-title">
+        <h2 id="wards-title" class="trends-card-title">By ward</h2>
+        <partial name="_BaselineBars" model="@((Model.Wards.Select(w => ($"Ward {w.Ward}", (string?)$"/wards/{w.Ward}", w.Count, w.Baseline, false)), "Offenses by ward this week against the 4-week average"))" />
+        <details class="trends-table">
+        <summary>View as table</summary>
+        <table class="area-table groups-table">
+            <thead><tr><th>Ward</th><th>This week</th><th>4-week average</th><th>Change</th><th>Same week last year</th></tr></thead>
+            <tbody>
+                @foreach (var w in Model.Wards)
+                {
+                    <tr>
+                        <td><a href="/wards/@w.Ward">Ward @w.Ward</a></td>
+                        <td>@w.Count.Format()</td>
+                        <td>@Avg(w.Baseline)</td>
+                        <td>@Move(w.ChangeVsBaseline)</td>
+                        <td>@w.LastYear.Format()</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </details>
+    </section>
+
+    <section class="trends-card" aria-labelledby="when-title">
+        <h2 id="when-title" class="trends-card-title">When it happened</h2>
+        <div class="admin-data-grid">
+            <table class="area-table">
+                <caption class="groups-caption">Day of week</caption>
+                <tbody>
+                    @foreach (var b in Model.ByDay)
+                    {
+                        <tr><td>@b.Label</td><td>@b.Count.Format()</td><td><meter min="0" max="@maxDay" value="@b.Count" aria-label="@b.Label"></meter></td></tr>
+                    }
+                </tbody>
+            </table>
+            <table class="area-table">
+                <caption class="groups-caption">Time of day</caption>
+                <tbody>
+                    @foreach (var b in Model.ByTimeOfDay)
+                    {
+                        <tr><td>@b.Label</td><td>@b.Count.Format()</td><td><meter min="0" max="@maxTime" value="@b.Count" aria-label="@b.Label"></meter></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @if (Model.RepeatBlocks.Count > 0)
+    {
+        <section class="trends-card" aria-labelledby="blocks-title">
+            <h2 id="blocks-title" class="trends-card-title">Blocks with repeated car-related offenses</h2>
+            <p class="trends-card-sub">
+                Block ranges where MPD recorded @WeeklyReportService.RepeatBlockThreshold or more thefts from vehicles, vehicle thefts or parts thefts this week.
+                MPD publishes addresses as block ranges, not exact locations. Several offenses on one block can be one event with many victims,
+                such as a parking lot, so read this as where to look, not as a pattern by itself.
+            </p>
+            <table class="area-table groups-table">
+                <thead><tr><th>Block</th><th>Neighborhood</th><th>Offenses</th><th>Types</th></tr></thead>
+                <tbody>
+                    @foreach (var b in Model.RepeatBlocks)
+                    {
+                        <tr><td>@b.Address</td><td>@b.Neighborhood</td><td>@b.Count.Format()</td><td>@b.Types</td></tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+
+    <nav class="monthly-nav" aria-label="Other weeks">
+        @if (Model.Previous is { } prev)
+        {
+            <a href="/weekly/@prev.ToString("yyyy-MM-dd")">&larr; @WeeklyReportService.Label(prev)</a>
+        }
+        <a asp-controller="Weekly" asp-action="Index">All weeks</a>
+        @if (Model.Next is { } next)
+        {
+            <a href="/weekly/@next.ToString("yyyy-MM-dd")">@WeeklyReportService.Label(next) &rarr;</a>
+        }
+    </nav>
+
+    <p class="field-hint" style="margin-top: 1.5rem;">
+        Source: Minneapolis Police Department open data, counted by the date the offense occurred, through
+        @Model.Through.ToString("MMMM d, yyyy", inv). Weeks run Monday to Sunday. The comparison week a year earlier is 52 weeks back, so weekdays line up.
+        Offenses are counted as MPD counts them and exclude shots-fired calls, gunshot wound victims and subset rows. Reported crimes only.
+        See the <a asp-controller="Methodology" asp-action="Index">methodology</a>. Cite as: Glass on the Street, "Minneapolis crime, week of @Model.Label,"
+        @baseUrl@path, accessed @today.
+    </p>
+</div>

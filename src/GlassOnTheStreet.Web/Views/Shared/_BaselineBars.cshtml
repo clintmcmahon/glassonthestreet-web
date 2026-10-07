@@ -1,0 +1,24 @@
+@using System.Globalization
+@* Server-rendered bars for this period against its baseline: a fill for the count and a tick for the 4-week average. *@
+@model (IEnumerable<(string Label, string? Url, int Count, double Baseline, bool Flag)> Rows, string Label)
+@{
+    var rows = Model.Rows.ToList();
+    var max = Math.Max(1.0, rows.Count == 0 ? 1 : rows.Max(r => Math.Max(r.Count, r.Baseline)));
+    string F(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+}
+<ol class="base-bars" aria-label="@Model.Label">
+    @foreach (var r in rows)
+    {
+        var change = r.Baseline == 0 ? (double?)null : (r.Count - r.Baseline) / r.Baseline * 100;
+        var dir = change is null ? "" : change >= 10 ? "is-up" : change <= -10 ? "is-down" : "";
+        <li class="base-bar @dir" title="@r.Label: @r.Count.ToString("N0", CultureInfo.InvariantCulture) this week, 4-week average @r.Baseline.ToString("0.#", CultureInfo.InvariantCulture)">
+            <span>@if (r.Url is not null) { <a href="@r.Url">@r.Label</a> } else { @r.Label }@(r.Flag ? " (above range)" : "")</span>
+            <span class="base-bar-track">
+                <span class="base-bar-fill" style="width:@F(r.Count / max * 100)%"></span>
+                <span class="base-bar-tick" style="left:@F(r.Baseline / max * 100)%"></span>
+            </span>
+            <span class="base-bar-count">@r.Count.ToString("N0", CultureInfo.InvariantCulture)</span>
+            <span class="base-bar-change">@(change is null ? "" : (Math.Round(change.Value) == 0 ? "flat" : $"{(change >= 0 ? "+" : "-")}{Math.Abs(Math.Round(change.Value)).ToString("0", CultureInfo.InvariantCulture)}%"))</span>
+        </li>
+    }
+</ol>

@@ -26,13 +26,10 @@ public class SiteAccuracyTests(World world) : IDisposable
     public Task Home_LoadsTheScriptsThatDrawItsMapAndChartTooltips() => checks.Home_LoadsTheScriptsThatDrawItsMapAndChartTooltips();
 
     [Fact]
-    public Task Home_YearToDateFiguresMatchTheOracleForAllCrimesAndForCarCrime() => checks.Home_YearToDateFiguresMatchTheOracleForAllCrimesAndForCarCrime();
+    public Task Home_YearToDateFiguresMatchTheOracleForCarCrime() => checks.Home_YearToDateFiguresMatchTheOracleForCarCrime();
 
     [Fact]
-    public Task Home_CarCrimeIsASubsetOfAllCrimeOnThePage() => checks.Home_CarCrimeIsASubsetOfAllCrimeOnThePage();
-
-    [Fact]
-    public Task Home_AllCrimeTypeListShowsTheEightLargestGroupsWithTheirRealCounts() => checks.Home_AllCrimeTypeListShowsTheEightLargestGroupsWithTheirRealCounts();
+    public Task Home_IsCarCrimeOnlyAndLinksToTheAllCrimeHub() => checks.Home_IsCarCrimeOnlyAndLinksToTheAllCrimeHub();
 
     [Fact]
     public Task Home_MonthlyBarsMatchTheOracle() => checks.Home_MonthlyBarsMatchTheOracle();
@@ -85,6 +82,15 @@ public class SiteAccuracyTests(World world) : IDisposable
     [Fact]
     public Task MonthlyReportPage_QuotesTheOraclesTotalsForItsMonth() => checks.MonthlyReportPage_QuotesTheOraclesTotalsForItsMonth();
 
+    [Fact]
+    public Task WeeklyBulletin_QuotesTheOraclesTotalForTheLatestCompleteWeek() => checks.WeeklyBulletin_QuotesTheOraclesTotalForTheLatestCompleteWeek();
+
+    [Fact]
+    public Task DataQualityPage_QuotesTheOraclesRecordAndUnplacedCounts() => checks.DataQualityPage_QuotesTheOraclesRecordAndUnplacedCounts();
+
+    [Fact]
+    public Task CrimePage_WardMapHasBoundariesForEveryWardTheDataHas() => checks.CrimePage_WardMapHasBoundariesForEveryWardTheDataHas();
+
     private async Task<IDocument> PageAsync(string url)
     {
         var response = await client.GetAsync(url);
@@ -132,6 +138,13 @@ public class SiteAccuracyTests(World world) : IDisposable
         var divider = doc.QuerySelector(".category-divider")!;
         Assert.Contains("not police data", Text(divider));
         Assert.Contains("car-category:WindowSmashed", divider.NextElementSibling!.GetAttribute("data-metric"));
+
+        // Each block is ordered by count, largest first.
+        var rows = doc.QuerySelectorAll(".category-list .breakdown-row").ToList();
+        var mpd = rows.TakeWhile(r => !r.GetAttribute("data-metric")!.EndsWith("WindowSmashed") && !r.GetAttribute("data-metric")!.EndsWith("Rifled"))
+            .Select(r => N(Text(r.QuerySelector(".breakdown-count")))).ToList();
+        Assert.Equal(4, mpd.Count);
+        Assert.Equal(mpd.OrderByDescending(c => c), mpd);
     }
 
     [Theory]

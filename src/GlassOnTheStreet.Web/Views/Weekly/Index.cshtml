@@ -1,0 +1,52 @@
+@using System.Globalization
+@using GlassOnTheStreet.Web.Services
+@inject IConfiguration Configuration
+@model IReadOnlyList<GlassOnTheStreet.Web.Services.WeekSummary>
+@{
+    var baseUrl = (Configuration["Site:BaseUrl"] ?? $"{Context.Request.Scheme}://{Context.Request.Host}").TrimEnd('/');
+    string Move(double? pct) => pct is null ? "" : $"{(pct >= 0 ? "+" : "-")}{Math.Abs(Math.Round(pct.Value)).ToString("0", CultureInfo.InvariantCulture)}%";
+    var latest = Model.FirstOrDefault();
+
+    ViewData["Title"] = "Minneapolis Crime, Week by Week | Glass on the Street";
+    ViewData["Description"] = "A weekly bulletin on Minneapolis crime from MPD's open data: the week's total against recent weeks and last year, unusual spikes, ward changes and repeat blocks for car crime.";
+}
+
+@section StructuredData {
+    @Html.Raw(StructuredData.Tag(StructuredData.Breadcrumbs(baseUrl, ("Home", "/"), ("Weekly bulletins", "/weekly"))))
+}
+
+<div class="page page-narrow" style="max-width: 760px;">
+    <p class="kicker">Weekly bulletins</p>
+    <h1 class="display" style="font-size: 2.2rem;">Minneapolis crime, week by week</h1>
+    <p class="lede" style="font-size: 1.05rem;">
+        A public version of the weekly crime-analysis briefing, built from MPD's open data. Each Monday-to-Sunday week gets
+        its total against the previous four weeks and the same week a year earlier, any offense type running above its
+        recent range, ward changes, and blocks with repeated car-related offenses. Weeks appear once their records are
+        essentially complete, about ten days after they end.
+        <a href="/weekly.xml">Subscribe with RSS</a>.
+    </p>
+
+    @if (latest is not null)
+    {
+        <p>
+            Latest: <a href="/weekly/@latest.Start.ToString("yyyy-MM-dd")"><strong>@latest.Label</strong></a>,
+            @latest.Total.Format() offenses (@Move(latest.ChangeVsLastYear) from the same week a year earlier).
+        </p>
+    }
+
+    <table class="area-table data-table">
+        <thead><tr><th>Week</th><th>Offenses</th><th>vs. 4-week average</th><th>vs. a year earlier</th></tr></thead>
+        <tbody>
+            @foreach (var w in Model)
+            {
+                <tr>
+                    <td><a href="/weekly/@w.Start.ToString("yyyy-MM-dd")">@w.Label</a></td>
+                    <td>@w.Total.Format()</td>
+                    <td>@Move(w.ChangeVsBaseline)</td>
+                    <td>@Move(w.ChangeVsLastYear)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="field-hint">The last two years are listed. Older weeks stay reachable at /weekly/YYYY-MM-DD (the Monday).</p>
+</div>

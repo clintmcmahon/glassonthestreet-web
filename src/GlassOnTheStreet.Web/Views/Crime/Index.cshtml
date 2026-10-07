@@ -12,7 +12,7 @@
     var year = Model.CurrentYear;
     var firstYear = Model.Years[0];
 
-    ViewData["Title"] = "Minneapolis Crime Statistics by Type | Glass on the Street";
+    ViewData["Title"] = "All Crime in Minneapolis: Statistics by Type | Glass on the Street";
     ViewData["OgImage"] = "/og/crime.png";
     ViewData["Description"] = $"Minneapolis crime statistics, {firstYear} to today, from MPD data: assault, robbery, burglary, theft, homicide and more. Filter by ward and neighborhood.";
 
@@ -30,7 +30,7 @@
 }
 
 <div class="page" id="trends" data-first-year="@firstYear" data-api="/api/crime" data-unit="offenses" data-all-phrase="offenses of every kind">
-    <p class="kicker">Minneapolis</p>
+    <p class="kicker">All crime</p>
     <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Minneapolis crime statistics, every offense</h1>
     <p class="lede" style="max-width: 720px;">
         Offenses recorded by the Minneapolis Police Department from @firstYear to today, grouped in plain language:
@@ -42,6 +42,33 @@
         Through @Model.Through.ToString("MMM d, yyyy", CultureInfo.InvariantCulture), MPD has recorded
         <strong>@current.Format()</strong> offenses of every kind since Jan 1@(Change(current, prior, year - 1) is { Length: > 0 } c1 ? $": {c1}" : "")@(Change(current, baseline, firstYear) is { Length: > 0 } c2 ? $", and {c2}" : "").
     </p>
+
+    <p class="field-hint">
+        This page covers every offense type. For car break-ins, auto theft and the resident-report map, go to the
+        <a asp-controller="Home" asp-action="Index">car break-in page</a>.
+    </p>
+    <div class="explore-grid" style="margin: 1rem 0 1.5rem;">
+        <a class="explore-card" asp-controller="Weekly" asp-action="Index">
+            <strong>Weekly bulletins</strong>
+            <span>Each week against the last four and last year: offenses above their usual range, ward changes and repeat car-crime blocks.</span>
+        </a>
+        <a class="explore-card" asp-controller="Monthly" asp-action="Index">
+            <strong>Monthly reports</strong>
+            <span>A sourced summary of every finished month, with a permanent link and an RSS feed.</span>
+        </a>
+        <a class="explore-card" asp-controller="Near" asp-action="Index">
+            <strong>Crime near you</strong>
+            <span>Enter an address to see every offense type MPD recorded within a quarter mile to a mile.</span>
+        </a>
+        <a class="explore-card" asp-controller="Areas" asp-action="Index">
+            <strong>Neighborhoods and wards</strong>
+            <span>Totals, rates per 1,000 residents and rank for each area.</span>
+        </a>
+        <a class="explore-card" asp-controller="DataQuality" asp-action="Index">
+            <strong>Data quality log</strong>
+            <span>The feed's known gaps and every problem found and fixed, with dates.</span>
+        </a>
+    </div>
 
     <div class="trends-filters" role="group" aria-label="Filters">
         <label class="trends-filter">
@@ -70,49 +97,6 @@
         </label>
         <button type="button" id="filter-reset" class="btn-outline trends-reset" hidden>Reset filters</button>
     </div>
-
-    <section class="trends-card" id="chart-groups" aria-labelledby="groups-title">
-        <div class="trends-card-head">
-            <div>
-                <h2 id="groups-title" class="trends-card-title">Offenses by type, Jan 1 to @through</h2>
-                <p class="trends-card-sub">This year against the same days of last year and of @firstYear. Click a type to chart it. Hover a name for MPD's definition.</p>
-            </div>
-            <button type="button" class="btn-outline trends-download" data-download="groups">Download CSV</button>
-        </div>
-        <div id="groups-body">
-            <table class="area-table groups-table">
-                <thead>
-                    <tr><th>Group</th><th>@year</th><th>@(year - 1)</th><th>Change from @(year - 1)</th><th>Change from @firstYear</th><th>Per 1,000 residents</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var g in Model.Groups)
-                    {
-                        <tr>
-                            <td title="@g.Definition">@g.Label</td>
-                            <td>@g.Counts[^1].Format()</td>
-                            <td>@g.Counts[^2].Format()</td>
-                            <td>@Pct(g.ChangeVsPrior)</td>
-                            <td>@Pct(g.ChangeVsBase)</td>
-                            <td>@(g.RatePerThousand?.ToString("N1", CultureInfo.InvariantCulture))</td>
-                        </tr>
-                    }
-                    <tr class="near-sep"><td colspan="6">Not counted as crimes: calls and subsets of the offenses above</td></tr>
-                    @foreach (var g in Model.Metrics)
-                    {
-                        <tr>
-                            <td title="@g.Definition">@g.Label</td>
-                            <td>@g.Counts[^1].Format()</td>
-                            <td>@g.Counts[^2].Format()</td>
-                            <td>@Pct(g.ChangeVsPrior)</td>
-                            <td>@Pct(g.ChangeVsBase)</td>
-                            <td>@(g.RatePerThousand?.ToString("N1", CultureInfo.InvariantCulture))</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-        <details class="trends-table" data-table><summary>View as table</summary></details>
-    </section>
 
     <section class="trends-card" id="chart-yoy" aria-labelledby="yoy-title">
         <div class="trends-card-head">
@@ -154,7 +138,7 @@
         </div>
         <div class="trends-stats" data-stats></div>
         <div class="trends-canvas" data-canvas></div>
-        <details class="trends-table" data-table open>
+        <details class="trends-table" data-table>
             <summary>View as table</summary>
             <table>
                 <thead><tr><th>Year</th><th>Offenses Jan 1 to @through</th></tr></thead>
@@ -166,6 +150,32 @@
                 </tbody>
             </table>
         </details>
+    </section>
+
+    <section class="trends-card" id="chart-mix" aria-labelledby="mix-title">
+        <div class="trends-card-head">
+            <div>
+                <h2 id="mix-title" class="trends-card-title">What's being reported, Jan 1 to @through</h2>
+                <p class="trends-card-sub">Offense types ranked by count this year. The arrow is the change from the same days of @(year - 1), and the line is each year since @firstYear. Click a type to filter the whole page.</p>
+            </div>
+            <button type="button" class="btn-outline trends-download" data-download="groups">Download CSV</button>
+        </div>
+        <div class="trends-canvas" data-canvas></div>
+    </section>
+
+    <section class="trends-card" id="chart-map" aria-labelledby="map-title">
+        <div class="trends-card-head">
+            <div>
+                <h2 id="map-title" class="trends-card-title">Where it's happening, by ward</h2>
+                <p class="trends-card-sub">Council wards shaded by offenses so far this year. Per-resident rates use 2020 Census residents, so wards with many workers and visitors (Downtown, Uptown) run high. Hover a ward for its numbers, click it to filter the page.</p>
+            </div>
+        </div>
+        <div class="trends-sort" role="group" aria-label="Shade by">
+            <span>Shade by</span>
+            <button type="button" class="trends-tab is-active" data-map-metric="rate" aria-pressed="true">Per 1,000 residents</button>
+            <button type="button" class="trends-tab" data-map-metric="count" aria-pressed="false">Offenses</button>
+        </div>
+        <div class="trends-canvas" data-canvas></div>
     </section>
 
     <section class="trends-card" id="chart-heat" aria-labelledby="heat-title">
@@ -230,6 +240,49 @@
                 </table>
             }
         </details>
+    </section>
+
+    <section class="trends-card" id="chart-groups" aria-labelledby="groups-title">
+        <div class="trends-card-head">
+            <div>
+                <h2 id="groups-title" class="trends-card-title">Every offense type, as a table</h2>
+                <p class="trends-card-sub">Exact counts, with rates per 1,000 residents and the calls and subsets that are not counted as crimes. Hover a name for MPD's definition.</p>
+            </div>
+            <button type="button" class="btn-outline trends-download" data-download="groups">Download CSV</button>
+        </div>
+        <div id="groups-body">
+            <table class="area-table groups-table">
+                <thead>
+                    <tr><th>Group</th><th>@year</th><th>@(year - 1)</th><th>Change from @(year - 1)</th><th>Change from @firstYear</th><th>Per 1,000 residents</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in Model.Groups)
+                    {
+                        <tr>
+                            <td title="@g.Definition">@g.Label</td>
+                            <td>@g.Counts[^1].Format()</td>
+                            <td>@g.Counts[^2].Format()</td>
+                            <td>@Pct(g.ChangeVsPrior)</td>
+                            <td>@Pct(g.ChangeVsBase)</td>
+                            <td>@(g.RatePerThousand?.ToString("N1", CultureInfo.InvariantCulture))</td>
+                        </tr>
+                    }
+                    <tr class="near-sep"><td colspan="6">Not counted as crimes: calls and subsets of the offenses above</td></tr>
+                    @foreach (var g in Model.Metrics)
+                    {
+                        <tr>
+                            <td title="@g.Definition">@g.Label</td>
+                            <td>@g.Counts[^1].Format()</td>
+                            <td>@g.Counts[^2].Format()</td>
+                            <td>@Pct(g.ChangeVsPrior)</td>
+                            <td>@Pct(g.ChangeVsBase)</td>
+                            <td>@(g.RatePerThousand?.ToString("N1", CultureInfo.InvariantCulture))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <details class="trends-table" data-table><summary>View as table</summary></details>
     </section>
 
     <partial name="_Cite" model="@(("Minneapolis crime statistics", "/crime", Model.Through))" />
