@@ -31,13 +31,13 @@
         (overall, and by offense type, neighborhood and ward). A month that differs is corrected to match: records MPD posted late are added,
         revised ones updated, and ones the city withdrew removed. A case the feed lists twice for the same offense counts twice, as it does in
         the city's totals. The numbers on the site run
-        <strong>through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</strong>, which is about ten days before today on purpose.
+        <strong>through @through.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</strong>, the date of the newest record in the feed.
     </p>
     <p>
         MPD posts records days after the fact. Compared with the same weekday a year earlier, records under about ten days old are
-        only partly there: roughly three quarters at a week, about half at three days, a fifth at two. Counting them would make
-        the latest period look like a drop that never happened, so the newest ten days are held back and filled in
-        as MPD posts them. That is why the latest records you may have read about in the news aren't here yet.
+        only partly there: roughly three quarters at a week, about half at three days, a fifth at two. The newest days are shown
+        anyway and fill in as MPD posts them, so the latest stretch can look like a drop that later corrects. Weekly and monthly
+        reports are marked provisional until they have had time to fill in.
     </p>
 
     <h2 class="method-h">What is counted</h2>

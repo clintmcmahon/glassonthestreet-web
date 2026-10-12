@@ -36,16 +36,11 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
     public const int FirstYear = 2019;
 
     /// <summary>
-    /// MPD posts records days after the fact: compared with the same weekday a year earlier, records
-    /// under about ten days old are only partly there (roughly three quarters at a week, half at three
-    /// days). Including them makes the latest period look like a drop. So the newest days are held back:
-    /// the dataset, and every figure built on it, runs through the latest record minus this many days.
+    /// The last date the site reports: the newest record, never later than today. MPD posts records days
+    /// after the fact, so the newest days can be incomplete; pages say which date the data runs through.
     /// </summary>
-    public const int LagDays = 10;
-
-    /// <summary>The last date whose records are essentially complete.</summary>
-    public static DateOnly CompleteThrough(DateOnly latestRecord, DateOnly today) =>
-        (latestRecord > today ? today : latestRecord).AddDays(-LagDays);
+    public static DateOnly DataThrough(DateOnly latestRecord, DateOnly today) =>
+        latestRecord > today ? today : latestRecord;
 
     /// <summary>Rows MPD couldn't place arrive as 0,0 (older imports stored that as is). They count in every total but have no point.</summary>
     public static bool IsUnplaced(decimal? lat, decimal? lng) => lat is null || lng is null || (lat == 0 && lng == 0);
@@ -90,9 +85,9 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
 
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, CentralTime.Zone));
         var latest = rows.Length == 0 ? today : rows.Max(r => r.Date);
-        var through = CompleteThrough(latest, today);
+        var through = DataThrough(latest, today);
 
-        // The newest days are still being posted; keep them out of every statistic (they stay in the database).
+        // A stray record dated after today stays out of every statistic (it stays in the database).
         rows = rows.Where(r => r.Date <= through).ToArray();
 
         var names = rows.Where(r => r.Neighborhood is not null).Select(r => r.Neighborhood!).Distinct()

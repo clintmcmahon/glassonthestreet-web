@@ -171,7 +171,7 @@
     if (partialMonth >= 0 && !isHidden(years[cur])) {
       var partialItem = htmlEl("span", "trends-legend-static", null, legend);
       htmlEl("span", "trends-legend-hollow", null, partialItem);
-      htmlEl("span", null, MONTHS[partialMonth] + " " + years[cur] + " through " + monthDayLabel(data.through) + " (the newest days are still being posted)", partialItem);
+      htmlEl("span", null, MONTHS[partialMonth] + " " + years[cur] + " through " + monthDayLabel(data.through) + " (the newest days can be incomplete)", partialItem);
     }
 
     var W = Math.max(canvas.clientWidth, 320), H = W < 520 ? 280 : 340;

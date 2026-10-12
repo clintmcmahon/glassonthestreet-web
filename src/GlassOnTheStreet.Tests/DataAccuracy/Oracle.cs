@@ -5,7 +5,7 @@ namespace GlassOnTheStreet.Tests.DataAccuracy;
 /// the site's services: the rules below are written out from the site's published methodology.
 ///   - every row the feed lists is stored, including a second row with the same case, NIBRS code and offense
 ///     (the city's own totals count each); a re-import never stores a row twice
-///   - statistics cover 2019-01-01 through the newest stored date minus 10 days (MPD posts late)
+///   - statistics cover 2019-01-01 through the newest stored date (never later than today)
 ///   - an "offense" is the row's Crime_Count, so a row with Crime_Count 2 is two offenses
 ///   - year comparisons use the same calendar window (Jan 1 through the through-date's month and day)
 /// </summary>
@@ -38,7 +38,7 @@ public sealed class Oracle
 
         var now = today ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, SyntheticFeed.Central));
         var latest = Stored.Where(r => r.CentralDate.Year >= FirstYear).Max(r => r.CentralDate);
-        Through = (latest > now ? now : latest).AddDays(-10);
+        Through = latest > now ? now : latest;
         Visible = Stored.Where(r => r.CentralDate.Year >= FirstYear && r.CentralDate <= Through).ToList();
         Years = Enumerable.Range(FirstYear, Through.Year - FirstYear + 1).ToArray();
     }

@@ -6,7 +6,6 @@ namespace GlassOnTheStreet.Web.Controllers;
 public record DataQualityStats(
     DateOnly Through,
     DateOnly LatestRecord,
-    int LagDays,
     int Records,
     int Unplaced,
     DateTime? LastSyncedUtc);
@@ -21,7 +20,7 @@ public class DataQualityController(IncidentDataCache dataCache, ISyncStatusServi
         var unplaced = dataset.Rows.Count(r => float.IsNaN(r.Lat));
         ViewData["ContactEmail"] = configuration["Site:ContactEmail"];
         return View(new DataQualityStats(
-            dataset.Through, dataset.LatestRecord ?? dataset.Through, IncidentDataCache.LagDays,
+            dataset.Through, dataset.LatestRecord ?? dataset.Through,
             dataset.Rows.Length, unplaced, await syncStatus.GetLastSyncedAtAsync(cancellationToken)));
     }
 }

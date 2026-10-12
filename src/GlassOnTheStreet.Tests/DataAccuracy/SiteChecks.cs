@@ -132,7 +132,7 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
         Assert.Equal(Expected(Oracle.WardOf), Shown(lists[1]));
     }
 
-    public async Task Home_DatesOnThePageAreTheThroughDateAndNeverTheHeldBackDays()
+    public async Task Home_DatesOnThePageAreTheThroughDateAndNeverALaterOne()
     {
         var doc = await PageAsync("/");
         var text = Text(doc.Body);
@@ -140,7 +140,7 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
 
         Assert.Contains($"Jan 1 to {through}", text);
         Assert.Contains($"MPD data through {through}", text);
-        // No date inside the 10-day holdback appears as a data date.
+        // No date after the newest record appears as a data date.
         foreach (var held in Enumerable.Range(1, 10).Select(d => O.Through.AddDays(d)))
         {
             Assert.DoesNotContain($"to {Day(held)}", text);

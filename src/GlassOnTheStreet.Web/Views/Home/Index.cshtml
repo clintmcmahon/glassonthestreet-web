@@ -115,11 +115,11 @@
 <div class="page">
     <p class="kicker">Minneapolis</p>
     <h1 class="display" style="font-size: 2.6rem; max-width: 720px;">
-        Minneapolis car break-ins: we track smashed windows and rifled-through cars to report to city hall.
+        Minneapolis car break-ins: a shared map of smashed windows and rifled-through cars.
     </h1>
     <p class="lede">
-        Report a car break-in in under a minute. Enough reports and we can show exactly where and when this is
-        happening, hotspots and then take that to the police and city hall.
+        Report a car break-in in under a minute. Enough reports show exactly where and when this is
+        happening, and we can share that with MPD and the city to help them respond.
     </p>
     <p class="lede">
         Below: what MPD has recorded for car-related crime, and what residents report that never reaches the police. The two
@@ -165,7 +165,7 @@
         </div>
     </div>
     <p class="field-hint stat-line-note">
-        MPD data through @ytdThrough. The newest 10 days are held back while MPD posts them, and 2019 runs low early in the year, so read that comparison with care.
+        MPD data through @ytdThrough. The newest days can be incomplete while MPD posts them, and 2019 runs low early in the year, so read that comparison with care.
         Resident reports@(Model.ResidentReportsLast30Days > 0 ? $" ({Model.ResidentReportsLast30Days.Format()} in the last 30 days)" : "") appear as separate dots on the map and are never added to MPD counts, because a resident who also called the police would be counted twice. They are unverified.
         <a asp-controller="Trends" asp-action="Index">See the full trends &rarr;</a>
     </p>
@@ -427,30 +427,28 @@
         <li><strong>Car-related.</strong> Four MPD offense types combined: theft from motor vehicle (a break-in or items taken from a car), motor vehicle theft (the whole car), theft of motor vehicle parts or accessories (catalytic converters, wheels), and destruction/damage/vandalism of property. That last type covers all property, such as graffiti and broken windows on buildings, and is not limited to cars.</li>
         <li><strong>All crimes.</strong> Every offense type MPD records, from homicide to shoplifting. They live on the <a href="/crime">all crime statistics</a> page. Car-related crime is a subset of them, so the MPD numbers here are already inside those totals. Don't add the two together.</li>
         <li><strong>Offense.</strong> One count of one crime type. A case with two victims is two offenses. Pages that count this way agree with each other.</li>
-        <li><strong>Why the newest 10 days are missing.</strong> MPD posts records days late. Counting them early would make the latest days look quiet, so every figure stops about ten days before today (currently @ytdThrough).</li>
+        <li><strong>Why the newest days can look low.</strong> MPD posts records days late, so the latest days fill in over the following week or so. Every figure runs through the newest record (currently @ytdThrough).</li>
         <li><strong>Percent changes.</strong> Always the same calendar dates in each year, never a partial year against a full one.</li>
     </ul>
 
     <h2 style="margin-top: 2.5rem; font-size: 1.4rem;">Why this exists</h2>
     <p>
-        Police don't track this the way we need them to. Their data has a
-        category for a car getting broken into, "Theft From Motor
-        Vehicle," but it doesn't say how someone got in -- a smashed
-        window and someone rifling through your glovebox get lumped into
-        the same record. There's no field for what actually happened.
+        MPD's data has a category for a car getting broken into, "Theft From
+        Motor Vehicle," but no field for how someone got in, so a smashed
+        window and someone rifling through your glovebox land in the same
+        record.
     </p>
     <p>
-        Most people don't report it either. When a window gets smashed and nothing is missing what are the police going to
-        do about it? A police report is never created and neither is that data point. Multiply that by every car on
-        your block and there's no record of any of it anywhere.
+        Many people don't report it either. When a window is smashed and nothing is missing, it can feel like a report won't
+        go anywhere, so no record gets created. Multiply that by every car on your block and the data has a gap.
     </p>
     <p>
         This site fixes both problems. Report a window getting smashed
         or a car getting rifled through, block by block, date by date.
         Right now the map is mostly MPD's own numbers -- car break-ins,
         parts theft, and full vehicle theft -- since that's what exists
-        until enough of you report your own. After a while we can go to
-        police and city hall with specifics about what's going on: which
+        until enough of you report your own. After a while we can share
+        specifics with police and city hall about what's going on: which
         blocks, which times, how often.
     </p>
 

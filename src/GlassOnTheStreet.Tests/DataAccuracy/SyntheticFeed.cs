@@ -28,7 +28,7 @@ public static class SyntheticFeed
 {
     public static readonly TimeZoneInfo Central = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
 
-    /// <summary>Last record in the fake feed. The site holds back the newest 10 days, so these rows must not be counted.</summary>
+    /// <summary>Last record in the fake feed. The site reports through this date.</summary>
     public static readonly DateOnly Latest = new(2026, 9, 30);
 
     /// <summary>(group, category, offense, type, NIBRS code, crime against, weight)</summary>

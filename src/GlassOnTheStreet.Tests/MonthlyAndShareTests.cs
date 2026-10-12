@@ -107,37 +107,36 @@ public class OgImageTests
 }
 
 /// <summary>
-/// MPD posts the newest records late (about three quarters are there at a week, half at three days),
-/// so the data is cut off ten days before the latest record. Otherwise the last stretch looks like a
-/// drop that never happened.
+/// The site reports through the newest record, never later than today, so a stray future-dated record
+/// can't push the data past the present. A month is only reported once it has fully ended in the data.
 /// </summary>
-public class CompleteThroughTests
+public class DataThroughTests
 {
     [Fact]
-    public void HoldsBackTheNewestTenDaysBeforeTheLatestRecord()
+    public void RunsThroughTheNewestRecord()
     {
-        var through = IncidentDataCache.CompleteThrough(new DateOnly(2026, 10, 2), new DateOnly(2026, 10, 4));
+        var through = IncidentDataCache.DataThrough(new DateOnly(2026, 10, 10), new DateOnly(2026, 10, 12));
 
-        Assert.Equal(new DateOnly(2026, 9, 22), through);
+        Assert.Equal(new DateOnly(2026, 10, 10), through);
     }
 
     [Fact]
     public void NeverRunsAheadOfTodayEvenIfAStrayRecordIsDatedLater()
     {
-        var through = IncidentDataCache.CompleteThrough(new DateOnly(2026, 12, 31), new DateOnly(2026, 10, 4));
+        var through = IncidentDataCache.DataThrough(new DateOnly(2026, 12, 31), new DateOnly(2026, 10, 4));
 
-        Assert.Equal(new DateOnly(2026, 9, 24), through);
+        Assert.Equal(new DateOnly(2026, 10, 4), through);
     }
 
     [Fact]
-    public void AMonthIsOnlyReportedOnceItsDataIsComplete()
+    public void AMonthIsOnlyReportedOnceItHasEndedInTheData()
     {
-        // The latest record is Oct 2, so data runs through Sep 22: September is not finished yet, August is.
-        var through = IncidentDataCache.CompleteThrough(new DateOnly(2026, 10, 2), new DateOnly(2026, 10, 4));
-        var rows = new[] { new IncidentRow(1, new DateOnly(2026, 8, 10), 12, (byte)CrimeGroups.IndexOf("burglary"), 1, "Alpha", 1, 44.95f, -93.25f) };
+        // The latest record is Oct 2, so September is finished and October is not.
+        var through = IncidentDataCache.DataThrough(new DateOnly(2026, 10, 2), new DateOnly(2026, 10, 4));
+        var rows = new[] { new IncidentRow(1, new DateOnly(2026, 9, 10), 12, (byte)CrimeGroups.IndexOf("burglary"), 1, "Alpha", 1, 44.95f, -93.25f) };
         var service = new MonthlyReportService(new FakeIncidentCache(rows, through));
 
-        Assert.NotNull(service.GetAsync(2026, 8).GetAwaiter().GetResult());
-        Assert.Null(service.GetAsync(2026, 9).GetAwaiter().GetResult());
+        Assert.NotNull(service.GetAsync(2026, 9).GetAwaiter().GetResult());
+        Assert.Null(service.GetAsync(2026, 10).GetAwaiter().GetResult());
     }
 }

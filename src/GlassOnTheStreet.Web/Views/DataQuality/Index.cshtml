@@ -29,7 +29,6 @@
         <tbody>
             <tr><td>Newest record in the feed</td><td>@Model.LatestRecord.ToString("MMMM d, yyyy", inv)</td></tr>
             <tr><td>Figures on this site run through</td><td>@Model.Through.ToString("MMMM d, yyyy", inv)</td></tr>
-            <tr><td>Days held back for late posting</td><td>@Model.LagDays</td></tr>
             <tr><td>Records loaded (2019 to date)</td><td>@Model.Records.Format()</td></tr>
             <tr><td>Records MPD could not place on the map</td><td>@Model.Unplaced.Format() (@unplacedShare.ToString("0.0", inv)%)</td></tr>
             <tr><td>Last check of the city's feed</td><td>@(Model.LastSyncedUtc is { } synced ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(synced, DateTimeKind.Utc), GlassOnTheStreet.Web.Infrastructure.CentralTime.Zone).ToString("MMMM d, yyyy h:mm tt", inv) + " Central" : "not yet recorded")</td></tr>
@@ -38,7 +37,7 @@
 
     <h2 class="method-h">Standing limits</h2>
     <ul>
-        <li><strong>Late posting.</strong> MPD adds records days after the fact. Compared with the same weekday a year earlier, records under about ten days old are only partly there (roughly three quarters at a week, half at three days). Counting them makes the latest period look like a drop, so every figure here stops @Model.LagDays days short of the newest record.</li>
+        <li><strong>Late posting.</strong> MPD adds records days after the fact. Compared with the same weekday a year earlier, records under about ten days old are only partly there (roughly three quarters at a week, half at three days). The newest days are shown anyway, so the latest period can look like a drop that later corrects.</li>
         <li><strong>Unplaced records.</strong> Some records arrive with no usable location. They count in every total and appear on no map or "near me" result. The map reports how many it left off.</li>
         <li><strong>Revisions.</strong> MPD can reclassify, add or withdraw records after publishing. Each sync reconciles the stored data with the feed, so a past week or month can change slightly. Weekly and monthly pages say when a period is still provisional.</li>
         <li><strong>Reported crime only.</strong> Incidents nobody reported are not in the feed.</li>
@@ -50,6 +49,11 @@
         <thead><tr><th>Date</th><th>Problem</th><th>Fix</th></tr></thead>
         <tbody>
             <tr>
+                <td>Oct 12, 2026</td>
+                <td>The ten-day hold-back left records already in the feed off the site, so figures ran about ten days behind the data.</td>
+                <td>The hold-back is gone. Figures run through the newest record in the feed. The newest days can still be incomplete, so the latest period may read low until MPD finishes posting it.</td>
+            </tr>
+            <tr>
                 <td>Oct 5, 2026</td>
                 <td>Rows MPD could not place arrived as a point at 0,0. A north-edge geofence boundary also misjudged some locations.</td>
                 <td>Unplaced rows are stored as having no location, still counted in totals and left off maps. The geofence edge was corrected. An accuracy test suite now checks the stored data against the city's feed and every page against an independent calculation. Records posted late, revised or withdrawn by MPD are now reconciled on each sync.</td>
@@ -57,7 +61,7 @@
             <tr>
                 <td>Oct 4, 2026</td>
                 <td>The latest days looked like a sharp drop because MPD had not finished posting them. The homepage showed down 38.6% for the last 30 days.</td>
-                <td>Figures now stop @Model.LagDays days before the newest record. Resident reports, which can describe incidents MPD also has, are no longer added to MPD counts.</td>
+                <td>Figures stopped ten days before the newest record. Resident reports, which can describe incidents MPD also has, are no longer added to MPD counts.</td>
             </tr>
             <tr>
                 <td>Oct 2, 2026</td>

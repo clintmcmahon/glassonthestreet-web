@@ -6,7 +6,7 @@
     var rawTitle = ViewData["Title"] as string ?? "Glass on the Street";
     var pageTitle = rawTitle.Contains("Glass on the Street") ? rawTitle : $"{rawTitle} — Glass on the Street";
     var description = ViewData["Description"] as string ??
-        "Most Minneapolis car break-ins never get reported, and the city's own data can't tell a smashed window from an unlocked door. Residents are building the dataset it takes to hold the city accountable.";
+        "Most Minneapolis car break-ins never get reported, and police data can't tell a smashed window from an unlocked door. Residents are building a shared record of where and when it happens.";
     var socialImage = baseUrl + (ViewData["OgImage"] as string ?? "/og-image.png");
 }
 <!DOCTYPE html>

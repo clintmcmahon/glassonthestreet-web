@@ -20,14 +20,6 @@ public class UnplacedLocationTests
         Neighborhood = "Whittier", Ward = 10
     };
 
-    // The newest 10 days are held back, so a later record is what makes June count as complete.
-    private static MpdIncident Newest()
-    {
-        var row = Row("newest", 44.95m, -93.27m, "0001XX MAIN ST");
-        row.OccurredDate = new DateOnly(2026, 9, 30);
-        return row;
-    }
-
     [Fact]
     public async Task TheCacheTreatsZeroZeroAsNoLocationButStillCountsTheOffense()
     {
@@ -35,8 +27,7 @@ public class UnplacedLocationTests
         db.MpdIncidents.AddRange(
             Row("placed", 44.9552m, -93.2776m, "0026XX NICOLLET AVE"),
             Row("zero-zero", 0m, 0m, "No Address", count: 3),
-            Row("null", null, null, null),
-            Newest());
+            Row("null", null, null, null));
         await db.SaveChangesAsync();
 
         var dataset = await new IncidentDataCache(db, new MemoryCache(new MemoryCacheOptions())).GetAsync();
@@ -53,8 +44,7 @@ public class UnplacedLocationTests
         await using var db = NewDb();
         db.MpdIncidents.AddRange(
             Row("placed", 44.9552m, -93.2776m, "0026XX NICOLLET AVE", count: 2),
-            Row("zero-zero", 0m, 0m, "No Address", count: 3),
-            Newest());
+            Row("zero-zero", 0m, 0m, "No Address", count: 3));
         await db.SaveChangesAsync();
 
         var map = new MapDataService(new IncidentDataCache(db, new MemoryCache(new MemoryCacheOptions())));

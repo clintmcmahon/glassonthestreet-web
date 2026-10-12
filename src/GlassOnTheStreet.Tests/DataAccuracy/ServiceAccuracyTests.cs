@@ -152,14 +152,13 @@ public class ServiceAccuracyTests(World world) : IDisposable
     }
 
     [Fact]
-    public async Task CrimeStats_RowsInTheLagWindowAndBeforeTheFirstYearAreExcluded()
+    public async Task CrimeStats_RowsBeforeTheFirstYearAreExcluded()
     {
         var data = await Svc<ICrimeStatsService>().GetCrimeAsync(new CrimeFilter(null, null, null));
-        var held = O.Stored.Where(r => r.CentralDate > O.Through && r.ExpectedIsCrime).Sum(r => r.Count);
         var early = O.Stored.Where(r => r.CentralDate.Year < Oracle.FirstYear && r.ExpectedIsCrime).Sum(r => r.Count);
 
-        Assert.True(held > 0 && early > 0, "The fake feed must include rows in the lag window and before 2019.");
-        // Whole-year totals by month: nothing after the through-date, and no 2018.
+        Assert.True(early > 0, "The fake feed must include rows before 2019.");
+        // Whole-year totals by month: no 2018.
         var monthlyTotal = data.Monthly.Sum(y => y.Sum(m => m ?? 0));
         Assert.Equal(O.Visible.Where(r => r.ExpectedIsCrime).Sum(r => r.Count), monthlyTotal);
         Assert.Equal(Oracle.FirstYear, data.Years[0]);
