@@ -11,7 +11,6 @@
 
     var current = Model.SamePeriod[^1];
     var prior = Model.SamePeriod[^2];
-    var baseline = Model.SamePeriod[0];
     var priorYear = Model.CurrentYear - 1;
     var firstYear = Model.Years[0];
 
@@ -31,14 +30,14 @@
     <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Minneapolis car break-in and auto theft trends</h1>
     <p class="lede" style="max-width: 720px;">
         Minneapolis Police Department records for theft from vehicles, vehicle theft, parts theft
-        and property damage, @firstYear to today. 2019 is the last full year before COVID.
+        and property damage, @firstYear to today.
     </p>
 
     <partial name="_CarCallout" />
 
     <p id="trends-headline" class="trends-headline">
         Through @Model.Through.ToString("MMM d, yyyy", CultureInfo.InvariantCulture), MPD has recorded
-        <strong>@current.Format()</strong> reports in these categories since Jan 1@(Change(current, prior, priorYear) is { Length: > 0 } c1 ? $": {c1}" : "")@(Change(current, baseline, firstYear) is { Length: > 0 } c2 ? $", and {c2}" : "").
+        <strong>@current.Format()</strong> reports in these categories since Jan 1@(Change(current, prior, priorYear) is { Length: > 0 } c1 ? $": {c1}" : "").
     </p>
 
     <div class="trends-filters" role="group" aria-label="Filters">
@@ -195,9 +194,8 @@
         The current year runs through the newest date in MPD's records (the newest days can be incomplete while MPD posts them), and every comparison uses the same
         calendar window. "Property damage / vandalism" is MPD's own category and isn't vehicle-specific.
         Counts are raw totals, not adjusted for population. 2019 is the first year of MPD's current
-        records feed, and its early months (January to April) run well below every later year. We
-        can't tell from the data whether that is a real pre-COVID low or the feed ramping up, so read
-        comparisons against 2019 with care.
+        records feed, and its early months (January to April) run well below every later year, so
+        the earliest part of the 2019 line may understate what happened.
         <a asp-controller="Map" asp-action="Index">See the map</a> or browse
         <a asp-controller="Areas" asp-action="Index">every neighborhood and ward</a>.
     </p>

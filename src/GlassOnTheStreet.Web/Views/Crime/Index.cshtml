@@ -8,7 +8,6 @@
     var through = Model.Through.ToString("MMM d", CultureInfo.InvariantCulture);
     var current = Model.SamePeriod[^1];
     var prior = Model.SamePeriod[^2];
-    var baseline = Model.SamePeriod[0];
     var year = Model.CurrentYear;
     var firstYear = Model.Years[0];
 
@@ -34,13 +33,13 @@
     <h1 class="display" style="font-size: 2.2rem; max-width: 760px;">Minneapolis crime statistics, every offense</h1>
     <p class="lede" style="max-width: 720px;">
         Offenses recorded by the Minneapolis Police Department from @firstYear to today, grouped in plain language:
-        assault, robbery, burglary, theft, homicide and more. @firstYear is the last full year before COVID.
+        assault, robbery, burglary, theft, homicide and more.
         Counts are offenses as MPD counts them (a case with two victims is two offenses).
     </p>
 
     <p id="trends-headline" class="trends-headline">
         Through @Model.Through.ToString("MMM d, yyyy", CultureInfo.InvariantCulture), MPD has recorded
-        <strong>@current.Format()</strong> offenses of every kind since Jan 1@(Change(current, prior, year - 1) is { Length: > 0 } c1 ? $": {c1}" : "")@(Change(current, baseline, firstYear) is { Length: > 0 } c2 ? $", and {c2}" : "").
+        <strong>@current.Format()</strong> offenses of every kind since Jan 1@(Change(current, prior, year - 1) is { Length: > 0 } c1 ? $": {c1}" : "").
     </p>
 
     <p class="field-hint">
@@ -253,7 +252,7 @@
         <div id="groups-body">
             <table class="area-table groups-table">
                 <thead>
-                    <tr><th>Group</th><th>@year</th><th>@(year - 1)</th><th>Change from @(year - 1)</th><th>Change from @firstYear</th><th>Per 1,000 residents</th></tr>
+                    <tr><th>Group</th><th>@year</th><th>@(year - 1)</th><th>Change from @(year - 1)</th><th>Per 1,000 residents</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var g in Model.Groups)

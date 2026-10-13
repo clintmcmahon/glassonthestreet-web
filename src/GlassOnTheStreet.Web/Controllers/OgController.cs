@@ -22,7 +22,7 @@ public class OgController(
         var d = await crimeStats.GetCrimeAsync(new CrimeFilter(null, null, null), false, ct);
         return new OgCard(
             "Minneapolis crime statistics", Fmt(d.SamePeriod[^1]), $"offenses so far in {d.CurrentYear}",
-            Compare(d.SamePeriod[^1], d.SamePeriod[^2], d.CurrentYear - 1, d.SamePeriod[0], d.Years[0]), Footer(d.Through));
+            Compare(d.SamePeriod[^1], d.SamePeriod[^2], d.CurrentYear - 1), Footer(d.Through));
     });
 
     [HttpGet("og/trends.png")]
@@ -31,7 +31,7 @@ public class OgController(
         var d = await trends.GetTrendsAsync(new TrendFilter(Models.IncidentType.Unknown, null, null), ct);
         return new OgCard(
             "Minneapolis car break-ins", Fmt(d.SamePeriod[^1]), $"theft-from-vehicle reports so far in {d.CurrentYear}",
-            Compare(d.SamePeriod[^1], d.SamePeriod[^2], d.CurrentYear - 1, d.SamePeriod[0], d.Years[0]), Footer(d.Through));
+            Compare(d.SamePeriod[^1], d.SamePeriod[^2], d.CurrentYear - 1), Footer(d.Through));
     });
 
     [HttpGet("og/neighborhood/{slug}.png")]
@@ -119,10 +119,6 @@ public class OgController(
     private static string Footer(DateOnly through) =>
         $"glassonthestreet.com  |  MPD data through {through.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}";
 
-    private static string Compare(int now, int prior, int priorYear, int baseline, int baseYear)
-    {
-        string Move(int a, int b) => b == 0 ? "" : $"{(a >= b ? "up" : "down")} {Math.Abs(Math.Round((a - b) / (double)b * 100)).ToString("0", CultureInfo.InvariantCulture)}%";
-        return string.Join(", ", new[] { Move(now, prior) is { Length: > 0 } a ? $"{a} from {priorYear}" : null,
-            Move(now, baseline) is { Length: > 0 } b ? $"{b} from {baseYear}" : null }.Where(x => x is not null));
-    }
+    private static string Compare(int now, int prior, int priorYear) =>
+        prior == 0 ? "" : $"{(now >= prior ? "up" : "down")} {Math.Abs(Math.Round((now - prior) / (double)prior * 100)).ToString("0", CultureInfo.InvariantCulture)}% from {priorYear}";
 }

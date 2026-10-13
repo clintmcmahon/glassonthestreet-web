@@ -19,7 +19,6 @@
     var ytd = Model.Trends;
     var ytdNow = ytd.SamePeriod[^1];
     var ytdPrior = ytd.SamePeriod[^2];
-    var ytdBase = ytd.SamePeriod[0];
     string Pct(int now, int then) =>
         then == 0 ? "n/a" : $"{(now >= then ? "+" : "-")}{Math.Abs(Math.Round((now - then) / (double)then * 100)).ToString("0", System.Globalization.CultureInfo.InvariantCulture)}%";
     string PctClass(int now, int then) => then == 0 ? "" : now > then ? "up" : now < then ? "down" : "";
@@ -137,7 +136,7 @@
             </div>
             <div class="stat">
                 <div class="stat-value @changeClass" data-metric="car-30d-change">@changeText</div>
-                <div class="stat-label">MPD car-related offenses vs. the 30 days before</div>
+                <div class="stat-label">MPD car-related offenses vs. the same 30 days last year</div>
             </div>
             <div class="stat">
                 <div class="stat-value" data-metric="car-ytd">@ytdNow.Format()</div>
@@ -146,10 +145,6 @@
             <div class="stat">
                 <div class="stat-value @PctClass(ytdNow, ytdPrior)" data-metric="car-ytd-vs-prior">@Pct(ytdNow, ytdPrior)</div>
                 <div class="stat-label">MPD car-related offenses vs. Jan 1 to @ytdThrough @(ytd.CurrentYear - 1)</div>
-            </div>
-            <div class="stat">
-                <div class="stat-value @PctClass(ytdNow, ytdBase)" data-metric="car-ytd-vs-base">@Pct(ytdNow, ytdBase)</div>
-                <div class="stat-label">MPD car-related offenses vs. Jan 1 to @ytdThrough @ytd.Years[0], pre-COVID</div>
             </div>
             @if (gap.PercentUnreported is not null)
             {
@@ -165,7 +160,7 @@
         </div>
     </div>
     <p class="field-hint stat-line-note">
-        MPD data through @ytdThrough. The newest days can be incomplete while MPD posts them, and 2019 runs low early in the year, so read that comparison with care.
+        MPD data through @ytdThrough. The newest days can be incomplete while MPD posts them.
         Resident reports@(Model.ResidentReportsLast30Days > 0 ? $" ({Model.ResidentReportsLast30Days.Format()} in the last 30 days)" : "") appear as separate dots on the map and are never added to MPD counts, because a resident who also called the police would be counted twice. They are unverified.
         <a asp-controller="Trends" asp-action="Index">See the full trends &rarr;</a>
     </p>

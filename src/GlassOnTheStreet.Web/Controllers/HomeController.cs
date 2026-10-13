@@ -13,7 +13,7 @@ public class HomeController(IReportStatsService statsService, ISyncStatusService
         // -- a crawler or agent that doesn't execute JavaScript should see
         // today's number, not an empty placeholder, and it's accurate as
         // of each request without needing a client-side re-fetch.
-        var stats = await statsService.GetStatsAsync(from: null, to: null, cancellationToken);
+        var stats = await statsService.GetStatsVsLastYearAsync(cancellationToken);
         var reportingGap = await statsService.GetPoliceReportingGapAsync(cancellationToken);
         var trend = await statsService.GetMonthlyTrendAsync(6, cancellationToken);
 

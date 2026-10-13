@@ -152,7 +152,7 @@
       var key = htmlEl("span", "trends-legend-key", null, item);
       key.style.borderColor = yearColor(i, n);
       if (i === cur) key.classList.add("is-current");
-      htmlEl("span", null, i === 0 ? year + " (pre-COVID)" : String(year), item);
+      htmlEl("span", null, String(year), item);
       item.addEventListener("click", function () {
         // Counted now, not at render time, so a stale handler can't hide the last line.
         var visibleNow = years.filter(function (y) { return !isHidden(y); }).length;
@@ -302,8 +302,7 @@
     var windowLabel = "Jan 1 to " + monthDayLabel(data.through);
 
     var comparisons = [
-      { label: "vs " + years[cur - 1], pct: percentChange(counts[cur], counts[cur - 1]) },
-      { label: "vs " + years[0] + " (pre-COVID)", pct: percentChange(counts[cur], counts[0]) }
+      { label: "vs " + years[cur - 1], pct: percentChange(counts[cur], counts[cur - 1]) }
     ];
     comparisons.forEach(function (c) {
       var tile = htmlEl("div", "trends-stat", null, stats);
@@ -799,7 +798,7 @@
     htmlEl("caption", "groups-caption", windowLabel + ", " + data.scope + ". Offenses, counted per MPD's offense count.", table);
     var thead = htmlEl("thead", null, null, table);
     var hr = htmlEl("tr", null, null, thead);
-    var cols = ["Group", String(years[cur]), String(years[cur - 1]), "Change from " + years[cur - 1], "Change from " + years[0]];
+    var cols = ["Group", String(years[cur]), String(years[cur - 1]), "Change from " + years[cur - 1]];
     if (data.population) cols.push("Per 1,000 residents");
     cols.forEach(function (h) { htmlEl("th", null, h, hr); });
     var tbody = htmlEl("tbody", null, null, table);
@@ -819,7 +818,6 @@
       htmlEl("td", null, fmt(g.counts[cur]), tr);
       htmlEl("td", null, fmt(g.counts[cur - 1]), tr);
       htmlEl("td", null, g.changeVsPrior === null ? "" : formatChange(g.changeVsPrior), tr);
-      htmlEl("td", null, g.changeVsBase === null ? "" : formatChange(g.changeVsBase), tr);
       if (data.population) htmlEl("td", null, g.ratePerThousand === null ? "" : g.ratePerThousand.toLocaleString("en-US"), tr);
     }
 
@@ -954,10 +952,8 @@
     htmlEl("strong", null, fmt(counts[cur]), el);
     el.appendChild(document.createTextNode(" " + scope.join(" ") + " since Jan 1"));
     var vsPrior = percentChange(counts[cur], counts[cur - 1]);
-    var vsBase = percentChange(counts[cur], counts[0]);
     var tail = "";
     if (vsPrior !== null) tail += ": " + formatChange(vsPrior) + " from " + years[cur - 1];
-    if (vsBase !== null) tail += (tail ? ", and " : ": ") + formatChange(vsBase) + " from " + years[0];
     el.appendChild(document.createTextNode(tail + "."));
   }
 

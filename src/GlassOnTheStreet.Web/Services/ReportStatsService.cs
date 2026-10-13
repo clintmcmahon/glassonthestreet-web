@@ -30,6 +30,18 @@ public class ReportStatsService(GlassOnTheStreetContext db, IncidentDataCache in
         return new ReportStats(summary.Total, summary.PriorTotal, summary.ChangeVsPrior);
     }
 
+    public async Task<ReportStats> GetStatsVsLastYearAsync(CancellationToken cancellationToken = default)
+    {
+        var dataset = await incidents.GetAsync(cancellationToken);
+        var end = dataset.Through;
+        var start = end.AddDays(-29);
+        var now = await mapData.GetSummaryAsync(new MapFilter(MapDataService.CarGroup, start, end), cancellationToken);
+        var lastYear = await mapData.GetSummaryAsync(
+            new MapFilter(MapDataService.CarGroup, start.AddYears(-1), end.AddYears(-1)), cancellationToken);
+        double? change = lastYear.Total > 0 ? Math.Round((now.Total - lastYear.Total) / (double)lastYear.Total * 100, 1) : null;
+        return new ReportStats(now.Total, lastYear.Total, change);
+    }
+
     public async Task<ReportBreakdown> GetBreakdownAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default)
     {
         var summary = await CarSummaryAsync(from, to, cancellationToken);

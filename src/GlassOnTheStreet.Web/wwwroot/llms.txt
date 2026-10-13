@@ -43,7 +43,7 @@ Embeddable chart (iframe): /embed/year-bars?scope=crime|car&category=&neighborho
 - These are reported crimes only. Many incidents, especially car break-ins where nothing is taken, are never reported.
 - Not counted as crimes and shown separately: shots-fired calls (ShotSpotter and 911; thousands each year), gunshot wound victims, and subset rows (domestic aggravated assault is a subset of aggravated assault; carjacking is a subset of robbery). Do not add them to crime totals.
 - "Property damage / vandalism" is MPD's general category (graffiti, building damage and more), not vehicle-specific.
-- 2019 is the first year of MPD's current records feed, and its early months (January to April) run well below every later year. It is not known whether that is a real pre-COVID low or the feed ramping up, so comparisons against 2019 should be hedged.
+- 2019 is the first year of MPD's current records feed, and its early months (January to April) run well below every later year. The site makes no comparison against 2019; the earliest part of that year's line may understate what happened.
 - Rates per 1,000 residents use 2020 Census block counts summed into neighborhood and ward boundaries (total 429,956). Places with many workers and visitors (Downtown, Uptown, industrial areas) look high because only residents are counted. Rates are withheld for neighborhoods under 1,000 residents.
 - Rankings of places by raw count mostly reflect where people live, work and gather. Avoid presenting any place as "safest" or "most dangerous" from these numbers.
 - Locations are the midpoint of a block, never an exact address. MPD places every record this way and resident reports are snapped to the same points.

@@ -46,6 +46,12 @@ public interface IReportStatsService
 
     Task<IReadOnlyList<CategoryCount>> GetResidentCategoryCountsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The last 30 days of MPD car-related offenses against the same calendar dates a year earlier
+    /// (PriorCount and PercentChange describe that year-ago window).
+    /// </summary>
+    Task<ReportStats> GetStatsVsLastYearAsync(CancellationToken cancellationToken = default);
+
     Task<ReportStats> GetStatsAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
 
     Task<ReportBreakdown> GetBreakdownAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);

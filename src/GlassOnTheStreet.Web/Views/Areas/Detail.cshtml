@@ -9,7 +9,6 @@
     var years = t.Years;
     var cur = t.SamePeriod[^1];
     var prior = t.SamePeriod[^2];
-    var first = t.SamePeriod[0];
     var year = t.CurrentYear;
     var isWard = Model.Kind == "ward";
     var through = t.Through.ToString("MMM d", CultureInfo.InvariantCulture);
@@ -77,7 +76,7 @@
     <p class="trends-headline">
         From Jan 1 through @through, @year, the Minneapolis Police Department recorded
         <strong>@cur.ToString("N0", CultureInfo.InvariantCulture)</strong> car break-in, auto theft, vehicle parts theft and
-        property damage reports in @(isWard ? Model.Name : "the " + Model.Name + " neighborhood")@(changePrior.Length > 0 ? $": {changePrior} from {prior.ToString("N0", CultureInfo.InvariantCulture)} in the same period of {year - 1}" : "")@(Change(cur, first) is { Length: > 0 } c ? $", and {c} from {first.ToString("N0", CultureInfo.InvariantCulture)} in {years[0]}" : "").
+        property damage reports in @(isWard ? Model.Name : "the " + Model.Name + " neighborhood")@(changePrior.Length > 0 ? $": {changePrior} from {prior.ToString("N0", CultureInfo.InvariantCulture)} in the same period of {year - 1}" : "").
         That ranks @Model.Name <strong>#@Model.Rank of @Model.RankedOf</strong> @(isWard ? "wards" : "Minneapolis neighborhoods") by reports this year.
         @if (categoryTotal > 0)
         {
@@ -188,7 +187,7 @@
         <table class="area-table">
             <thead>
                 <tr>
-                    <th>Category</th><th>@years[0]</th><th>@(year - 1)</th><th>@year</th><th>Change from @(year - 1)</th>
+                    <th>Category</th><th>@(year - 1)</th><th>@year</th><th>Change from @(year - 1)</th>
                 </tr>
             </thead>
             <tbody>
@@ -196,7 +195,6 @@
                 {
                     <tr>
                         <td>@category.Label</td>
-                        <td>@category.Counts[0].ToString("N0", CultureInfo.InvariantCulture)</td>
                         <td>@category.Counts[^2].ToString("N0", CultureInfo.InvariantCulture)</td>
                         <td>@category.Counts[^1].ToString("N0", CultureInfo.InvariantCulture)</td>
                         <td>@Change(category.Counts[^1], category.Counts[^2])</td>
@@ -271,7 +269,7 @@
     <p class="field-hint" style="margin-top: 1.5rem;">
         Source: this site's import of Minneapolis Police Department open data, counted by report date through the
         newest date in MPD's records (the newest days can be incomplete while MPD posts them). Counts are raw totals, not adjusted for population. 2019 is the first year of
-        MPD's current records feed and its early months run well below later years, so read comparisons against 2019 with care.
+        MPD's current records feed and its early months run well below later years.
         This is not an official crime statistic.
     </p>
 </div>

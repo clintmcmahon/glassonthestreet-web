@@ -66,7 +66,7 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
     {
         var doc = await PageAsync("/");
         var now = O.Sum(Oracle.IsCar, O.Through.AddDays(-29), O.Through);
-        var before = O.Sum(Oracle.IsCar, O.Through.AddDays(-59), O.Through.AddDays(-30));
+        var before = O.Sum(Oracle.IsCar, O.Through.AddDays(-29).AddYears(-1), O.Through.AddYears(-1));
         var change = Oracle.PercentChange(now, before);
 
         Assert.Equal(now, N(Metric(doc, "car-30d")));
@@ -81,7 +81,7 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
 
         Assert.Equal(car[^1], N(Metric(doc, "car-ytd")));
         Assert.Equal(Pct(car[^1], car[^2]), Metric(doc, "car-ytd-vs-prior"));
-        Assert.Equal(Pct(car[^1], car[0]), Metric(doc, "car-ytd-vs-base"));
+        Assert.Null(doc.QuerySelector("[data-metric=\"car-ytd-vs-base\"]"));
     }
 
     /// <summary>The homepage is about car break-ins; every all-crime figure lives on /crime.</summary>
@@ -274,7 +274,7 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
         var period = doc.QuerySelectorAll("table.area-table").First(t => Text(t.QuerySelector("th")) == "Year").QuerySelectorAll("tbody tr").ToList();
         Assert.Equal(O.SamePeriod(Oracle.And(Oracle.IsCar, scope)), period.Select(r => N(Text(r.QuerySelectorAll("td")[1]))));
 
-        // Category table: first-year, prior-year and current counts for each of the four car groups.
+        // Category table: prior-year and current counts for each of the four car groups.
         foreach (var row in doc.QuerySelectorAll("table.area-table").First(t => Text(t.QuerySelector("th")) == "Category").QuerySelectorAll("tbody tr"))
         {
             var cells = row.QuerySelectorAll("td").ToList();
@@ -287,9 +287,8 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
                 var other => throw new Xunit.Sdk.XunitException($"Unexpected category '{other}'")
             };
             var counts = O.SamePeriod(Oracle.And(Oracle.Group(key), scope));
-            Assert.Equal(counts[0], N(Text(cells[1])));
-            Assert.Equal(counts[^2], N(Text(cells[2])));
-            Assert.Equal(counts[^1], N(Text(cells[3])));
+            Assert.Equal(counts[^2], N(Text(cells[1])));
+            Assert.Equal(counts[^1], N(Text(cells[2])));
         }
     }
 
