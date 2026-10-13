@@ -3,18 +3,19 @@ using System.Text.Json;
 namespace GlassOnTheStreet.Web.Services;
 
 /// <summary>
-/// Verifies Cloudflare Turnstile tokens. If no secret key is configured
-/// (e.g. local development), verification is skipped and every submission
-/// passes -- set Captcha:TurnstileSecretKey in production.
+/// Verifies Cloudflare Turnstile tokens. With no secret key configured,
+/// verification is skipped only in Development. Anywhere else a missing key
+/// rejects every submission, so a lost setting can't quietly turn spam
+/// protection off -- set Captcha:TurnstileSecretKey in production.
 /// </summary>
-public class TurnstileCaptchaService(HttpClient httpClient, IConfiguration configuration) : ICaptchaService
+public class TurnstileCaptchaService(HttpClient httpClient, IConfiguration configuration, IHostEnvironment environment) : ICaptchaService
 {
     public async Task<bool> VerifyAsync(string? token, string? remoteIp, CancellationToken cancellationToken = default)
     {
         var secretKey = configuration["Captcha:TurnstileSecretKey"];
         if (string.IsNullOrWhiteSpace(secretKey))
         {
-            return true;
+            return environment.IsDevelopment();
         }
 
         if (string.IsNullOrWhiteSpace(token))

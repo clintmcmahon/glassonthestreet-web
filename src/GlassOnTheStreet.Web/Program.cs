@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using GlassOnTheStreet.Web.Data;
 using GlassOnTheStreet.Web.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
@@ -90,6 +91,18 @@ if (!builder.Configuration.GetValue<bool>("DisableBackgroundSync"))
     builder.Services.AddHostedService<OfficialDataSyncBackgroundService>();
 }
 
+// Behind nginx every connection arrives from the proxy, so without this the rate limiters below would
+// share one bucket for the whole site and Turnstile would see the proxy's address. Only the loopback
+// proxy is trusted by default; list other proxies under ForwardedHeaders:KnownProxies.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    {
+        options.KnownProxies.Add(System.Net.IPAddress.Parse(proxy));
+    }
+});
+
 // Anonymous submissions get rate limited per IP so one person can't flood
 // the map with reports.
 builder.Services.AddRateLimiter(options =>
@@ -100,6 +113,15 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+    options.AddPolicy("flag-report", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
                 Window = TimeSpan.FromMinutes(10),
                 QueueLimit = 0
             }));
@@ -126,6 +148,8 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 app.UseResponseCompression();
 
 // Apply pending EF Core migrations automatically on startup, so a deploy
@@ -142,6 +166,22 @@ using (var migrationScope = app.Services.CreateScope())
     else
     {
         db.Database.EnsureCreated();
+    }
+}
+
+// The admin login lives in the database as a password hash. On the first start with none, the one in
+// configuration (Admin:Username / Admin:Password) is hashed and saved; after that the config values are
+// ignored and can be removed. The password is changed from the admin page.
+using (var seedScope = app.Services.CreateScope())
+{
+    var db = seedScope.ServiceProvider.GetRequiredService<GlassOnTheStreetContext>();
+    var seedUser = builder.Configuration["Admin:Username"];
+    var seedPassword = builder.Configuration["Admin:Password"];
+    if (!db.AdminUsers.Any() && !string.IsNullOrEmpty(seedUser) && !string.IsNullOrEmpty(seedPassword))
+    {
+        db.AdminUsers.Add(new GlassOnTheStreet.Web.Models.AdminUser { Username = seedUser, PasswordHash = AdminPasswordHasher.Hash(seedPassword) });
+        db.SaveChanges();
+        app.Logger.LogInformation("Admin login created from configuration; Admin:Password can now be removed from the config.");
     }
 }
 

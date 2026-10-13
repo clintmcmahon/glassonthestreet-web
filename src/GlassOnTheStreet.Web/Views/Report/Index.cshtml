@@ -74,9 +74,6 @@
         <label for="cross-streets">Nearest cross streets <span class="field-hint" style="display:inline;">(optional)</span></label>
         <input type="text" id="cross-streets" name="CrossStreets" maxlength="200" placeholder="e.g. 26th & Lyndale" />
 
-        <label for="photo">Photo <span class="field-hint" style="display:inline;">(optional)</span></label>
-        <input type="file" id="photo" name="Photo" accept="image/*" />
-
         @if (!string.IsNullOrEmpty(turnstileSiteKey))
         {
             <div class="cf-turnstile" data-sitekey="@turnstileSiteKey" style="margin-top: 1.25rem;"></div>

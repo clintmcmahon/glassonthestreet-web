@@ -25,7 +25,5 @@ public class ReportSubmission
     [MaxLength(200)]
     public string? CrossStreets { get; set; }
 
-    public IFormFile? Photo { get; set; }
-
     public string? CaptchaToken { get; set; }
 }

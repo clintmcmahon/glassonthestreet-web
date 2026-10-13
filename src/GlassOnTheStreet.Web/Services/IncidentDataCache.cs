@@ -48,6 +48,10 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
     private const string CacheKey = "incident-dataset";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
+    // One load at a time: when the cache expires under load, every waiting request would otherwise
+    // read the whole table (about 400k rows) at once. The rest wait, then take the fresh copy.
+    private static readonly SemaphoreSlim LoadLock = new(1, 1);
+
     public virtual async Task<IncidentDataset> GetAsync(CancellationToken cancellationToken = default)
     {
         if (cache.TryGetValue(CacheKey, out IncidentDataset? cached) && cached is not null)
@@ -55,6 +59,24 @@ public class IncidentDataCache(GlassOnTheStreetContext db, IMemoryCache cache)
             return cached;
         }
 
+        await LoadLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (cache.TryGetValue(CacheKey, out cached) && cached is not null)
+            {
+                return cached;
+            }
+
+            return await LoadAsync(cancellationToken);
+        }
+        finally
+        {
+            LoadLock.Release();
+        }
+    }
+
+    private async Task<IncidentDataset> LoadAsync(CancellationToken cancellationToken)
+    {
         var loaded = await db.MpdIncidents
             .Where(i => i.OccurredDate >= new DateOnly(FirstYear, 1, 1))
             .Select(i => new { i.Id, i.OccurredDate, i.OccurredHour, i.GroupKey, i.CrimeCount, i.Neighborhood, i.Ward, i.Lat, i.Lng, i.Address })

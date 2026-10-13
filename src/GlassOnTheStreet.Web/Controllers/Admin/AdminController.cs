@@ -110,6 +110,37 @@ public class AdminController(
             dates.Count == 0 ? null : dates.Max(),
             incidentsByYear, incidentsByYear.Sum(y => y.Count));    }
 
+    [HttpPost("password")]
+    [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(
+        [FromForm] string? currentPassword, [FromForm] string? newPassword, [FromForm] string? confirmPassword, CancellationToken cancellationToken)
+    {
+        var username = HttpContext.Items[AdminBasicAuthAttribute.UserItem] as string;
+        var user = await db.AdminUsers.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+
+        if (user is null || string.IsNullOrEmpty(currentPassword) || !AdminPasswordHasher.Verify(currentPassword, user.PasswordHash))
+        {
+            TempData["PasswordMessage"] = "The current password was wrong. Nothing changed.";
+        }
+        else if (string.IsNullOrEmpty(newPassword) || newPassword.Length < AdminPasswordHasher.MinPasswordLength)
+        {
+            TempData["PasswordMessage"] = $"Use at least {AdminPasswordHasher.MinPasswordLength} characters. Nothing changed.";
+        }
+        else if (newPassword != confirmPassword)
+        {
+            TempData["PasswordMessage"] = "The two new passwords didn't match. Nothing changed.";
+        }
+        else
+        {
+            user.PasswordHash = AdminPasswordHasher.Hash(newPassword);
+            user.PasswordChangedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
+            TempData["PasswordMessage"] = "Password changed. Your browser will ask you to sign in again.";
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
     [HttpPost("{id:int}/approve")]
     [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
     public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken)

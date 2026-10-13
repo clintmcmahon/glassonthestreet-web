@@ -11,6 +11,8 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
 
     public DbSet<OneTimeTask> OneTimeTasks => Set<OneTimeTask>();
 
+    public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+
     public DbSet<SyncStatus> SyncStatuses => Set<SyncStatus>();
 
     public DbSet<MpdIncident> MpdIncidents => Set<MpdIncident>();
@@ -40,6 +42,11 @@ public class GlassOnTheStreetContext(DbContextOptions<GlassOnTheStreetContext> o
             entity.Property(i => i.Lng).HasColumnType("decimal(9,6)");
             entity.HasIndex(i => i.ExternalKey).IsUnique();
             entity.HasIndex(i => i.OccurredDate);
+        });
+
+        modelBuilder.Entity<AdminUser>(entity =>
+        {
+            entity.HasIndex(u => u.Username).IsUnique();
         });
 
         modelBuilder.Entity<OneTimeTask>(entity =>

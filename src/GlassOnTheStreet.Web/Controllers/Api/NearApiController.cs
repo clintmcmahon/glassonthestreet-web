@@ -20,7 +20,9 @@ public class NearApiController(NearbyService nearby, IGeofenceService geofence, 
     [HttpPost("api/near")]
     public async Task<IActionResult> Near([FromBody] NearRequest request, CancellationToken cancellationToken)
     {
-        if (!geofence.IsWithinServiceArea((decimal)request.Lat, (decimal)request.Lng))
+        // Cast only values that fit a decimal: a huge or non-finite number would throw and surface as a 500.
+        if (!double.IsFinite(request.Lat) || !double.IsFinite(request.Lng) || Math.Abs(request.Lat) > 90 || Math.Abs(request.Lng) > 180
+            || !geofence.IsWithinServiceArea((decimal)request.Lat, (decimal)request.Lng))
         {
             return BadRequest(new { error = "That location is outside Minneapolis." });
         }

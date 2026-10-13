@@ -17,7 +17,6 @@ public class ReportsApiController(
     ICaptchaService captchaService,
     IGeocodingService geocodingService,
     IReportStatsService statsService,
-    IWebHostEnvironment env,
     ILogger<ReportsApiController> logger) : ControllerBase
 {
     [HttpGet]
@@ -139,13 +138,20 @@ public class ReportsApiController(
     }
 
     [HttpPost]
-    [RequestSizeLimit(10_000_000)]
+    [RequestSizeLimit(100_000)]
     [EnableRateLimiting("report-submission")]
     public async Task<IActionResult> Submit([FromForm] ReportSubmission submission, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
             return ValidationProblem(ModelState);
+        }
+
+        var invalid = ReportSubmissionRules.Validate(
+            submission, DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, Infrastructure.CentralTime.Zone)));
+        if (invalid is not null)
+        {
+            return BadRequest(new { error = invalid });
         }
 
         var captchaOk = await captchaService.VerifyAsync(
@@ -169,20 +175,6 @@ public class ReportsApiController(
         // purely to power the neighborhood stat, never blocks a submission.
         var neighborhood = await geocodingService.ReverseGeocodeNeighborhoodAsync(displayLat, displayLng, cancellationToken);
 
-        string? photoPath = null;
-        if (submission.Photo is { Length: > 0 } photo)
-        {
-            var uploadsDir = Path.Combine(env.WebRootPath, "uploads");
-            Directory.CreateDirectory(uploadsDir);
-            var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(photo.FileName)}";
-            var filePath = Path.Combine(uploadsDir, fileName);
-            await using (var stream = System.IO.File.Create(filePath))
-            {
-                await photo.CopyToAsync(stream, cancellationToken);
-            }
-            photoPath = $"/uploads/{fileName}";
-        }
-
         var report = new Report
         {
             ReportedDate = submission.ReportedDate,
@@ -193,7 +185,6 @@ public class ReportsApiController(
             ItemsStolen = submission.ItemsStolen,
             PoliceReported = submission.PoliceReported,
             CrossStreets = submission.CrossStreets,
-            PhotoPath = photoPath,
             Neighborhood = neighborhood,
             // Every resident submission is held for admin approval before
             // it's publicly visible -- see ReportStatus.Pending.
