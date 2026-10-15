@@ -154,12 +154,9 @@ public class ReportsApiController(
             return BadRequest(new { error = invalid });
         }
 
-        var captchaOk = await captchaService.VerifyAsync(
-            submission.CaptchaToken, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
-        if (!captchaOk)
-        {
-            return BadRequest(new { error = "Captcha verification failed." });
-        }
+        // Captcha check disabled until Turnstile keys are set in production. To re-enable, restore:
+        //   if (!await captchaService.VerifyAsync(submission.CaptchaToken, HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken))
+        //       return BadRequest(new { error = "Captcha verification failed." });
 
         if (!geofenceService.IsWithinServiceArea(submission.Lat, submission.Lng))
         {
