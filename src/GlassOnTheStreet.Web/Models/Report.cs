@@ -145,8 +145,8 @@ public class Report
     [MaxLength(24)]
     public string? MpdType { get; set; }
 
-    // "DID" in the feed -- sparsely populated, meaning unconfirmed, but
-    // captured for completeness.
+    // "DID" in the feed until the city dropped the field in Oct 2026. No
+    // longer requested, so new rows leave this null.
     [MaxLength(20)]
     public string? MpdIncidentId { get; set; }
 

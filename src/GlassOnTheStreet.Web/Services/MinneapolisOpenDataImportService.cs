@@ -148,7 +148,7 @@ public class MinneapolisOpenDataImportService(
             var url = "query" +
                        $"?where={Uri.EscapeDataString(where)}" +
                        "&outFields=Case_Number,Address,Occurred_Date,Offense,Neighborhood,Ward,Precinct,wgsXAnon,wgsYAnon," +
-                       "Type,DID,Case_NumberAlt,Reported_Date,NIBRS_Crime_Against,NIBRS_Group,NIBRS_Code," +
+                       "Type,Case_NumberAlt,Reported_Date,NIBRS_Crime_Against,NIBRS_Group,NIBRS_Code," +
                        "Offense_Category,Problem_Initial,Problem_Final,Crime_Count" +
                        "&orderByFields=Occurred_Date%20DESC" +
                        $"&resultOffset={offset}" +

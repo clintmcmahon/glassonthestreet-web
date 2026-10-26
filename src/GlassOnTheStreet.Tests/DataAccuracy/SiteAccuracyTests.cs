@@ -184,7 +184,8 @@ public class SiteAccuracyTests(World world) : IDisposable
     [Fact]
     public async Task ReportsStatsApi_KeepsResidentReportsOutOfTheMpdCount()
     {
-        var json = await JsonAsync("/api/reports/stats");
+        // The window is explicit: the default is relative to the real clock, and the synthetic feed is pinned to a fixed date.
+        var json = await JsonAsync($"/api/reports/stats?from={O.Through.AddDays(-29):yyyy-MM-dd}&to={O.Through:yyyy-MM-dd}");
 
         Assert.Equal(O.Sum(Oracle.IsCar, O.Through.AddDays(-29), O.Through), json.GetProperty("count").GetInt32());
         Assert.Equal(9, json.GetProperty("residentReports").GetInt32());
