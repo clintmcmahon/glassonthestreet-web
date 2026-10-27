@@ -10,6 +10,14 @@
 <div class="page">
     <p class="kicker">Admin</p>
     <h1 style="font-size: 1.7rem;">Reports</h1>
+    @if (Model.LastSyncFailure is { } failure)
+    {
+        <p class="admin-alert" role="alert">Last sync attempt failed @failure.At.FormatSyncTimestamp(): @failure.Error</p>
+    }
+    @if (Model.MpdLastSyncedAt is not { } syncedAt || DateTime.UtcNow - syncedAt > TimeSpan.FromHours(36))
+    {
+        <p class="admin-alert" role="alert">MPD data is stale: the daily sync has not succeeded in over 36 hours.</p>
+    }
     <p class="field-hint">
         @(Model.MpdLastSyncedAt is { } lastSyncedAt
             ? $"MPD data last synced {lastSyncedAt.FormatSyncTimestamp()}."

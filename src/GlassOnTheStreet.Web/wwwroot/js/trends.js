@@ -1,9 +1,11 @@
 // Dashboard script for /trends (car-related crime) and /crime (every offense).
 // Fetches the page's API (data-api) for the current filters and draws the
 // views from the one response: year-over-year lines, same-period columns, a
-// month-by-year heatmap, the area rankings and, when the response carries
-// them, an hour-by-weekday heatmap and an offense-group table. Charts are
-// plain SVG/HTML; every label that comes from the API goes in with textContent.
+// month-by-year heatmap, the ward map, the area rankings and, when the response
+// carries them, an hour-by-weekday heatmap and an offense-group table. The line,
+// column, heatmap and map charts are Apache ECharts (loaded from a CDN before this
+// script); the ranked lists and sparklines are plain HTML/SVG. Every label that
+// comes from the API goes in with textContent or through esc().
 (function () {
   var root = document.getElementById("trends");
   if (!root) return;
@@ -40,17 +42,6 @@
 
   function section(id) { return document.getElementById(id); }
   function canvasOf(id) { return section(id).querySelector("[data-canvas]"); }
-
-  function niceMax(value) {
-    if (value <= 0) return 10;
-    var rough = value * 1.08;
-    var magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
-    var steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
-    for (var i = 0; i < steps.length; i++) {
-      if (steps[i] * magnitude >= rough) return steps[i] * magnitude;
-    }
-    return 10 * magnitude;
-  }
 
   function percentChange(now, then) {
     if (!then) return null;
@@ -99,39 +90,63 @@
 
   function isHidden(year) { return !!state.hidden[year]; }
 
-  // ---------- tooltip ----------
+  // ---------- ECharts ----------
+  // The line, column and heatmap charts and the ward map are Apache ECharts, loaded
+  // from a CDN before this script. What gets drawn (colors, partial months, the data
+  // window) is decided here; ECharts does the drawing, axes and tooltips. Tooltip
+  // text goes through esc(), so nothing from the API reaches innerHTML unescaped.
 
-  function tooltipFor(canvas) {
-    var tip = canvas.querySelector(".trends-tooltip");
-    if (!tip) {
-      tip = htmlEl("div", "trends-tooltip", null, canvas);
-      tip.setAttribute("role", "status");
+  var INK = "#18181b", INK_SOFT = "#71717a", RULE = "#e4e4e1", PAPER = "#fafaf9";
+  var FONT = "Manrope, -apple-system, BlinkMacSystemFont, sans-serif";
+  var axisText = { fontFamily: FONT, fontSize: 11, color: INK_SOFT };
+
+  function esc(text) { return echarts.format.encodeHTML(String(text)); }
+
+  // A fresh chart in `canvas`, or null (with a note in its place) when ECharts didn't load.
+  function chartIn(canvas, height, label) {
+    if (!window.echarts) {
+      canvas.textContent = "";
+      htmlEl("p", "trends-empty", "The chart couldn't load.", canvas);
+      return null;
     }
-    return tip;
+    var oldHost = canvas.querySelector("[data-echart]");
+    var old = oldHost && echarts.getInstanceByDom(oldHost);
+    if (old) old.dispose();
+    canvas.textContent = "";
+    // The chart gets its own sized element so a scale key can sit under it inside `canvas`.
+    // chart-share.js finds the instance through [data-echart].
+    var host = htmlEl("div", null, null, canvas);
+    host.setAttribute("data-echart", "");
+    host.style.height = height + "px";
+    host.setAttribute("role", "img");
+    host.setAttribute("aria-label", label);
+    return echarts.init(host, null, { renderer: "canvas" });
   }
 
-  function placeTooltip(canvas, tip, x, y) {
-    tip.classList.add("is-visible");
-    var w = tip.offsetWidth, h = tip.offsetHeight;
-    var left = x + 14;
-    if (left + w > canvas.clientWidth) left = x - w - 14;
-    if (left < 0) left = 0;
-    var top = Math.min(Math.max(y - h / 2, 0), Math.max(0, canvas.clientHeight - h));
-    tip.style.left = left + "px";
-    tip.style.top = top + "px";
+  function tooltipBox(extra) {
+    return Object.assign({
+      backgroundColor: INK, borderWidth: 0, padding: [8, 11], confine: true,
+      textStyle: { color: PAPER, fontFamily: FONT, fontSize: 13 },
+      extraCssText: "border-radius:6px;box-shadow:none"
+    }, extra);
   }
 
-  function hideTooltip(canvas) {
-    var tip = canvas.querySelector(".trends-tooltip");
-    if (tip) tip.classList.remove("is-visible");
+  function tipTitle(text) { return '<div style="font-size:12px;opacity:.75;margin-bottom:3px">' + esc(text) + "</div>"; }
+
+  function tipRow(value, label, color) {
+    return '<div style="display:flex;align-items:baseline;gap:8px">' +
+      (color ? '<span style="align-self:center;width:12px;height:2px;flex:none;background:' + color + '"></span>' : "") +
+      '<strong style="font-size:15px;min-width:3.2em;font-variant-numeric:tabular-nums">' + esc(value) + "</strong>" +
+      '<span style="opacity:.75">' + esc(label) + "</span></div>";
   }
+
+  function tipNote(text) { return '<div style="opacity:.75">' + esc(text) + "</div>"; }
 
   // ---------- chart 1: year over year ----------
 
   function renderYoY() {
     var canvas = canvasOf("chart-yoy");
     var legend = section("chart-yoy").querySelector("[data-legend]");
-    canvas.textContent = "";
     legend.textContent = "";
 
     var years = data.years;
@@ -174,119 +189,80 @@
       htmlEl("span", null, MONTHS[partialMonth] + " " + years[cur] + " through " + monthDayLabel(data.through) + " (the newest days can be incomplete)", partialItem);
     }
 
-    var W = Math.max(canvas.clientWidth, 320), H = W < 520 ? 280 : 340;
-    var m = { l: 48, r: 56, t: 12, b: 28 };
-    var innerW = W - m.l - m.r, innerH = H - m.t - m.b;
+    tables.yoy = {
+      headers: ["Month"].concat(years.map(String)),
+      rows: MONTHS.map(function (name, mi) {
+        return [name].concat(years.map(function (_, i) { return data.monthly[i][mi] === null ? "" : data.monthly[i][mi]; }));
+      })
+    };
 
-    var maxValue = 0;
-    data.monthly.forEach(function (series, si) {
-      if (isHidden(years[si])) return;
-      series.forEach(function (v) { if (v !== null && v > maxValue) maxValue = v; });
-    });
-    var yMax = niceMax(maxValue);
+    var chart = chartIn(canvas, canvas.clientWidth < 520 ? 280 : 340,
+      "Monthly " + UNIT + " for " + years[0] + " to " + years[cur] + ". The table below has the same numbers.");
+    if (!chart) return;
 
-    function x(monthIndex) { return m.l + innerW * monthIndex / 11; }
-    function y(value) { return m.t + innerH * (1 - value / yMax); }
-
-    var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg", tabindex: "0", role: "group",
-      "aria-label": "Monthly " + UNIT + " for " + years[0] + " to " + years[cur] + ". Use the left and right arrow keys to move between months." }, canvas);
-
-    var step = yMax / 4;
-    for (var g = 0; g <= 4; g++) {
-      var gy = y(step * g);
-      svgEl("line", { x1: m.l, x2: W - m.r, y1: gy, y2: gy, class: "trends-grid" }, svg);
-      var label = svgEl("text", { x: m.l - 8, y: gy + 4, class: "trends-axis", "text-anchor": "end" }, svg);
-      label.textContent = fmt(step * g);
-    }
-    MONTHS.forEach(function (name, i) {
-      var t = svgEl("text", { x: x(i), y: H - 8, class: "trends-axis", "text-anchor": "middle" }, svg);
-      t.textContent = name;
-    });
-
+    var endLabel = { show: true, fontFamily: FONT, fontSize: 12, fontWeight: 700, color: INK, distance: 8 };
+    var series = [];
     // Older years first so the current year paints on top.
     for (var i = 0; i < n; i++) {
       if (isHidden(years[i])) continue;
       var values = data.monthly[i];
-      var points = [];
       var lastIndex = -1;
       for (var mi = 0; mi < 12; mi++) {
         if (values[mi] === null) break;
         lastIndex = mi;
       }
       var solidEnd = (i === cur && partialMonth >= 0 && lastIndex === partialMonth) ? lastIndex - 1 : lastIndex;
-      for (var k = 0; k <= solidEnd; k++) points.push(x(k) + "," + y(values[k]));
       var color = yearColor(i, n);
-      if (points.length > 1) {
-        svgEl("polyline", { points: points.join(" "), class: "trends-line" + (i === cur ? " is-current" : ""), style: "stroke:" + color }, svg);
-      }
+      var width = i === cur ? 3 : 2;
       // The current, still-incomplete month is a hollow marker with no line
       // into it: a slope toward a month that isn't over reads as a drop.
-      if (i === cur && solidEnd < lastIndex && solidEnd >= 0) {
-        svgEl("circle", { cx: x(lastIndex), cy: y(values[lastIndex]), r: 4.5, class: "trends-dot-partial", style: "stroke:" + color }, svg);
-      }
+      var hollow = i === cur && solidEnd < lastIndex && solidEnd >= 0;
+      var line = {
+        name: String(years[i]), type: "line", data: values.slice(0, solidEnd + 1),
+        symbol: "circle", symbolSize: 8, showSymbol: false,
+        lineStyle: { color: color, width: width, join: "round", cap: "round" },
+        itemStyle: { color: color, borderColor: PAPER, borderWidth: 2 },
+        emphasis: { focus: "none", lineStyle: { width: width } }
+      };
       // End labels only for the baseline and the current year; the legend and tooltip carry the rest.
-      if ((i === 0 || i === cur) && lastIndex >= 0) {
-        var endLabel = svgEl("text", { x: x(lastIndex) + 8, y: y(values[lastIndex]) + 4, class: "trends-end-label" }, svg);
-        endLabel.textContent = String(years[i]);
+      if ((i === 0 || i === cur) && lastIndex >= 0 && !hollow) line.endLabel = Object.assign({ formatter: String(years[i]) }, endLabel);
+      series.push(line);
+      if (hollow) {
+        series.push({
+          type: "scatter", data: [[lastIndex, values[lastIndex]]], symbolSize: 11, z: 10,
+          itemStyle: { color: PAPER, borderColor: color, borderWidth: 2.5 },
+          label: Object.assign({ position: "right", formatter: String(years[i]) }, endLabel),
+          emphasis: { disabled: true }
+        });
       }
     }
 
-    var guide = svgEl("line", { y1: m.t, y2: m.t + innerH, class: "trends-guide", style: "display:none" }, svg);
-    var dots = svgEl("g", {}, svg);
-    var tip = tooltipFor(canvas);
-    var activeMonth = -1;
-
-    function showMonth(monthIndex, pointerY) {
-      activeMonth = monthIndex;
-      guide.setAttribute("x1", x(monthIndex));
-      guide.setAttribute("x2", x(monthIndex));
-      guide.style.display = "";
-      dots.textContent = "";
-
-      tip.textContent = "";
-      var isPartial = monthIndex === partialMonth;
-      htmlEl("div", "trends-tip-title", MONTHS[monthIndex] + (isPartial && !isHidden(years[cur]) ? " (through " + monthDayLabel(data.through) + " for " + years[cur] + ")" : ""), tip);
-      for (var i = n - 1; i >= 0; i--) {
-        var v = data.monthly[i][monthIndex];
-        if (v === null || isHidden(years[i])) continue;
-        var row = htmlEl("div", "trends-tip-row", null, tip);
-        var key = htmlEl("span", "trends-tip-key", null, row);
-        key.style.background = yearColor(i, n);
-        htmlEl("strong", null, fmt(v), row);
-        htmlEl("span", "trends-tip-label", String(years[i]), row);
-        svgEl("circle", { cx: x(monthIndex), cy: y(v), r: 4, class: "trends-dot", style: "fill:" + yearColor(i, n) }, dots);
-      }
-      placeTooltip(canvas, tip, x(monthIndex), pointerY === undefined ? m.t + innerH / 3 : pointerY);
-    }
-
-    function clear() {
-      activeMonth = -1;
-      guide.style.display = "none";
-      dots.textContent = "";
-      hideTooltip(canvas);
-    }
-
-    svg.addEventListener("pointermove", function (e) {
-      var box = svg.getBoundingClientRect();
-      var px = e.clientX - box.left;
-      var monthIndex = Math.round((px - m.l) / innerW * 11);
-      if (monthIndex < 0 || monthIndex > 11) return clear();
-      showMonth(monthIndex, e.clientY - box.top);
+    chart.setOption({
+      animation: false,
+      grid: { left: 48, right: 56, top: 12, bottom: 28 },
+      xAxis: { type: "category", data: MONTHS, boundaryGap: false, axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: Object.assign({ margin: 10 }, axisText) },
+      yAxis: { type: "value", min: 0,
+        axisLabel: Object.assign({ formatter: function (v) { return fmt(v); } }, axisText),
+        splitLine: { lineStyle: { color: RULE } } },
+      tooltip: tooltipBox({
+        trigger: "axis",
+        axisPointer: { type: "line", lineStyle: { color: INK_SOFT, opacity: 0.45 } },
+        formatter: function (params) {
+          var monthIndex = MONTHS.indexOf(params[0].axisValue);
+          if (monthIndex < 0) return "";
+          var isPartial = monthIndex === partialMonth;
+          var html = tipTitle(MONTHS[monthIndex] + (isPartial && !isHidden(years[cur]) ? " (through " + monthDayLabel(data.through) + " for " + years[cur] + ")" : ""));
+          for (var i = n - 1; i >= 0; i--) {
+            var v = data.monthly[i][monthIndex];
+            if (v === null || isHidden(years[i])) continue;
+            html += tipRow(fmt(v), String(years[i]), yearColor(i, n));
+          }
+          return html;
+        }
+      }),
+      series: series
     });
-    svg.addEventListener("pointerleave", clear);
-    svg.addEventListener("blur", clear);
-    svg.addEventListener("keydown", function (e) {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      e.preventDefault();
-      var next = activeMonth < 0 ? 0 : activeMonth + (e.key === "ArrowRight" ? 1 : -1);
-      showMonth(Math.min(11, Math.max(0, next)));
-    });
-
-    var headers = ["Month"].concat(years.map(String));
-    var rows = MONTHS.map(function (name, mi) {
-      return [name].concat(years.map(function (_, i) { return data.monthly[i][mi] === null ? "" : data.monthly[i][mi]; }));
-    });
-    tables.yoy = { headers: headers, rows: rows };
   }
 
   // ---------- chart 2: same period ----------
@@ -294,7 +270,6 @@
   function renderPeriod() {
     var canvas = canvasOf("chart-period");
     var stats = section("chart-period").querySelector("[data-stats]");
-    canvas.textContent = "";
     stats.textContent = "";
 
     var years = data.years, counts = data.samePeriod;
@@ -312,71 +287,45 @@
       htmlEl("span", null, formatChange(c.pct), value);
     });
 
-    var W = Math.max(canvas.clientWidth, 320), H = 280;
-    var m = { l: 48, r: 12, t: 22, b: 28 };
-    var innerW = W - m.l - m.r, innerH = H - m.t - m.b;
-    var yMax = niceMax(Math.max.apply(null, counts));
-    function y(v) { return m.t + innerH * (1 - v / yMax); }
-
-    var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg", role: "group",
-      "aria-label": "Reports from " + windowLabel + " for each year, " + years[0] + " to " + years[cur] }, canvas);
-    var step = yMax / 4;
-    for (var g = 0; g <= 4; g++) {
-      var gy = y(step * g);
-      svgEl("line", { x1: m.l, x2: W - m.r, y1: gy, y2: gy, class: "trends-grid" }, svg);
-      var label = svgEl("text", { x: m.l - 8, y: gy + 4, class: "trends-axis", "text-anchor": "end" }, svg);
-      label.textContent = fmt(step * g);
-    }
-
-    var slot = innerW / n;
-    var barW = Math.min(28, slot * 0.6);
-    var tip = tooltipFor(canvas);
-
-    years.forEach(function (year, i) {
-      var cx = m.l + slot * (i + 0.5);
-      var top = y(counts[i]);
-      var height = Math.max(0, m.t + innerH - top);
-      var group = svgEl("g", { class: "trends-bar", tabindex: "0", role: "img",
-        "aria-label": year + ": " + fmt(counts[i]) + " reports, " + windowLabel }, svg);
-      // Hit area wider than the bar.
-      svgEl("rect", { x: cx - slot / 2, y: m.t, width: slot, height: innerH, class: "trends-hit" }, group);
-      var radius = Math.min(4, barW / 2, height);
-      // Rounded data-end, square at the baseline.
-      var d = "M" + (cx - barW / 2) + "," + (m.t + innerH) +
-        "V" + (top + radius) + "Q" + (cx - barW / 2) + "," + top + " " + (cx - barW / 2 + radius) + "," + top +
-        "H" + (cx + barW / 2 - radius) + "Q" + (cx + barW / 2) + "," + top + " " + (cx + barW / 2) + "," + (top + radius) +
-        "V" + (m.t + innerH) + "Z";
-      svgEl("path", { d: d, class: "trends-bar-fill" + (i === cur ? " is-current" : "") }, group);
-      var val = svgEl("text", { x: cx, y: top - 6, class: "trends-bar-value", "text-anchor": "middle" }, group);
-      val.textContent = fmt(counts[i]);
-      var yl = svgEl("text", { x: cx, y: H - 8, class: "trends-axis", "text-anchor": "middle" }, svg);
-      yl.textContent = String(year);
-
-      function show() {
-        tip.textContent = "";
-        htmlEl("div", "trends-tip-title", year + (i === cur ? " (so far)" : ""), tip);
-        var row = htmlEl("div", "trends-tip-row", null, tip);
-        htmlEl("strong", null, fmt(counts[i]), row);
-        htmlEl("span", "trends-tip-label", UNIT + ", " + windowLabel, row);
-        if (i > 0) {
-          var change = percentChange(counts[i], counts[i - 1]);
-          var delta = htmlEl("div", "trends-tip-row", null, tip);
-          htmlEl("span", "trends-tip-label", formatChange(change) + " from " + years[i - 1], delta);
-        }
-        placeTooltip(canvas, tip, cx, m.t + 20);
-        group.classList.add("is-active");
-      }
-      function hide() { hideTooltip(canvas); group.classList.remove("is-active"); }
-      group.addEventListener("pointerenter", show);
-      group.addEventListener("pointerleave", hide);
-      group.addEventListener("focus", show);
-      group.addEventListener("blur", hide);
-    });
-
     tables.period = {
       headers: ["Year", UNIT.charAt(0).toUpperCase() + UNIT.slice(1) + " " + windowLabel],
       rows: years.map(function (year, i) { return [String(year), counts[i]]; })
     };
+
+    var chart = chartIn(canvas, 280, UNIT + " from " + windowLabel + " for each year, " + years[0] + " to " + years[cur] + ". The table below has the same numbers.");
+    if (!chart) return;
+
+    chart.setOption({
+      animation: false,
+      grid: { left: 48, right: 12, top: 22, bottom: 28 },
+      xAxis: { type: "category", data: years.map(String), axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: Object.assign({ margin: 10 }, axisText) },
+      yAxis: { type: "value", min: 0,
+        axisLabel: Object.assign({ formatter: function (v) { return fmt(v); } }, axisText),
+        splitLine: { lineStyle: { color: RULE } } },
+      tooltip: tooltipBox({
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        formatter: function (params) {
+          var i = params[0].dataIndex;
+          var html = tipTitle(years[i] + (i === cur ? " (so far)" : "")) + tipRow(fmt(counts[i]), UNIT + ", " + windowLabel);
+          if (i > 0) html += tipNote(formatChange(percentChange(counts[i], counts[i - 1])) + " from " + years[i - 1]);
+          return html;
+        }
+      }),
+      series: [{
+        type: "bar", barMaxWidth: 28,
+        data: counts.map(function (v, i) {
+          return {
+            value: v,
+            itemStyle: { color: i === cur ? CURRENT_COLOR : "#b4b3ad", borderRadius: [4, 4, 0, 0] },
+            emphasis: { itemStyle: { color: i === cur ? "#c2410c" : "#77766f" } }
+          };
+        }),
+        label: { show: true, position: "top", distance: 6, fontFamily: FONT, fontSize: 11, fontWeight: 600, color: INK,
+          formatter: function (p) { return fmt(p.value); } }
+      }]
+    });
   }
 
   // ---------- chart 3: seasonality heatmap ----------
@@ -390,75 +339,39 @@
     return "rgb(" + c.join(",") + ")";
   }
 
+  // A heatmap on two category axes. Each cell is { value: [x, y, v], itemStyle } and is colored
+  // here (rampColor), so the scale key below the chart is plain HTML, not a visualMap.
+  function drawHeatmap(canvas, spec) {
+    var chart = chartIn(canvas, spec.top + spec.ys.length * spec.rowH + 4, spec.aria);
+    if (!chart) return;
+    chart.setOption({
+      animation: false,
+      grid: { left: spec.labelW, right: 0, top: spec.top, bottom: 4 },
+      xAxis: { type: "category", data: spec.xs, position: "top", axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: Object.assign({ interval: spec.xInterval, margin: 6, formatter: spec.xFormatter }, axisText) },
+      yAxis: { type: "category", data: spec.ys, inverse: true, axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: Object.assign({ margin: 8 }, axisText) },
+      tooltip: tooltipBox({ trigger: "item", formatter: function (p) { return spec.tip(p.data); } }),
+      series: [{
+        type: "heatmap", data: spec.cells,
+        itemStyle: { borderColor: PAPER, borderWidth: 1, borderRadius: spec.radius },
+        emphasis: { itemStyle: { borderColor: INK, borderWidth: 1.5, shadowBlur: 0 } }
+      }]
+    });
+  }
+
+  // Low-to-high key under a heatmap or map, in HTML.
+  function scaleKey(canvas, lowText, highText) {
+    var key = htmlEl("div", "ward-legend", null, canvas);
+    htmlEl("span", null, lowText, key);
+    var ramp = htmlEl("span", "ward-legend-ramp", null, key);
+    ramp.style.background = "linear-gradient(to right," + [0, 0.33, 0.66, 1].map(function (t) { return rampColor(t); }).join(",") + ")";
+    htmlEl("span", null, highText, key);
+  }
+
   function renderHeat() {
     var canvas = canvasOf("chart-heat");
-    canvas.textContent = "";
-
     var years = data.years, n = years.length;
-    var W = Math.max(canvas.clientWidth, 320);
-    var labelW = 44, topH = 22, rowH = 28, gap = 2;
-    var H = topH + n * rowH + 36;
-    var cellW = (W - labelW) / 12;
-
-    var maxValue = 0;
-    data.monthly.forEach(function (series) { series.forEach(function (v) { if (v !== null && v > maxValue) maxValue = v; }); });
-
-    var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg", role: "group",
-      "aria-label": "Reports by month and year, darker means more" }, canvas);
-
-    MONTHS.forEach(function (name, mi) {
-      var t = svgEl("text", { x: labelW + cellW * (mi + 0.5), y: 14, class: "trends-axis", "text-anchor": "middle" }, svg);
-      t.textContent = name;
-    });
-
-    var tip = tooltipFor(canvas);
-    var throughParts = data.through.split("-").map(Number);
-    var partialMonth = throughParts[2] < new Date(throughParts[0], throughParts[1], 0).getDate() ? throughParts[1] - 1 : -1;
-
-    years.forEach(function (year, i) {
-      var yt = svgEl("text", { x: labelW - 8, y: topH + rowH * i + rowH / 2 + 4, class: "trends-axis", "text-anchor": "end" }, svg);
-      yt.textContent = String(year);
-      for (var mi = 0; mi < 12; mi++) {
-        (function (mi) {
-          var v = data.monthly[i][mi];
-          var cx = labelW + cellW * mi, cy = topH + rowH * i;
-          var isPartial = i === n - 1 && mi === partialMonth;
-          var cell = svgEl("rect", {
-            x: cx + gap / 2, y: cy + gap / 2, width: cellW - gap, height: rowH - gap, rx: 3,
-            class: "trends-cell" + (v === null ? " is-empty" : "") + (isPartial ? " is-partial" : ""),
-            tabindex: v === null ? "-1" : "0", role: "img",
-            "aria-label": v === null ? "" : MONTHS[mi] + " " + year + ": " + fmt(v) + " " + UNIT + (isPartial ? " so far" : "")
-          }, svg);
-          if (v === null) return;
-          cell.style.fill = rampColor(maxValue ? v / maxValue : 0);
-          function show() {
-            tip.textContent = "";
-            htmlEl("div", "trends-tip-title", MONTHS[mi] + " " + year + (isPartial ? " (through " + monthDayLabel(data.through) + ")" : ""), tip);
-            var row = htmlEl("div", "trends-tip-row", null, tip);
-            htmlEl("strong", null, fmt(v), row);
-            htmlEl("span", "trends-tip-label", UNIT, row);
-            placeTooltip(canvas, tip, cx + cellW / 2, cy + rowH / 2);
-            cell.classList.add("is-active");
-          }
-          function hide() { hideTooltip(canvas); cell.classList.remove("is-active"); }
-          cell.addEventListener("pointerenter", show);
-          cell.addEventListener("pointerleave", hide);
-          cell.addEventListener("focus", show);
-          cell.addEventListener("blur", hide);
-        })(mi);
-      }
-    });
-
-    // Scale key: low to high.
-    var keyY = topH + n * rowH + 14, keyW = Math.min(200, W - labelW);
-    var defs = svgEl("defs", {}, svg);
-    var grad = svgEl("linearGradient", { id: "heat-ramp" }, defs);
-    for (var s = 0; s <= 4; s++) svgEl("stop", { offset: (s * 25) + "%", "stop-color": rampColor(s / 4) }, grad);
-    svgEl("rect", { x: labelW, y: keyY, width: keyW, height: 8, rx: 4, fill: "url(#heat-ramp)" }, svg);
-    var lo = svgEl("text", { x: labelW, y: keyY + 22, class: "trends-axis" }, svg);
-    lo.textContent = "0";
-    var hi = svgEl("text", { x: labelW + keyW, y: keyY + 22, class: "trends-axis", "text-anchor": "end" }, svg);
-    hi.textContent = fmt(maxValue) + " in a month";
 
     tables.heat = {
       headers: ["Year"].concat(MONTHS),
@@ -466,6 +379,34 @@
         return [String(year)].concat(data.monthly[i].map(function (v) { return v === null ? "" : v; }));
       })
     };
+
+    var maxValue = 0;
+    data.monthly.forEach(function (series) { series.forEach(function (v) { if (v !== null && v > maxValue) maxValue = v; }); });
+
+    var throughParts = data.through.split("-").map(Number);
+    var partialMonth = throughParts[2] < new Date(throughParts[0], throughParts[1], 0).getDate() ? throughParts[1] - 1 : -1;
+
+    var cells = [];
+    years.forEach(function (year, i) {
+      for (var mi = 0; mi < 12; mi++) {
+        var v = data.monthly[i][mi];
+        if (v === null) continue;
+        var isPartial = i === n - 1 && mi === partialMonth;
+        var style = { color: rampColor(maxValue ? v / maxValue : 0) };
+        if (isPartial) { style.borderColor = INK; style.borderWidth = 1.5; style.borderType = "dashed"; }
+        cells.push({ value: [mi, i, v], year: year, partial: isPartial, itemStyle: style });
+      }
+    });
+
+    drawHeatmap(canvas, {
+      xs: MONTHS, ys: years.map(String), cells: cells, labelW: 44, top: 22, rowH: 28, radius: 3, xInterval: 0,
+      aria: "Reports by month and year, darker means more. The table below has the same numbers.",
+      tip: function (cell) {
+        var mi = cell.value[0];
+        return tipTitle(MONTHS[mi] + " " + cell.year + (cell.partial ? " (through " + monthDayLabel(data.through) + ")" : "")) + tipRow(fmt(cell.value[2]), UNIT);
+      }
+    });
+    if (window.echarts) scaleKey(canvas, "0", fmt(maxValue) + " in a month");
   }
 
   // ---------- chart 4: where ----------
@@ -617,7 +558,6 @@
       return;
     }
 
-    canvas.textContent = "";
     var years = data.years, cur = years.length - 1;
     var byWard = {};
     data.wards.forEach(function (w) { byWard[Number(w.name.replace("Ward ", ""))] = w; });
@@ -642,7 +582,7 @@
     var lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
     var span = hi - lo || 1;
 
-    // Equirectangular, scaled by cos(latitude) so the wards keep their shape.
+    // Equirectangular, scaled by cos(latitude) so the wards keep their shape; only used to size the box.
     var minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
     wardGeo.forEach(function (f) {
       ringsOf(f.geometry).forEach(function (poly) {
@@ -655,63 +595,59 @@
     var k = Math.cos((minLat + maxLat) / 2 * Math.PI / 180);
     var worldW = (maxLng - minLng) * k, worldH = maxLat - minLat;
     var W = Math.min(Math.max(canvas.clientWidth, 300), 560), pad = 6;
-    var scale = (W - pad * 2) / worldW;
-    var H = Math.round(worldH * scale + pad * 2);
-    function px(lng) { return pad + (lng - minLng) * k * scale; }
-    function py(lat) { return pad + (maxLat - lat) * scale; }
+    var H = Math.round(worldH * (W - pad * 2) / worldW + pad * 2);
 
-    var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg ward-map", role: "group",
-      "aria-label": "Map of Minneapolis council wards shaded by " + (mapMetric === "rate" ? "offenses per 1,000 residents" : "offenses") + ", Jan 1 to " + monthDayLabel(data.through) }, canvas);
-    var tip = tooltipFor(canvas);
+    var unitText = mapMetric === "rate" ? "offenses per 1,000 residents" : "offenses";
+    // Sized before the chart is created: ECharts measures its container once, at init.
+    canvas.style.maxWidth = "560px";
+    canvas.style.margin = "0.5rem auto 0";
+    var chart = chartIn(canvas, H, "Map of Minneapolis council wards shaded by " + unitText + ", Jan 1 to " + monthDayLabel(data.through) + ". The ward list below has the same numbers.");
+    if (!chart) return;
 
-    wardGeo.forEach(function (f) {
-      var n = f.properties.ward, w = byWard[n], v = valueOf(w);
-      var t = (v - lo) / span;
-      var g = svgEl("g", { class: "ward-shape", tabindex: "0", role: "img",
-        "aria-label": "Ward " + n + ": " + label(v) + (mapMetric === "rate" ? " per 1,000 residents" : " offenses") }, svg);
-      var d = ringsOf(f.geometry).map(function (poly) {
-        return poly.map(function (ring) {
-          return "M" + ring.map(function (pt) { return px(pt[0]).toFixed(1) + "," + py(pt[1]).toFixed(1); }).join("L") + "Z";
-        }).join("");
-      }).join("");
-      svgEl("path", { d: d, fill: rampColor(t), class: "ward-path", "fill-rule": "evenodd" }, g);
-      var text = svgEl("text", { x: px(f.properties.labelLng), y: py(f.properties.labelLat) + 4, "text-anchor": "middle",
-        class: "ward-label" + (t > 0.55 ? " is-light" : "") }, g);
-      text.textContent = String(n);
-
-      function show() {
-        tip.textContent = "";
-        htmlEl("div", "trends-tip-title", "Ward " + n + (f.properties.name ? " (" + f.properties.name + ")" : ""), tip);
-        if (w) {
-          var row = htmlEl("div", "trends-tip-row", null, tip);
-          htmlEl("strong", null, fmt(w.counts[cur]), row);
-          htmlEl("span", "trends-tip-label", UNIT + " so far in " + years[cur], row);
-          if (w.ratePerThousand !== undefined && w.ratePerThousand !== null) {
-            var r2 = htmlEl("div", "trends-tip-row", null, tip);
-            htmlEl("strong", null, w.ratePerThousand.toLocaleString("en-US"), r2);
-            htmlEl("span", "trends-tip-label", "per 1,000 residents", r2);
-          }
-          if (w.changeVsPrior !== null && w.changeVsPrior !== undefined) {
-            htmlEl("div", "trends-tip-label", formatChange(w.changeVsPrior) + " from " + years[cur - 1], tip);
-          }
-        }
-        var box2 = g.getBoundingClientRect(), c = canvas.getBoundingClientRect();
-        placeTooltip(canvas, tip, box2.left - c.left + box2.width / 2, box2.top - c.top + box2.height / 2);
-        g.classList.add("is-active");
-      }
-      function hide() { hideTooltip(canvas); g.classList.remove("is-active"); }
-      g.addEventListener("pointerenter", show);
-      g.addEventListener("pointerleave", hide);
-      g.addEventListener("focus", show);
-      g.addEventListener("blur", hide);
-      g.addEventListener("click", function () { setArea("ward:" + n); });
+    echarts.registerMap("minneapolis-wards", {
+      type: "FeatureCollection",
+      features: wardGeo.map(function (f) {
+        return { type: "Feature", geometry: f.geometry,
+          properties: { name: "Ward " + f.properties.ward, cp: [f.properties.labelLng, f.properties.labelLat] } };
+      })
     });
 
-    var legend = htmlEl("div", "ward-legend", null, canvas);
-    htmlEl("span", null, label(lo), legend);
-    var ramp = htmlEl("span", "ward-legend-ramp", null, legend);
-    ramp.style.background = "linear-gradient(to right," + [0, 0.33, 0.66, 1].map(function (t) { return rampColor(t); }).join(",") + ")";
-    htmlEl("span", null, label(hi) + (mapMetric === "rate" ? " per 1,000 residents" : " offenses"), legend);
+    var items = wardGeo.map(function (f) {
+      var n = f.properties.ward, t = (valueOf(byWard[n]) - lo) / span, color = rampColor(t);
+      return {
+        name: "Ward " + n, ward: n, value: valueOf(byWard[n]), councilName: f.properties.name,
+        itemStyle: { areaColor: color },
+        label: { color: t > 0.55 ? "#fff" : INK },
+        emphasis: { itemStyle: { areaColor: color, borderColor: INK, borderWidth: 2.5 }, label: { color: t > 0.55 ? "#fff" : INK } }
+      };
+    });
+
+    chart.setOption({
+      animation: false,
+      tooltip: tooltipBox({
+        trigger: "item",
+        formatter: function (p) {
+          var item = p.data, w = byWard[item.ward];
+          var html = tipTitle("Ward " + item.ward + (item.councilName ? " (" + item.councilName + ")" : ""));
+          if (w) {
+            html += tipRow(fmt(w.counts[cur]), UNIT + " so far in " + years[cur]);
+            if (w.ratePerThousand !== undefined && w.ratePerThousand !== null) html += tipRow(w.ratePerThousand.toLocaleString("en-US"), "per 1,000 residents");
+            if (w.changeVsPrior !== null && w.changeVsPrior !== undefined) html += tipNote(formatChange(w.changeVsPrior) + " from " + years[cur - 1]);
+          }
+          return html;
+        }
+      }),
+      series: [{
+        type: "map", map: "minneapolis-wards", roam: false, selectedMode: false, cursor: "pointer",
+        aspectScale: k, left: pad, right: pad, top: pad, bottom: pad,
+        itemStyle: { borderColor: PAPER, borderWidth: 1.5 },
+        label: { show: true, formatter: function (p) { return p.name.replace("Ward ", ""); }, fontFamily: FONT, fontSize: 12, fontWeight: 700 },
+        data: items
+      }]
+    });
+    chart.on("click", function (p) { if (p.data && p.data.ward) setArea("ward:" + p.data.ward); });
+
+    scaleKey(canvas, label(lo), label(hi) + " " + (mapMetric === "rate" ? "per 1,000 residents" : "offenses"));
   }
 
   // ---------- hour by weekday ----------
@@ -720,70 +656,40 @@
     var section = document.getElementById("chart-hour");
     if (!section || !data.hourWeekday) return;
     var canvas = canvasOf("chart-hour");
-    canvas.textContent = "";
 
     var days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     var hourLabel = function (h) { return (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? " AM" : " PM"); };
-    var W = Math.max(canvas.clientWidth, 320);
-    var labelW = 38, topH = 20, rowH = W < 520 ? 22 : 26, gap = 2;
-    var cellW = (W - labelW) / 24;
-    var H = topH + 7 * rowH + 38;
-
-    var maxValue = 0;
-    data.hourWeekday.forEach(function (row) { row.forEach(function (v) { if (v > maxValue) maxValue = v; }); });
-
-    var svg = svgEl("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, class: "trends-svg", role: "group",
-      "aria-label": "Offenses by hour of day and weekday over the last 12 months, darker means more" }, canvas);
-
-    [0, 3, 6, 9, 12, 15, 18, 21].forEach(function (h) {
-      var t = svgEl("text", { x: labelW + cellW * h + cellW / 2, y: 13, class: "trends-axis", "text-anchor": "middle" }, svg);
-      t.textContent = W < 520 ? String(h % 12 === 0 ? 12 : h % 12) + (h < 12 ? "a" : "p") : hourLabel(h);
-    });
-
-    var tip = tooltipFor(canvas);
-    days.forEach(function (day, di) {
-      var dt = svgEl("text", { x: labelW - 8, y: topH + rowH * di + rowH / 2 + 4, class: "trends-axis", "text-anchor": "end" }, svg);
-      dt.textContent = day;
-      for (var h = 0; h < 24; h++) {
-        (function (h) {
-          var v = data.hourWeekday[di][h];
-          var cx = labelW + cellW * h, cy = topH + rowH * di;
-          var cell = svgEl("rect", { x: cx + gap / 2, y: cy + gap / 2, width: cellW - gap, height: rowH - gap, rx: 2, class: "trends-cell", tabindex: "0", role: "img",
-            "aria-label": day + " " + hourLabel(h) + ": " + fmt(v) + " " + UNIT }, svg);
-          cell.style.fill = rampColor(maxValue ? v / maxValue : 0);
-          function show() {
-            tip.textContent = "";
-            htmlEl("div", "trends-tip-title", day + ", " + hourLabel(h) + " to " + hourLabel((h + 1) % 24), tip);
-            var row = htmlEl("div", "trends-tip-row", null, tip);
-            htmlEl("strong", null, fmt(v), row);
-            htmlEl("span", "trends-tip-label", UNIT + ", last 12 months", row);
-            placeTooltip(canvas, tip, cx + cellW / 2, cy + rowH / 2);
-            cell.classList.add("is-active");
-          }
-          function hide() { hideTooltip(canvas); cell.classList.remove("is-active"); }
-          cell.addEventListener("pointerenter", show);
-          cell.addEventListener("pointerleave", hide);
-          cell.addEventListener("focus", show);
-          cell.addEventListener("blur", hide);
-        })(h);
-      }
-    });
-
-    var keyY = topH + 7 * rowH + 12, keyW = Math.min(200, W - labelW);
-    var defs = svgEl("defs", {}, svg);
-    var grad = svgEl("linearGradient", { id: "hour-ramp" }, defs);
-    for (var s = 0; s <= 4; s++) svgEl("stop", { offset: (s * 25) + "%", "stop-color": rampColor(s / 4) }, grad);
-    svgEl("rect", { x: labelW, y: keyY, width: keyW, height: 8, rx: 4, fill: "url(#hour-ramp)" }, svg);
-    var lo = svgEl("text", { x: labelW, y: keyY + 22, class: "trends-axis" }, svg);
-    lo.textContent = "0";
-    var hi = svgEl("text", { x: labelW + keyW, y: keyY + 22, class: "trends-axis", "text-anchor": "end" }, svg);
-    hi.textContent = fmt(maxValue) + " in an hour slot";
+    var narrow = canvas.clientWidth < 520;
 
     tables.hour = {
       headers: ["Weekday"].concat(Array.apply(null, Array(24)).map(function (_, h) { return hourLabel(h); })),
       rows: days.map(function (day, di) { return [day].concat(data.hourWeekday[di]); })
     };
+
+    var maxValue = 0;
+    data.hourWeekday.forEach(function (row) { row.forEach(function (v) { if (v > maxValue) maxValue = v; }); });
+
+    var cells = [];
+    days.forEach(function (day, di) {
+      for (var h = 0; h < 24; h++) {
+        var v = data.hourWeekday[di][h];
+        cells.push({ value: [h, di, v], itemStyle: { color: rampColor(maxValue ? v / maxValue : 0) } });
+      }
+    });
+
+    drawHeatmap(canvas, {
+      xs: Array.apply(null, Array(24)).map(function (_, h) { return h; }), ys: days, cells: cells,
+      labelW: 38, top: 20, rowH: narrow ? 22 : 26, radius: 2, xInterval: 2,
+      xFormatter: function (h) { return narrow ? String(h % 12 === 0 ? 12 : h % 12) + (h < 12 ? "a" : "p") : hourLabel(Number(h)); },
+      aria: "Offenses by hour of day and weekday over the last 12 months, darker means more. The table below has the same numbers.",
+      tip: function (cell) {
+        var h = cell.value[0];
+        return tipTitle(days[cell.value[1]] + ", " + hourLabel(h) + " to " + hourLabel((h + 1) % 24)) + tipRow(fmt(cell.value[2]), UNIT + ", last 12 months");
+      }
+    });
+    if (window.echarts) scaleKey(canvas, "0", fmt(maxValue) + " in an hour slot");
   }
+
 
   // ---------- offense groups ----------
 

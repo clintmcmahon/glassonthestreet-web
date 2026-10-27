@@ -150,7 +150,12 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-app.UseResponseCompression();
+// dotnet watch injects its browser-refresh script into HTML after this middleware has compressed it, which
+// corrupts the body ("Content Encoding Error" in the browser). Skipped only under the watcher.
+if (Environment.GetEnvironmentVariable("DOTNET_WATCH") != "1")
+{
+    app.UseResponseCompression();
+}
 
 // Apply pending EF Core migrations automatically on startup, so a deploy
 // that ships new columns/tables (e.g. Ward/Precinct) doesn't require a

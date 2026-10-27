@@ -48,18 +48,32 @@
   }
 
   function exportPng(card, button) {
-    var svg = card.querySelector("svg.trends-svg");
-    if (!svg) return;
+    // The dashboard charts are ECharts (canvas): embed the chart's own PNG. The server-rendered
+    // pages draw plain SVG, which is cloned with its computed styles inlined.
+    var host = card.querySelector("[data-echart]");
+    var chart = host && window.echarts ? echarts.getInstanceByDom(host) : null;
+    var svg = chart ? null : card.querySelector("svg.trends-svg");
+    if (!chart && !svg) return;
 
-    var vb = svg.viewBox && svg.viewBox.baseVal;
-    var w = vb && vb.width ? vb.width : svg.getBoundingClientRect().width;
-    var h = vb && vb.height ? vb.height : svg.getBoundingClientRect().height;
-    var clone = svg.cloneNode(true);
-    inlineStyles(svg, clone);
-    clone.setAttribute("width", w);
-    clone.setAttribute("height", h);
-    clone.removeAttribute("style");
-    clone.setAttribute("overflow", "visible");
+    var w, h, clone;
+    if (chart) {
+      w = chart.getWidth();
+      h = chart.getHeight();
+      var png = chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: PAPER });
+      clone = el("image", { width: w, height: h });
+      clone.setAttribute("href", png);
+      clone.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", png);
+    } else {
+      var vb = svg.viewBox && svg.viewBox.baseVal;
+      w = vb && vb.width ? vb.width : svg.getBoundingClientRect().width;
+      h = vb && vb.height ? vb.height : svg.getBoundingClientRect().height;
+      clone = svg.cloneNode(true);
+      inlineStyles(svg, clone);
+      clone.setAttribute("width", w);
+      clone.setAttribute("height", h);
+      clone.removeAttribute("style");
+      clone.setAttribute("overflow", "visible");
+    }
 
     var title = (card.querySelector(".trends-card-title") || {}).textContent || "Minneapolis crime";
 

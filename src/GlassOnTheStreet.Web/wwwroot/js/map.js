@@ -683,12 +683,13 @@
     document.getElementById("stat-count-label").textContent = scopeNoun() + ", " + periodWords();
     var change = document.getElementById("stat-change");
     change.classList.remove("up", "down");
-    if (s.changeVsPrior === null || s.changeVsPrior === undefined) {
+    // Against the same dates a year earlier; no figure for a range over a year or one that starts before the data does.
+    if (s.changeVsLastYear === null || s.changeVsLastYear === undefined) {
       change.textContent = "—";
     } else {
-      change.textContent = (s.changeVsPrior > 0 ? "+" : "") + s.changeVsPrior + "%";
-      if (s.changeVsPrior > 0) change.classList.add("up");
-      else if (s.changeVsPrior < 0) change.classList.add("down");
+      change.textContent = (s.changeVsLastYear > 0 ? "+" : "") + s.changeVsLastYear + "%";
+      if (s.changeVsLastYear > 0) change.classList.add("up");
+      else if (s.changeVsLastYear < 0) change.classList.add("down");
     }
     renderRows(document.getElementById("breakdown-neighborhoods"), s.neighborhoods, true);
     renderRows(document.getElementById("breakdown-time-of-day"), s.timeOfDay, false);

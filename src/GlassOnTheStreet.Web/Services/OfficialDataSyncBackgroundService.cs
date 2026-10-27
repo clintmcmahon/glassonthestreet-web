@@ -118,6 +118,7 @@ public class OfficialDataSyncBackgroundService(
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Scheduled MPD sync failed; will retry on the next interval");
+                await RecordFailureAsync(ex);
             }
 
             try
@@ -128,6 +129,20 @@ public class OfficialDataSyncBackgroundService(
             {
                 return;
             }
+        }
+    }
+
+    // Shown on /admin. Never allowed to throw: a database problem here must not end the sync loop.
+    private async Task RecordFailureAsync(Exception ex)
+    {
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<ISyncStatusService>().RecordFailureAsync(ex.Message);
+        }
+        catch (Exception recordEx)
+        {
+            logger.LogWarning(recordEx, "Could not record the sync failure");
         }
     }
 

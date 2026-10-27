@@ -26,7 +26,9 @@ public record MapSummary(
     IReadOnlyList<MapCount> Wards,
     IReadOnlyList<MapCount> TimeOfDay,
     IReadOnlyList<MapCount> Types,
-    IReadOnlyList<MapCount>? WardCounts = null);
+    IReadOnlyList<MapCount>? WardCounts = null,
+    int LastYearTotal = 0,
+    double? ChangeVsLastYear = null);
 
 /// <summary>
 /// Everything the map needs from the full MPD feed. MPD places every record at the midpoint of its
@@ -157,8 +159,16 @@ public class MapDataService(IncidentDataCache dataCache)
         var priorFrom = priorTo.AddDays(-(length - 1));
         var hasPrior = priorFrom >= new DateOnly(IncidentDataCache.FirstYear, 1, 1);
 
+        // The same calendar dates a year earlier, which keeps the season and the window length the same. It does
+        // not fix MPD posting recent days late: the newest days here can still be partly posted while the
+        // year-ago days are complete. Not offered for a range over a year, where the two windows would overlap.
+        var lastYearFrom = filter.From.AddYears(-1);
+        var lastYearTo = filter.To.AddYears(-1);
+        var hasLastYear = length <= 366 && lastYearFrom >= new DateOnly(IncidentDataCache.FirstYear, 1, 1);
+
         var total = 0;
         var prior = 0;
+        var lastYear = 0;
         var hoods = new Dictionary<string, int>();
         var wards = new Dictionary<int, int>();
         var buckets = new int[4];
@@ -169,6 +179,11 @@ public class MapDataService(IncidentDataCache dataCache)
             if (!matches[row.Group])
             {
                 continue;
+            }
+
+            if (hasLastYear && row.Date >= lastYearFrom && row.Date <= lastYearTo)
+            {
+                lastYear += row.Count;
             }
 
             if (row.Date >= filter.From && row.Date <= filter.To)
@@ -195,6 +210,7 @@ public class MapDataService(IncidentDataCache dataCache)
         }
 
         double? change = hasPrior && prior > 0 ? Math.Round((total - prior) / (double)prior * 100, 1) : null;
+        double? changeVsLastYear = hasLastYear && lastYear > 0 ? Math.Round((total - lastYear) / (double)lastYear * 100, 1) : null;
 
         return new MapSummary(
             filter.From, filter.To, dataset.Through, label, total, hasPrior ? prior : 0, change,
@@ -206,7 +222,8 @@ public class MapDataService(IncidentDataCache dataCache)
             Enumerable.Range(0, types.Length).Where(i => types[i] > 0).OrderByDescending(i => types[i]).Take(8)
                 .Select(i => new MapCount(CrimeGroups.All[i].Label, types[i], null)).ToList(),
             // Every ward, not just the top few: the map's ward overlay shows each ward's count for the current filter.
-            wards.OrderBy(w => w.Key).Select(w => new MapCount($"Ward {w.Key}", w.Value, $"/wards/{w.Key}")).ToList());
+            wards.OrderBy(w => w.Key).Select(w => new MapCount($"Ward {w.Key}", w.Value, $"/wards/{w.Key}")).ToList(),
+            hasLastYear ? lastYear : 0, changeVsLastYear);
     }
 
     private sealed class Accumulator(float lat, float lng, string? neighborhood, int ward, int addressIndex, int groupCount)

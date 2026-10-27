@@ -20,8 +20,8 @@
         $"Interactive Minneapolis crime map: {s.Total.Format()} car-related offenses in the last 30 days. Clusters, hover details and every MPD offense type back to 2019.";
     ViewData["OgImage"] = "/og/trends.png";
 
-    var changeText = s.ChangeVsPrior is null ? "—" : $"{(s.ChangeVsPrior > 0 ? "+" : "")}{s.ChangeVsPrior?.ToString("0.#", CultureInfo.InvariantCulture)}%";
-    var changeClass = s.ChangeVsPrior is > 0 ? "up" : s.ChangeVsPrior is < 0 ? "down" : "";
+    var changeText = s.ChangeVsLastYear is null ? "—" : $"{(s.ChangeVsLastYear > 0 ? "+" : "")}{s.ChangeVsLastYear?.ToString("0.#", CultureInfo.InvariantCulture)}%";
+    var changeClass = s.ChangeVsLastYear is > 0 ? "up" : s.ChangeVsLastYear is < 0 ? "down" : "";
     string Bar(int count, IReadOnlyList<MapCount> list) => (count * 100.0 / Math.Max(1, list.Max(c => c.Count))).ToString("0.##", CultureInfo.InvariantCulture);
 }
 
@@ -60,7 +60,7 @@
         </div>
         <div class="stat">
             <div class="stat-value @changeClass" id="stat-change">@changeText</div>
-            <div class="stat-label">vs. the prior period</div>
+            <div class="stat-label" id="stat-change-label">vs. the same dates last year</div>
         </div>
         @if (gap.PercentUnreported is not null)
         {

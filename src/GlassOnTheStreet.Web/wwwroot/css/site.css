@@ -957,20 +957,9 @@ fieldset {
   stroke-width: 3;
 }
 
-.trends-dot-partial {
-  fill: var(--paper);
-  stroke-width: 2.5;
-}
-
 .trends-dot {
   stroke: var(--paper);
   stroke-width: 2;
-}
-
-.trends-guide {
-  stroke: var(--ink-soft);
-  stroke-width: 1;
-  opacity: 0.45;
 }
 
 .trends-legend {
@@ -1056,55 +1045,6 @@ fieldset {
 }
 
 /* Tooltip shared by every chart. */
-.trends-tooltip {
-  position: absolute;
-  z-index: 5;
-  min-width: 140px;
-  max-width: 260px;
-  padding: 0.55rem 0.7rem;
-  background: var(--ink);
-  color: var(--paper);
-  border-radius: var(--radius);
-  font-size: 0.8rem;
-  line-height: 1.35;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.1s ease-out;
-}
-
-.trends-tooltip.is-visible {
-  opacity: 1;
-}
-
-.trends-tip-title {
-  font-size: 0.75rem;
-  opacity: 0.75;
-  margin-bottom: 0.2rem;
-}
-
-.trends-tip-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-
-.trends-tip-row strong {
-  font-size: 0.95rem;
-  min-width: 3.2em;
-  font-variant-numeric: tabular-nums;
-}
-
-.trends-tip-key {
-  align-self: center;
-  width: 12px;
-  height: 2px;
-  flex: none;
-}
-
-.trends-tip-label {
-  opacity: 0.75;
-}
-
 /* Same-period stats. */
 .trends-stats {
   display: flex;
@@ -1138,21 +1078,6 @@ fieldset {
   fill: var(--accent);
 }
 
-.trends-bar {
-  outline: none;
-  cursor: default;
-}
-
-.trends-bar.is-active .trends-bar-fill:not(.is-current),
-.trends-bar:focus-visible .trends-bar-fill:not(.is-current) {
-  fill: #77766f;
-}
-
-.trends-bar.is-active .trends-bar-fill.is-current,
-.trends-bar:focus-visible .trends-bar-fill.is-current {
-  fill: #c2410c;
-}
-
 .trends-bar-value {
   font-family: "Manrope", sans-serif;
   font-size: 11px;
@@ -1160,33 +1085,7 @@ fieldset {
   fill: var(--ink);
 }
 
-.trends-hit {
-  fill: transparent;
-}
-
 /* Heatmap. */
-.trends-cell {
-  outline: none;
-}
-
-.trends-cell.is-empty {
-  fill: none;
-  stroke: var(--rule);
-  stroke-dasharray: 2 3;
-}
-
-.trends-cell.is-partial {
-  stroke: var(--ink);
-  stroke-width: 1.5;
-  stroke-dasharray: 3 2;
-}
-
-.trends-cell.is-active,
-.trends-cell:focus-visible {
-  stroke: var(--ink);
-  stroke-width: 1.5;
-}
-
 /* Area rankings. */
 .trends-tabs {
   display: flex;
@@ -1756,6 +1655,12 @@ code {
 .near-error {
   color: #b91c1c;
   font-weight: 600;
+}
+
+.admin-alert {
+  color: #b91c1c;
+  font-weight: 600;
+  margin: 0.75rem 0;
 }
 
 .near-headline {
@@ -2445,41 +2350,6 @@ code {
 }
 
 /* ---------- ward choropleth ---------- */
-
-.ward-map {
-  display: block;
-  margin: 0.5rem auto 0;
-  max-width: 560px;
-}
-
-.ward-path {
-  stroke: var(--paper, #fff);
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-  cursor: pointer;
-}
-
-.ward-shape:focus-visible {
-  outline: none;
-}
-
-.ward-shape.is-active .ward-path,
-.ward-shape:focus-visible .ward-path {
-  stroke: var(--ink);
-  stroke-width: 2.5;
-}
-
-.ward-label {
-  font-family: "Manrope", sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  fill: var(--ink);
-  pointer-events: none;
-}
-
-.ward-label.is-light {
-  fill: #fff;
-}
 
 .ward-legend {
   display: flex;

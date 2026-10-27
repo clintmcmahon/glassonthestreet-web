@@ -66,6 +66,8 @@ public class MapApiController(MapDataService mapData, IncidentDataCache dataCach
             total = s.Total,
             priorTotal = s.PriorTotal,
             changeVsPrior = s.ChangeVsPrior,
+            lastYearTotal = s.LastYearTotal,
+            changeVsLastYear = s.ChangeVsLastYear,
             neighborhoods = Counts(s.Neighborhoods),
             wards = Counts(s.Wards),
             timeOfDay = Counts(s.TimeOfDay),

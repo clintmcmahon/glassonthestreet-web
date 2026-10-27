@@ -308,6 +308,13 @@ namespace GlassOnTheStreet.Web.Data.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("LastFailedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("LastSyncedAt")
                         .HasColumnType("datetime(6)");
 
