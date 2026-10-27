@@ -1,18 +1,16 @@
 // The homepage's map preview: a small, non-interactive look at the last week of car-related MPD
-// offenses, one circle per block, in the same style as /map. It uses Mapbox when a token is
-// configured (window.GOTS_MAP.engine === "mapbox") and MapLibre otherwise, and it only starts the
-// map once it is about to scroll into view, so a visitor who never reaches it never starts a (billed)
-// Mapbox map load. A dead preview isn't worth failing the page over, so every step is best effort.
+// offenses, one circle per block, in the same style as /map. It only starts the map once it is
+// about to scroll into view, so a visitor who never reaches it never starts a (billed) Mapbox map
+// load. A dead preview isn't worth failing the page over, so every step is best effort.
 (function () {
   "use strict";
 
   var container = document.getElementById("home-map");
   if (!container) return;
 
-  var cfg = window.GOTS_MAP || { engine: "maplibre" };
-  var isMapbox = cfg.engine === "mapbox";
-  var GL = isMapbox ? window.mapboxgl : window.maplibregl;
-  if (!GL) return;
+  var cfg = window.GOTS_MAP || {};
+  var GL = window.mapboxgl;
+  if (!GL || !cfg.token) return;
 
   // The same orange ramp as /map.
   var RAMP = ["#fde7d3", "#f8b788", "#f08a45", "#ea580c", "#9a3412"];
@@ -35,22 +33,19 @@
     if (started) return;
     started = true;
 
-    if (isMapbox) GL.accessToken = cfg.token;
+    GL.accessToken = cfg.token;
 
-    var options = {
+    var map = new GL.Map({
       container: "home-map",
-      style: isMapbox ? cfg.style : "https://tiles.openfreemap.org/styles/liberty",
+      style: cfg.style,
+      projection: "mercator",
       center: [-93.265, 44.978],
       zoom: 10.6,
       interactive: false,
       attributionControl: { compact: true }
-    };
-    if (isMapbox) options.projection = "mercator";
-    var map = new GL.Map(options);
+    });
 
     map.on("load", function () {
-      if (!isMapbox && typeof retintMapLibreBasemap === "function") retintMapLibreBasemap(map);
-
       map.addSource("home-blocks", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       map.addLayer({
         id: "home-blocks-circles",

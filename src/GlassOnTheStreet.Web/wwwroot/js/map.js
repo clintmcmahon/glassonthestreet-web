@@ -1,14 +1,11 @@
 // /map: MPD offenses aggregated to the block and drawn with clusters, hover cards and an optional
-// heatmap, plus resident-submitted reports on top. Mapbox GL JS draws it when a token is configured
-// (window.GOTS_MAP.engine === "mapbox"); otherwise the open-source MapLibre build is used. The two
-// share one API, so everything below runs on either. Every string that comes from the API goes
-// into the page through esc().
+// heatmap, plus resident-submitted reports on top. Mapbox GL JS draws it, with the access token and
+// style from window.GOTS_MAP. Every string that comes from the API goes into the page through esc().
 (function () {
   "use strict";
 
-  var cfg = window.GOTS_MAP || { engine: "maplibre" };
-  var isMapbox = cfg.engine === "mapbox";
-  var GL = isMapbox ? window.mapboxgl : window.maplibregl;
+  var cfg = window.GOTS_MAP || {};
+  var GL = window.mapboxgl;
   var frame = document.getElementById("map-frame");
   if (!GL || !frame) return;
 
@@ -115,24 +112,24 @@
 
   // ---------- the map ----------
 
-  if (isMapbox) GL.accessToken = cfg.token;
+  if (!cfg.token) {
+    setStatus("The map couldn't load: no Mapbox access token is configured.");
+    return;
+  }
+  GL.accessToken = cfg.token;
 
-  var mapOptions = {
+  var map = new GL.Map({
     container: "map",
-    style: isMapbox ? cfg.style : "https://tiles.openfreemap.org/styles/liberty",
+    style: cfg.style,
+    projection: "mercator",
     center: [-93.265, 44.978],
     zoom: 11.2,
     minZoom: 9,
     maxZoom: 18.5,
     maxBounds: [[-93.6, 44.78], [-92.9, 45.17]],
-    attributionControl: true
-  };
-  if (isMapbox) {
-    mapOptions.projection = "mercator";
-    mapOptions.customAttribution = "MPD open data";
-  }
-
-  var map = new GL.Map(mapOptions);
+    attributionControl: true,
+    customAttribution: "MPD open data"
+  });
   window.__gotsMap = map; // handy in the console and for tests
 
   map.addControl(new GL.NavigationControl({ showCompass: false }), "top-right");
@@ -140,16 +137,9 @@
   map.addControl(new GL.GeolocateControl({ positionOptions: { enableHighAccuracy: false }, trackUserLocation: false }), "top-right");
   map.addControl(new GL.ScaleControl({ maxWidth: 90, unit: "imperial" }), "bottom-right");
 
-  // Mapbox's styles ship their own glyphs; OpenFreeMap's use Noto Sans.
+  // Mapbox's styles ship their own glyphs.
   function textFont() {
-    if (isMapbox) return ["DIN Offc Pro Medium", "Arial Unicode MS Bold"];
-    try {
-      var layer = map.getStyle().layers.filter(function (l) {
-        return l.type === "symbol" && l.layout && Array.isArray(l["layout"]["text-font"]);
-      })[0];
-      if (layer) return layer.layout["text-font"];
-    } catch (e) { /* use the default below */ }
-    return ["Noto Sans Bold"];
+    return ["DIN Offc Pro Medium", "Arial Unicode MS Bold"];
   }
 
   // Scales follow the data, so a quiet month and an all-time view both use the whole ramp.
@@ -817,7 +807,6 @@
   wireControls();
 
   map.on("load", function () {
-    if (!isMapbox && typeof retintMapLibreBasemap === "function") retintMapLibreBasemap(map);
     addLayers();
     wireInteractions();
     setMode(state.mode);
@@ -829,7 +818,7 @@
   map.on("error", function (e) {
     // A bad or URL-restricted Mapbox token surfaces here; say so instead of showing a blank map.
     var status = e && e.error && e.error.status;
-    if (isMapbox && (status === 401 || status === 403)) {
+    if (status === 401 || status === 403) {
       setStatus(status === 401
         ? "The map couldn't load: Mapbox rejected the access token."
         : "The map couldn't load: Mapbox refused this site. Check the token's allowed URLs.");

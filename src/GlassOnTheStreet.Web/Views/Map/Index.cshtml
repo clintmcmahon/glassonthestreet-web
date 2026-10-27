@@ -8,12 +8,8 @@
     var s = Model.Summary;
     var gap = Model.ReportingGap;
 
-    // Mapbox draws the map when an access token is configured; otherwise the open-source MapLibre
-    // map the site used before takes over, so a missing token never breaks the page.
-    var mapboxToken = Configuration["Mapbox:AccessToken"];
-    var useMapbox = !string.IsNullOrWhiteSpace(mapboxToken);
     var mapboxStyle = Configuration["Mapbox:StyleUrl"] is { Length: > 0 } custom ? custom : "mapbox://styles/mapbox/light-v11";
-    var mapConfig = JsonSerializer.Serialize(new { engine = useMapbox ? "mapbox" : "maplibre", token = useMapbox ? mapboxToken : null, style = useMapbox ? mapboxStyle : null });
+    var mapConfig = JsonSerializer.Serialize(new { token = Configuration["Mapbox:AccessToken"], style = mapboxStyle });
 
     ViewData["Title"] = "Minneapolis Crime Map by Block | Glass on the Street";
     ViewData["Description"] =
@@ -26,14 +22,7 @@
 }
 
 @section Head {
-    @if (useMapbox)
-    {
-        <link href="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css" rel="stylesheet" />
-    }
-    else
-    {
-        <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
-    }
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css" rel="stylesheet" />
 }
 
 @section StructuredData {
@@ -192,15 +181,7 @@
 </div>
 
 @section Scripts {
-    @if (useMapbox)
-    {
-        <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
-    }
-    else
-    {
-        <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
-        <script src="~/js/map-theme.js" asp-append-version="true"></script>
-    }
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
     <script>window.GOTS_MAP = @Html.Raw(mapConfig);</script>
     <script src="~/js/format.js" asp-append-version="true"></script>
     <script src="~/js/map.js" asp-append-version="true"></script>

@@ -3,10 +3,12 @@
     ViewData["Title"] = "Report a Car Break-In in Minneapolis | Glass on the Street";
     ViewData["Description"] = "Report a Minneapolis car break-in in under 30 seconds. Your exact location is never stored, only the middle of your block.";
     var turnstileSiteKey = Configuration["Captcha:TurnstileSiteKey"];
+    var mapboxStyle = Configuration["Mapbox:StyleUrl"] is { Length: > 0 } customStyle ? customStyle : "mapbox://styles/mapbox/light-v11";
+    var mapConfig = System.Text.Json.JsonSerializer.Serialize(new { token = Configuration["Mapbox:AccessToken"], style = mapboxStyle });
 }
 
 @section Head {
-    <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css" rel="stylesheet" />
     @if (!string.IsNullOrEmpty(turnstileSiteKey))
     {
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -88,7 +90,7 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
-    <script src="~/js/map-theme.js" asp-append-version="true"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
+    <script>window.GOTS_MAP = @Html.Raw(mapConfig);</script>
     <script src="~/js/report-form.js" asp-append-version="true"></script>
 }

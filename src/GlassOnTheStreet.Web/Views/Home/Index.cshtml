@@ -24,12 +24,10 @@
     string PctClass(int now, int then) => then == 0 ? "" : now > then ? "up" : now < then ? "down" : "";
     var ytdThrough = ytd.Through.ToString("MMM d", System.Globalization.CultureInfo.InvariantCulture);
 
-    // The preview uses Mapbox like /map does when a token is configured. Mapbox:HomePreview = false keeps
-    // this page on the free open-source map, since every page view that reaches the map is a billed map load.
-    var mapboxToken = Configuration["Mapbox:AccessToken"];
-    var useMapbox = !string.IsNullOrWhiteSpace(mapboxToken) && !string.Equals(Configuration["Mapbox:HomePreview"], "false", StringComparison.OrdinalIgnoreCase);
+    // The preview map is Mapbox, same as /map. home-map.js only starts it near the viewport, since every
+    // map load is billed.
     var mapboxStyle = Configuration["Mapbox:StyleUrl"] is { Length: > 0 } customStyle ? customStyle : "mapbox://styles/mapbox/light-v11";
-    var mapConfig = System.Text.Json.JsonSerializer.Serialize(new { engine = useMapbox ? "mapbox" : "maplibre", token = useMapbox ? mapboxToken : null, style = useMapbox ? mapboxStyle : null });
+    var mapConfig = System.Text.Json.JsonSerializer.Serialize(new { token = Configuration["Mapbox:AccessToken"], style = mapboxStyle });
 
     var maxTrend = Model.Trend.Count > 0 ? Math.Max(1, Model.Trend.Max(t => t.Count)) : 1;
 
@@ -101,14 +99,7 @@
 }
 
 @section Head {
-    @if (useMapbox)
-    {
-        <link href="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css" rel="stylesheet" />
-    }
-    else
-    {
-        <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
-    }
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.css" rel="stylesheet" />
 }
 
 <div class="page">
@@ -458,15 +449,7 @@
 </div>
 
 @section Scripts {
-    @if (useMapbox)
-    {
-        <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
-    }
-    else
-    {
-        <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.js"></script>
-        <script src="~/js/map-theme.js" asp-append-version="true"></script>
-    }
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.13.0/mapbox-gl.js"></script>
     <script>window.GOTS_MAP = @Html.Raw(mapConfig);</script>
     <script src="~/js/format.js" asp-append-version="true"></script>
     <script src="~/js/home-map.js" asp-append-version="true"></script>

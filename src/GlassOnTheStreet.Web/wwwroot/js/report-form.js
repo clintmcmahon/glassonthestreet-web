@@ -1,12 +1,14 @@
 (function () {
-  const map = new maplibregl.Map({
+  const cfg = window.GOTS_MAP || {};
+  mapboxgl.accessToken = cfg.token;
+  const map = new mapboxgl.Map({
     container: "picker-map",
-    style: "https://tiles.openfreemap.org/styles/liberty",
+    style: cfg.style,
+    projection: "mercator",
     center: [-93.265, 44.978],
     zoom: 11
   });
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-  map.on("load", () => retintMapLibreBasemap(map));
+  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
 
   let marker = null;
   let selectedLat = null;
@@ -18,7 +20,7 @@
     if (marker) {
       marker.remove();
     }
-    marker = new maplibregl.Marker({ color: "#ea580c" }).setLngLat([lng, lat]).addTo(map);
+    marker = new mapboxgl.Marker({ color: "#ea580c" }).setLngLat([lng, lat]).addTo(map);
     document.getElementById("location-status").textContent = label || `Selected: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
 

@@ -379,7 +379,7 @@ fieldset {
 }
 
 /* Sits over the non-interactive preview map so the whole frame is a single
-   click target to /map, without fighting MapLibre's own canvas listeners. */
+   click target to /map, without fighting the map's own canvas listeners. */
 .map-frame-link {
   position: absolute;
   inset: 0;
@@ -744,7 +744,6 @@ fieldset {
   }
 }
 
-.maplibregl-popup-content,
 .mapboxgl-popup-content {
   font-family: "Manrope", sans-serif;
   border-radius: var(--radius);
@@ -1969,7 +1968,7 @@ code {
   text-underline-offset: 3px;
 }
 
-/* Hover and click cards (Mapbox and MapLibre use different class names for the same parts). */
+/* Hover and click cards. */
 .map-hover,
 .map-sticky {
   z-index: 3;
@@ -1980,9 +1979,7 @@ code {
 }
 
 .map-hover .mapboxgl-popup-content,
-.map-hover .maplibregl-popup-content,
-.map-sticky .mapboxgl-popup-content,
-.map-sticky .maplibregl-popup-content {
+.map-sticky .mapboxgl-popup-content {
   min-width: 250px;
   padding: 0.8rem 0.95rem 0.7rem;
   border-radius: 8px;
@@ -1994,9 +1991,7 @@ code {
 }
 
 .map-hover .mapboxgl-popup-tip,
-.map-hover .maplibregl-popup-tip,
-.map-sticky .mapboxgl-popup-tip,
-.map-sticky .maplibregl-popup-tip {
+.map-sticky .mapboxgl-popup-tip {
   display: none;
 }
 
@@ -2151,9 +2146,7 @@ code {
   }
 
   .map-hover .mapboxgl-popup-content,
-  .map-hover .maplibregl-popup-content,
-  .map-sticky .mapboxgl-popup-content,
-  .map-sticky .maplibregl-popup-content {
+  .map-sticky .mapboxgl-popup-content {
     min-width: 0;
   }
 }
