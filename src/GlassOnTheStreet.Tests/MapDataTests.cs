@@ -84,6 +84,38 @@ public class MapDataTests
     }
 
     [Fact]
+    public async Task Summary_ComparesWithTheSameDatesAYearEarlier()
+    {
+        var service = Service(
+            Row(1, "2026-09-10", "burglary", count: 6),
+            Row(2, "2025-09-10", "burglary", count: 4), // Sep 1 to Sep 30, a year earlier
+            Row(3, "2025-10-01", "burglary", count: 9), // just outside that window
+            Row(4, "2025-08-31", "burglary", count: 9), // just outside that window
+            Row(5, "2025-09-10", "agg-assault"));
+
+        var summary = await service.GetSummaryAsync(Filter("burglary"));
+
+        Assert.Equal(4, summary.LastYearTotal);
+        Assert.Equal(50, summary.ChangeVsLastYear); // 4 to 6
+    }
+
+    [Fact]
+    public async Task Summary_HasNoYearOnYearFigureForARangeOverAYearOrWithoutAYearOfData()
+    {
+        var service = Service(
+            Row(1, "2026-09-10", "burglary", count: 6),
+            Row(2, "2025-09-10", "burglary", count: 4));
+
+        var overAYear = await service.GetSummaryAsync(Filter("burglary", from: "2025-01-01", to: "2026-09-30"));
+        Assert.Null(overAYear.ChangeVsLastYear);
+        Assert.Equal(0, overAYear.LastYearTotal);
+
+        // 2018 is before the feed starts, so there is nothing to compare with.
+        var tooEarly = await service.GetSummaryAsync(Filter("burglary", from: "2019-03-01", to: "2019-03-31"));
+        Assert.Null(tooEarly.ChangeVsLastYear);
+    }
+
+    [Fact]
     public async Task Summary_BucketsHoursAndRanksAreas()
     {
         var service = Service(

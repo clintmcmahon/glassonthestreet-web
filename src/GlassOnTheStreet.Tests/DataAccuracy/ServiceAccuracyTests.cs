@@ -289,6 +289,12 @@ public class ServiceAccuracyTests(World world) : IDisposable
         Assert.Equal(prior, summary.PriorTotal);
         Assert.Equal(hasPrior && prior > 0 ? Oracle.PercentChange(summary.Total, prior) : null, summary.ChangeVsPrior);
 
+        var lastYearFrom = from.AddYears(-1);
+        var hasLastYear = length <= 366 && lastYearFrom >= new DateOnly(2019, 1, 1);
+        var lastYear = hasLastYear ? O.Sum(pred, lastYearFrom, to.AddYears(-1)) : 0;
+        Assert.Equal(lastYear, summary.LastYearTotal);
+        Assert.Equal(hasLastYear && lastYear > 0 ? Oracle.PercentChange(summary.Total, lastYear) : null, summary.ChangeVsLastYear);
+
         var hoodCounts = all.Where(r => r.Neighborhood is not null).GroupBy(r => r.Neighborhood!).ToDictionary(g => g.Key, g => g.Sum(r => r.Count));
         Assert.Equal(hoodCounts.OrderByDescending(h => h.Value).ThenBy(h => h.Key, StringComparer.OrdinalIgnoreCase).Take(6).Select(h => (h.Key, h.Value)),
             summary.Neighborhoods.Select(h => (h.Name, h.Count)));

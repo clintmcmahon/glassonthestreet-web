@@ -19,15 +19,43 @@ public class LiveSourceTests
     private static string Utc(DateOnly centralDay) =>
         TimeZoneInfo.ConvertTimeToUtc(centralDay.ToDateTime(TimeOnly.MinValue), CentralTime.Zone).ToString("yyyy-MM-dd HH:mm:ss");
 
+    // Crime_Count is a text field in the city's service, so it can't be summed there: group by it and add up here.
+    // Each result has the grouping field (if any), "n" (rows) and "s" (offenses).
     private static async Task<List<JsonElement>> StatsAsync(DateOnly from, DateOnly toExclusive, string? groupBy = null)
     {
         var where = $"Occurred_Date >= TIMESTAMP '{Utc(from)}' AND Occurred_Date < TIMESTAMP '{Utc(toExclusive)}'";
         var url = $"{Base}?where={Uri.EscapeDataString(where)}" +
-                  "&outStatistics=" + Uri.EscapeDataString("""[{"statisticType":"count","onStatisticField":"OBJECTID","outStatisticFieldName":"n"},{"statisticType":"sum","onStatisticField":"Crime_Count","outStatisticFieldName":"s"}]""") +
-                  (groupBy is null ? "" : $"&groupByFieldsForStatistics={groupBy}") + "&f=json";
+                  "&outStatistics=" + Uri.EscapeDataString("""[{"statisticType":"count","onStatisticField":"OBJECTID","outStatisticFieldName":"n"}]""") +
+                  $"&groupByFieldsForStatistics={(groupBy is null ? "" : groupBy + ",")}Crime_Count&f=json";
         var doc = await ArcGisPageFetcher.GetPageAsync(Http, url, NullLogger.Instance, default)
             ?? throw new InvalidOperationException("The city's feed did not answer.");
-        return doc.GetProperty("features").EnumerateArray().Select(f => f.GetProperty("attributes").Clone()).ToList();
+
+        var folded = new Dictionary<string, Dictionary<string, object?>>();
+        foreach (var attrs in doc.GetProperty("features").EnumerateArray().Select(f => f.GetProperty("attributes")))
+        {
+            var label = groupBy is null ? "" : attrs.TryGetProperty(groupBy, out var g) && g.ValueKind == JsonValueKind.String ? g.GetString() ?? "" : "";
+            if (!folded.TryGetValue(label, out var row))
+            {
+                row = new Dictionary<string, object?> { ["n"] = 0, ["s"] = 0 };
+                if (groupBy is not null)
+                {
+                    row[groupBy] = label;
+                }
+
+                folded[label] = row;
+            }
+
+            var rows = attrs.GetProperty("n").GetInt32();
+            row["n"] = (int)row["n"]! + rows;
+            row["s"] = (int)row["s"]! + rows * (int)MpdIncidentMapper.OffenseCount(attrs);
+        }
+
+        if (folded.Count == 0 && groupBy is null)
+        {
+            folded[""] = new Dictionary<string, object?> { ["n"] = 0, ["s"] = 0 };
+        }
+
+        return folded.Values.Select(r => JsonSerializer.SerializeToElement(r)).ToList();
     }
 
     [LiveFact(needsSource: true)]

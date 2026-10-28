@@ -458,8 +458,7 @@ public partial class SiteChecks(HttpClient client, Oracle oracle)
         Assert.Contains(scripts, s => s.Contains("city-chart-tooltip.js"));
         Assert.Contains(scripts, s => s.Contains("format.js"));
         Assert.Contains(scripts, s => s.Contains("window.GOTS_MAP"));
-        // One of the two map engines, matching the configured one.
-        Assert.Contains(scripts, s => s.Contains("mapbox-gl.js") || s.Contains("maplibre-gl.js"));
+        Assert.Contains(scripts, s => s.Contains("mapbox-gl.js"));
         Assert.True(doc.QuerySelectorAll(".city-chart").Count() == 3, "The three yearly charts are missing.");
     }
 }

@@ -166,6 +166,13 @@ public static class SyntheticFeed
             // The feed's own statistics: how many rows and what Crime_Count adds up to, in a window.
             if (query.Contains("outStatistics"))
             {
+                // Crime_Count is a text field in the real service, so it can't be summed there.
+                if (query.Contains("\"sum\""))
+                {
+                    var error = """{"error":{"code":400,"message":"","details":["Unable to perform query. Please check your parameters."]}}""";
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(error, Encoding.UTF8, "application/json") });
+                }
+
                 var inWindow = records.Where(r => epoch.AddMilliseconds(r.OccurredMs) >= from && epoch.AddMilliseconds(r.OccurredMs) < to).ToList();
                 var groupBy = Regex.Match(query, @"groupByFieldsForStatistics=([^&]+)");
                 var fields = groupBy.Success ? groupBy.Groups[1].Value.Split(',') : [];
@@ -177,6 +184,7 @@ public static class SyntheticFeed
                     "Offense" => r.Offense,
                     "Neighborhood" => r.Neighborhood,
                     "Ward" => r.Ward,
+                    "Crime_Count" => r.Count.ToString(),
                     _ => throw new NotSupportedException(f)
                 };
 
@@ -190,12 +198,11 @@ public static class SyntheticFeed
                         }
 
                         row["n"] = g.Count();
-                        row["s"] = (double)g.Sum(r => r.Count);
                         return row;
                     }).ToList();
                 if (fields.Length == 0 && rows.Count == 0)
                 {
-                    rows.Add(new Dictionary<string, object?> { ["n"] = 0, ["s"] = null });
+                    rows.Add(new Dictionary<string, object?> { ["n"] = 0 });
                 }
 
                 var stats = JsonSerializer.Serialize(new { features = rows.Select(a => new { attributes = a }) });
@@ -239,7 +246,7 @@ public static class SyntheticFeed
             ["wgsYAnon"] = r.Located ? r.Y : 0,
             ["NIBRS_Code"] = r.NibrsCode,
             ["NIBRS_Crime_Against"] = r.CrimeAgainst,
-            ["Crime_Count"] = r.Count
+            ["Crime_Count"] = r.Count.ToString()
         };
     }
 }

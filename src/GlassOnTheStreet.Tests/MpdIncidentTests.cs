@@ -71,6 +71,21 @@ public class MpdIncidentMapperTests
         Assert.InRange(incident.Lng!.Value, -93.4m, -93.1m);
     }
 
+    [Theory]
+    [InlineData("\"2\"", 2)]
+    [InlineData("2", 2)]
+    [InlineData("\" 3 \"", 3)]
+    [InlineData("\"\"", 1)]
+    [InlineData("null", 1)]
+    public void FromAttributes_ReadsCrimeCountAsTextOrNumber(string value, int expected)
+    {
+        // The city changed Crime_Count from a number to text; a string "2" must not fall back to 1.
+        var incident = MpdIncidentMapper.FromAttributes(Attrs(
+            "{\"Case_Number\":\"26-1\",\"Occurred_Date\":1790613720000,\"Offense\":\"Simple Assault\",\"Offense_Category\":\"Assault Offenses\",\"Crime_Count\":" + value + "}"));
+
+        Assert.Equal(expected, incident!.CrimeCount);
+    }
+
     [Fact]
     public void FromAttributes_UsesTheCentralDateForLateEveningIncidents()
     {
