@@ -209,10 +209,12 @@ public class MpdIncidentImportService(
         var fingerprint = new Dictionary<string, (int, int)>();
         foreach (var (prefix, fields) in new[] { ("t", ""), ("o", "Offense_Category,Offense"), ("n", "Neighborhood"), ("w", "Ward") })
         {
+            // Crime_Count is a text field in the city's service, which can't be summed, so group by it and add up the values here.
+            var groupBy = fields.Length == 0 ? "Crime_Count" : fields + ",Crime_Count";
             var url = "query" +
                       $"?where={Uri.EscapeDataString(WhereForRange(from, to))}" +
-                      "&outStatistics=" + Uri.EscapeDataString("""[{"statisticType":"count","onStatisticField":"OBJECTID","outStatisticFieldName":"n"},{"statisticType":"sum","onStatisticField":"Crime_Count","outStatisticFieldName":"s"}]""") +
-                      (fields.Length == 0 ? "" : $"&groupByFieldsForStatistics={fields}") +
+                      "&outStatistics=" + Uri.EscapeDataString("""[{"statisticType":"count","onStatisticField":"OBJECTID","outStatisticFieldName":"n"}]""") +
+                      $"&groupByFieldsForStatistics={groupBy}" +
                       "&f=json";
             var doc = await ArcGisPageFetcher.GetPageAsync(httpClient, url, logger, cancellationToken)
                 ?? throw new InvalidOperationException($"MPD crime feed returned no statistics for {from:yyyy-MM}.");
@@ -221,7 +223,7 @@ public class MpdIncidentImportService(
             {
                 var attrs = feature.GetProperty("attributes");
                 var rows = attrs.TryGetProperty("n", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetInt32() : 0;
-                var offenses = attrs.TryGetProperty("s", out var sum) && sum.ValueKind == JsonValueKind.Number ? (int)Math.Round(sum.GetDouble()) : 0;
+                var offenses = rows * (int)MpdIncidentMapper.OffenseCount(attrs);
                 var label = string.Join("|", fields.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(f => FieldText(attrs, f)));
                 var key = $"{prefix}:{label}";
                 var (r0, o0) = fingerprint.GetValueOrDefault(key);

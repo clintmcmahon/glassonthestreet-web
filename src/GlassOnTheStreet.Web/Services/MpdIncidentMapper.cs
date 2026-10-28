@@ -47,7 +47,7 @@ public static class MpdIncidentMapper
             OffenseCategory = Text(attrs, "Offense_Category") is { } c ? Truncate(c, 80) : null,
             CrimeAgainst = Text(attrs, "NIBRS_Crime_Against") is { } a ? Truncate(a, 30) : null,
             IsCrime = group.IsCrime,
-            CrimeCount = (short)Math.Clamp(Long(attrs, "Crime_Count") ?? 1, 1, short.MaxValue),
+            CrimeCount = (short)Math.Clamp(OffenseCount(attrs), 1, short.MaxValue),
             Neighborhood = Text(attrs, "Neighborhood") is { } n ? Truncate(n, 120) : null,
             Ward = Byte(attrs, "Ward"),
             Precinct = Byte(attrs, "Precinct"),
@@ -69,6 +69,13 @@ public static class MpdIncidentMapper
         var text = value.GetString()?.Trim();
         return string.IsNullOrEmpty(text) ? null : text;
     }
+
+    // The city publishes Crime_Count as text ("2"); it was a number before, so accept both. A bad value counts as one offense.
+    public static long OffenseCount(JsonElement attrs) =>
+        attrs.TryGetProperty("Crime_Count", out var value) &&
+        (value.ValueKind == JsonValueKind.Number ? value.TryGetInt64(out var n) ? n : (long?)null
+            : value.ValueKind == JsonValueKind.String && long.TryParse(value.GetString()?.Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var t) ? t : (long?)null) is { } count
+            ? count : 1;
 
     private static long? Long(JsonElement attrs, string name) =>
         attrs.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var l) ? l : null;
