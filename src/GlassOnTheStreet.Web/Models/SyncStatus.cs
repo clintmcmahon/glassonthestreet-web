@@ -19,4 +19,15 @@ public class SyncStatus
 
     [MaxLength(500)]
     public string? LastError { get; set; }
+
+    // The step the background sync is on, null between runs. A step whose start time keeps getting older is a hang:
+    // nothing throws, so LastError alone would never show it.
+    [MaxLength(200)]
+    public string? CurrentStep { get; set; }
+
+    public DateTime? CurrentStepStartedAt { get; set; }
+
+    // When the city last republished its crime feed (the layer's dataLastEditDate). When this stops moving, the
+    // sync still succeeds but has nothing new to import, which is a problem on the city's side, not ours.
+    public DateTime? FeedLastEditedAt { get; set; }
 }

@@ -27,7 +27,8 @@ public record AdminIndexViewModel(
     int TotalRecent,
     DateTime? MpdLastSyncedAt,
     SyncFailure? LastSyncFailure,
-    DataStatus DataStatus);
+    DataStatus DataStatus,
+    SyncStatus? Sync = null);
 
 [Route("admin")]
 [AdminBasicAuth]
@@ -73,10 +74,11 @@ public class AdminController(
             .ToListAsync(cancellationToken);
 
         var lastSyncedAt = await syncStatusService.GetLastSyncedAtAsync(cancellationToken);
+        var sync = await syncStatusService.GetStatusAsync(cancellationToken);
 
         var dataStatus = await GetDataStatusAsync(cancellationToken);
 
-        return View(new AdminIndexViewModel(pending, recent, importService.IsRunning || incidentImportService.IsRunning, currentPage, totalPages, totalRecent, lastSyncedAt, await syncStatusService.GetLastFailureAsync(cancellationToken), dataStatus));
+        return View(new AdminIndexViewModel(pending, recent, importService.IsRunning || incidentImportService.IsRunning, currentPage, totalPages, totalRecent, lastSyncedAt, await syncStatusService.GetLastFailureAsync(cancellationToken), dataStatus, sync));
     }
 
     private async Task<DataStatus> GetDataStatusAsync(CancellationToken cancellationToken)

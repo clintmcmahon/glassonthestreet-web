@@ -18,10 +18,26 @@
     {
         <p class="admin-alert" role="alert">MPD data is stale: the daily sync has not succeeded in over 36 hours.</p>
     }
+    @if (Model.Sync is { FeedLastEditedAt: { } feedEdited } && DateTime.UtcNow - feedEdited > TimeSpan.FromDays(3))
+    {
+        <p class="admin-alert" role="alert">The city hasn't updated its crime feed since @feedEdited.FormatSyncTimestamp(). The sync can only import what the city publishes, so nothing new will appear until it does.</p>
+    }
+    @if (Model.Sync is { CurrentStep: { } step, CurrentStepStartedAt: { } stepStarted } && DateTime.UtcNow - stepStarted > TimeSpan.FromHours(3))
+    {
+        <p class="admin-alert" role="alert">The sync may be stuck: it has been on "@step" since @stepStarted.FormatSyncTimestamp().</p>
+    }
     <p class="field-hint">
         @(Model.MpdLastSyncedAt is { } lastSyncedAt
             ? $"MPD data last synced {lastSyncedAt.FormatSyncTimestamp()}."
             : "MPD data has not synced yet.")
+        @if (Model.Sync?.FeedLastEditedAt is { } edited)
+        {
+            <text>City feed last updated @edited.FormatSyncTimestamp().</text>
+        }
+        @if (Model.Sync is { CurrentStep: { } running, CurrentStepStartedAt: { } runningSince })
+        {
+            <text>Sync running now: @running (since @runningSince.FormatSyncTimestamp()).</text>
+        }
     </p>
 
     <details class="admin-data-status">

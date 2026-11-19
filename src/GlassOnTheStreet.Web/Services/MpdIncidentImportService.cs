@@ -50,7 +50,7 @@ public class MpdIncidentImportService(
         var existing = await db.MpdIncidents
             .Where(i => i.OccurredDate >= from.AddDays(-1) && i.OccurredDate <= to.AddDays(1))
             .Select(i => i.ExternalKey)
-            .ToHashSetAsync(cancellationToken);
+            .ToHashSetAsync(StringComparer.OrdinalIgnoreCase, cancellationToken);
 
         var fetched = 0;
         var imported = 0;
@@ -94,6 +94,17 @@ public class MpdIncidentImportService(
 
             if (batch.Count > 0)
             {
+                // `existing` only covers rows dated inside the range. A row the city re-dated into the range, or a
+                // repeat whose "#n" suffix shifts because its earlier twin falls outside the range, can already be on
+                // file under another date, and inserting it again would hit the unique index and fail the whole sync.
+                var keys = batch.Select(i => i.ExternalKey).ToList();
+                var onFile = (await db.MpdIncidents.Where(i => keys.Contains(i.ExternalKey)).Select(i => i.ExternalKey).ToListAsync(cancellationToken))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                skippedDuplicate += batch.RemoveAll(i => onFile.Contains(i.ExternalKey));
+            }
+
+            if (batch.Count > 0)
+            {
                 db.MpdIncidents.AddRange(batch);
                 await db.SaveChangesAsync(cancellationToken);
                 imported += batch.Count;
@@ -112,6 +123,23 @@ public class MpdIncidentImportService(
 
         return new OfficialImportResult(fetched, imported, skippedDuplicate, skippedInvalid);
     }
+
+    public async Task<DateTime?> GetFeedLastEditedAsync(CancellationToken cancellationToken = default)
+    {
+        // The layer's own description, at the client's base address.
+        using var response = await httpClient.GetAsync("?f=json", cancellationToken);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return FeedLastEdited(await JsonSerializer.DeserializeAsync<JsonElement>(stream, cancellationToken: cancellationToken));
+    }
+
+    /// <summary>The layer's editingInfo.dataLastEditDate (epoch milliseconds) as UTC, or null when missing.</summary>
+    public static DateTime? FeedLastEdited(JsonElement layer) =>
+        layer.ValueKind == JsonValueKind.Object &&
+        layer.TryGetProperty("editingInfo", out var info) && info.ValueKind == JsonValueKind.Object &&
+        info.TryGetProperty("dataLastEditDate", out var edited) && edited.ValueKind == JsonValueKind.Number && edited.TryGetInt64(out var ms)
+            ? DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime
+            : null;
 
     // ---------------------------------------------------------------- shared
 

@@ -100,26 +100,7 @@ public class OfficialDataSyncBackgroundService(
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            try
-            {
-                await RunHistoryAsync(stoppingToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Network blip or city portal downtime: nothing was marked
-                // done for the failed year, so the next tick picks it up.
-                logger.LogWarning(ex, "MPD history import failed; will retry on the next interval");
-            }
-
-            try
-            {
-                await RunDailySyncAsync(stoppingToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogWarning(ex, "Scheduled MPD sync failed; will retry on the next interval");
-                await RecordFailureAsync(ex);
-            }
+            await RunTickAsync(stoppingToken);
 
             try
             {
@@ -132,45 +113,112 @@ public class OfficialDataSyncBackgroundService(
         }
     }
 
-    // Shown on /admin. Never allowed to throw: a database problem here must not end the sync loop.
-    private async Task RecordFailureAsync(Exception ex)
+    /// <summary>
+    /// One pass. Each step runs on its own, so one that fails can't stop the others: the reconcile still fixes what a
+    /// failed import missed. Every failure, history included, goes to /admin with the underlying error, and the step
+    /// in progress is recorded so a hang shows up there too.
+    /// </summary>
+    private async Task RunTickAsync(CancellationToken cancellationToken)
+    {
+        await CheckFeedAsync(cancellationToken);
+
+        // Not counted against the daily sync's success: a year of history that failed is retried next tick.
+        var historyOk = await RunStepAsync("History import and one-time tasks", RunHistoryAsync, cancellationToken);
+
+        var today = CentralToday();
+        var thisMonth = new DateOnly(today.Year, today.Month, 1);
+        var carsOk = await RunStepAsync($"Daily import, car categories (last {LookbackDays} days)", async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>().ImportAsync(LookbackDays, ct);
+            logger.LogInformation(
+                "Scheduled MPD sync (car categories): fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
+                result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
+        }, cancellationToken);
+
+        var incidentsOk = await RunStepAsync($"Daily import, all offenses (last {LookbackDays} days)", async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IMpdIncidentImportService>().ImportRangeAsync(today.AddDays(-LookbackDays), today, ct);
+            logger.LogInformation(
+                "Scheduled MPD sync (all offenses): fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
+                result.Fetched, result.Imported, result.SkippedDuplicate, result.SkippedInvalid);
+        }, cancellationToken);
+
+        var reconcileOk = await RunStepAsync($"Reconcile with the feed, last {ReconcileMonths} months", async ct =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IMpdIncidentImportService>()
+                .ReconcileMonthsAsync(thisMonth.AddMonths(-(ReconcileMonths - 1)), thisMonth, ct);
+            logger.LogInformation(
+                "Scheduled MPD reconcile: {Checked} months checked, {Changed} differed (added {Inserted}, updated {Updated}, removed {Deleted}, kept {Skipped})",
+                result.MonthsChecked, result.MonthsChanged, result.Inserted, result.Updated, result.Deleted, result.DeletesSkipped);
+        }, cancellationToken);
+
+        if (carsOk && incidentsOk && reconcileOk)
+        {
+            // A history failure in this same run stays on /admin; the daily data is still current.
+            await UpdateStatusAsync(s => s.RecordSyncAsync(clearFailure: historyOk), "record the sync");
+        }
+
+        await UpdateStatusAsync(s => s.RecordStepAsync(null), "clear the current step");
+    }
+
+    /// <summary>Runs one step, recording it as current. False if it failed; the failure is logged and shown on /admin.</summary>
+    private async Task<bool> RunStepAsync(string name, Func<CancellationToken, Task> step, CancellationToken cancellationToken)
+    {
+        await UpdateStatusAsync(s => s.RecordStepAsync(name), "record the current step");
+        try
+        {
+            await step(cancellationToken);
+            return true;
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Network blip, city portal downtime or a bad row: nothing was marked done, so the next tick retries.
+            // The base exception carries the useful part: EF's own message just says "see the inner exception".
+            logger.LogWarning(ex, "Sync step failed: {Step}; will retry on the next interval", name);
+            await UpdateStatusAsync(s => s.RecordFailureAsync($"{name}: {FailureMessage(ex)}"), "record the sync failure");
+            return false;
+        }
+    }
+
+    public static string FailureMessage(Exception ex)
+    {
+        var root = ex.GetBaseException();
+        return ReferenceEquals(root, ex) ? $"{ex.GetType().Name}: {ex.Message}" : $"{root.GetType().Name}: {root.Message} (in {ex.GetType().Name})";
+    }
+
+    /// <summary>Stores when the city last republished its feed. Informational, so a failure is only logged.</summary>
+    private async Task CheckFeedAsync(CancellationToken cancellationToken)
     {
         try
         {
             using var scope = scopeFactory.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<ISyncStatusService>().RecordFailureAsync(ex.Message);
+            if (await scope.ServiceProvider.GetRequiredService<IMpdIncidentImportService>().GetFeedLastEditedAsync(cancellationToken) is { } edited)
+            {
+                await scope.ServiceProvider.GetRequiredService<ISyncStatusService>().RecordFeedEditedAsync(edited, cancellationToken);
+                logger.LogInformation("City crime feed last edited {Edited:u}", edited);
+            }
         }
-        catch (Exception recordEx)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning(recordEx, "Could not record the sync failure");
+            logger.LogWarning(ex, "Could not read when the city last updated its crime feed");
         }
     }
 
-    private async Task RunDailySyncAsync(CancellationToken cancellationToken)
+    // Never allowed to throw: a database problem while recording status must not end the sync loop.
+    private async Task UpdateStatusAsync(Func<ISyncStatusService, Task> update, string what)
     {
-        using var scope = scopeFactory.CreateScope();
-        var today = CentralToday();
-
-        var cars = scope.ServiceProvider.GetRequiredService<IOfficialDataImportService>();
-        var carResult = await cars.ImportAsync(LookbackDays, cancellationToken);
-        logger.LogInformation(
-            "Scheduled MPD sync (car categories): fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
-            carResult.Fetched, carResult.Imported, carResult.SkippedDuplicate, carResult.SkippedInvalid);
-
-        var incidents = scope.ServiceProvider.GetRequiredService<IMpdIncidentImportService>();
-        var incidentResult = await incidents.ImportRangeAsync(today.AddDays(-LookbackDays), today, cancellationToken);
-        logger.LogInformation(
-            "Scheduled MPD sync (all offenses): fetched {Fetched}, imported {Imported} new, skipped {SkippedDuplicate} duplicate / {SkippedInvalid} invalid",
-            incidentResult.Fetched, incidentResult.Imported, incidentResult.SkippedDuplicate, incidentResult.SkippedInvalid);
-
-        var thisMonth = new DateOnly(today.Year, today.Month, 1);
-        var reconcile = await incidents.ReconcileMonthsAsync(thisMonth.AddMonths(-(ReconcileMonths - 1)), thisMonth, cancellationToken);
-        logger.LogInformation(
-            "Scheduled MPD reconcile: {Checked} months checked, {Changed} differed (added {Inserted}, updated {Updated}, removed {Deleted}, kept {Skipped})",
-            reconcile.MonthsChecked, reconcile.MonthsChanged, reconcile.Inserted, reconcile.Updated, reconcile.Deleted, reconcile.DeletesSkipped);
-
-        var syncStatusService = scope.ServiceProvider.GetRequiredService<ISyncStatusService>();
-        await syncStatusService.RecordSyncAsync(cancellationToken);
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            await update(scope.ServiceProvider.GetRequiredService<ISyncStatusService>());
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not {What}", what);
+        }
     }
 
     private async Task RunHistoryAsync(CancellationToken cancellationToken)
@@ -217,6 +265,7 @@ public class OfficialDataSyncBackgroundService(
             return;
         }
 
+        await UpdateStatusAsync(s => s.RecordStepAsync($"One-time reconcile of every month since {FirstYear}"), "record the current step");
         var result = await services.GetRequiredService<IMpdIncidentImportService>()
             .ReconcileMonthsAsync(new DateOnly(FirstYear, 1, 1), new DateOnly(today.Year, today.Month, 1), cancellationToken);
         logger.LogWarning(
@@ -275,6 +324,7 @@ public class OfficialDataSyncBackgroundService(
         var from = new DateOnly(year, 1, 1);
         var to = year == today.Year ? today : new DateOnly(year, 12, 31);
         logger.LogWarning("Importing {Key}: {From} to {To}", key, from, to);
+        await UpdateStatusAsync(s => s.RecordStepAsync($"History import: {key}"), "record the current step");
 
         var result = await import(scope, from, to);
         logger.LogInformation(

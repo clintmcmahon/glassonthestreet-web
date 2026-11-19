@@ -24,6 +24,12 @@ public interface IMpdIncidentImportService
     /// </summary>
     Task<ReconcileResult> ReconcileMonthsAsync(DateOnly firstMonth, DateOnly lastMonth, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// When the city last republished the feed (the layer's editingInfo.dataLastEditDate, UTC), or null if the layer
+    /// doesn't say. Tells "the sync found nothing new" apart from "the city stopped publishing".
+    /// </summary>
+    Task<DateTime?> GetFeedLastEditedAsync(CancellationToken cancellationToken = default);
+
     /// <summary>True while an import is running (manual, daily or startup).</summary>
     bool IsRunning { get; }
 }
